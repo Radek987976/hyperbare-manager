@@ -60,6 +60,23 @@ export const equipmentsAPI = {
   create: (data) => api.post('/equipments', data),
   update: (id, data) => api.put(`/equipments/${id}`, data),
   delete: (id) => api.delete(`/equipments/${id}`),
+  // File uploads
+  uploadPhoto: (id, file) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return api.post(`/equipments/${id}/photos`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    });
+  },
+  uploadDocument: (id, file) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return api.post(`/equipments/${id}/documents`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    });
+  },
+  deletePhoto: (id, photoUrl) => api.delete(`/equipments/${id}/photos?photo_url=${encodeURIComponent(photoUrl)}`),
+  deleteDocument: (id, docUrl) => api.delete(`/equipments/${id}/documents?doc_url=${encodeURIComponent(docUrl)}`),
 };
 
 // Work Orders

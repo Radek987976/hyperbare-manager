@@ -1,0 +1,159 @@
+{
+  "design_system": {
+    "identity": {
+      "name": "HyperMaint",
+      "tone": "Professional, Clinical, Industrial, Reliable",
+      "archetype": "The Performance Pro (Industrial Variant)",
+      "theme_mode": "light"
+    },
+    "typography": {
+      "font_family": {
+        "headings": "Barlow Condensed, sans-serif",
+        "body": "IBM Plex Sans, sans-serif",
+        "mono": "JetBrains Mono, monospace"
+      },
+      "scale": {
+        "h1": "text-4xl font-bold tracking-tight uppercase",
+        "h2": "text-3xl font-semibold tracking-tight",
+        "h3": "text-2xl font-medium",
+        "body_lg": "text-lg leading-relaxed",
+        "body_base": "text-base leading-normal",
+        "caption": "text-sm text-muted-foreground uppercase tracking-wider"
+      },
+      "imports": [
+        "@import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;500;600;700&family=IBM+Plex+Sans:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');"
+      ]
+    },
+    "colors": {
+      "palette": {
+        "primary": {
+          "DEFAULT": "#005F73",
+          "foreground": "#FFFFFF",
+          "hover": "#004C5C"
+        },
+        "secondary": {
+          "DEFAULT": "#E9D8A6",
+          "foreground": "#0A0A0A"
+        },
+        "accent": {
+          "DEFAULT": "#EE9B00",
+          "foreground": "#FFFFFF"
+        },
+        "destructive": {
+          "DEFAULT": "#AE2012",
+          "foreground": "#FFFFFF"
+        },
+        "background": "#F8F9FA",
+        "surface": "#FFFFFF",
+        "border": "#E2E8F0",
+        "muted": "#F1F5F9",
+        "success": "#0A9396"
+      },
+      "usage": {
+        "dashboard_bg": "bg-[#F8F9FA]",
+        "card_bg": "bg-white border border-slate-200 shadow-sm",
+        "sidebar_bg": "bg-[#001219] text-white",
+        "status_ok": "bg-[#0A9396]/10 text-[#0A9396] border-[#0A9396]/20",
+        "status_warning": "bg-[#EE9B00]/10 text-[#EE9B00] border-[#EE9B00]/20",
+        "status_critical": "bg-[#AE2012]/10 text-[#AE2012] border-[#AE2012]/20"
+      }
+    },
+    "layout": {
+      "grid_system": "Bento Grid Mode B (High Density)",
+      "spacing": {
+        "container_padding": "p-6 md:p-8",
+        "section_gap": "gap-6",
+        "component_gap": "gap-4"
+      },
+      "border_radius": {
+        "default": "rounded-sm",
+        "card": "rounded-md",
+        "button": "rounded-sm"
+      }
+    },
+    "visual_enhancers": {
+      "surface_strategy": "Grid Borders (The Technical Look)",
+      "glassmorphism": "Crystal Glass (for sticky headers only)",
+      "shadows": "shadow-sm hover:shadow-md transition-shadow duration-200",
+      "textures": "Subtle noise overlay on sidebar only"
+    },
+    "motion": {
+      "reduced_motion": true,
+      "micro_interactions": "transition-all duration-200 ease-out",
+      "page_transition": "opacity-0 to opacity-100 duration-300"
+    }
+  },
+  "components": {
+    "buttons": {
+      "primary": "bg-[#005F73] hover:bg-[#004C5C] text-white rounded-sm font-medium px-6 py-2 shadow-sm transition-all active:scale-95",
+      "secondary": "bg-white border border-slate-300 text-slate-700 hover:bg-slate-50 rounded-sm px-6 py-2",
+      "ghost": "hover:bg-slate-100 text-slate-600 hover:text-slate-900"
+    },
+    "cards": {
+      "dashboard_widget": "bg-white border border-slate-200 rounded-md p-6 shadow-sm hover:border-[#005F73]/30 transition-colors",
+      "data_card": "bg-white border-r border-b border-slate-100 p-4"
+    },
+    "inputs": {
+      "default": "h-10 rounded-sm border-slate-300 focus:ring-2 focus:ring-[#005F73]/20 focus:border-[#005F73] bg-white"
+    },
+    "tables": {
+      "header": "bg-slate-50 text-xs uppercase tracking-wider font-semibold text-slate-500 h-10",
+      "row": "hover:bg-slate-50/50 border-b border-slate-100 transition-colors text-sm",
+      "cell": "p-4 align-middle"
+    }
+  },
+  "assets": {
+    "images": {
+      "hero_chamber": {
+        "url": "https://images.unsplash.com/photo-1765830403209-a5eceac4c198",
+        "alt": "Main Hyperbaric Chamber View",
+        "usage": "Dashboard Hero, Login Background"
+      },
+      "technician_tablet": {
+        "url": "https://images.unsplash.com/photo-1730584475795-f0be0efd606e",
+        "alt": "Technician with Tablet",
+        "usage": "Work Orders Page, User Profile"
+      },
+      "pressure_gauge": {
+        "url": "https://images.unsplash.com/photo-1713371398479-4410ca153b1f",
+        "alt": "Industrial Pressure Gauge",
+        "usage": "Equipment Details, Sensor Widgets"
+      }
+    },
+    "icons": {
+      "library": "lucide-react",
+      "style": "Stroke width 1.5px, size 18px or 20px"
+    }
+  },
+  "pages": {
+    "login": {
+      "layout": "Split screen: Left side branding/image, Right side form",
+      "elements": ["Logo", "Email Input", "Password Input", "Login Button", "Forgot Password Link"]
+    },
+    "dashboard": {
+      "layout": "Bento Grid (High Density)",
+      "widgets": [
+        "Chamber Status (Pressure/O2/Temp) - Hero Widget",
+        "Active Alerts (List)",
+        "Upcoming Maintenance (Timeline)",
+        "Stock Levels (Bar Chart)",
+        "Quick Actions (Grid of Buttons)"
+      ]
+    },
+    "equipment_list": {
+      "layout": "Data Table with Filters Sidebar",
+      "features": ["Search", "Filter by Criticality", "Status Pills", "Action Menu"]
+    },
+    "work_orders": {
+      "layout": "Kanban or List View Toggle",
+      "features": ["Create New Order Modal", "Priority Tags", "Assignee Avatars"]
+    }
+  },
+  "universal_guidelines": {
+    "accessibility": "Ensure WCAG AA contrast. All interactive elements must have aria-labels if icon-only.",
+    "testing": "All interactive elements must have data-testid attributes (e.g., data-testid='login-submit').",
+    "responsive": "Mobile-first. Tables must scroll horizontally on mobile. Navigation becomes a bottom sheet or hamburger menu on < md screens.",
+    "language": "FRENCH ONLY. All text, labels, and dates must be in French (e.g., 'Tableau de bord', 'Connexion', 'Maintenance Préventive')."
+  },
+  "instructions_to_main_agent": "1. Install 'lucide-react' and 'recharts'. 2. Set up the Tailwind config with the custom colors. 3. Create a 'Layout' component that handles the sidebar/header structure. 4. Use the provided image URLs for the respective sections. 5. Ensure all dummy data is in French."
+}

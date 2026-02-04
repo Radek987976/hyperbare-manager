@@ -151,6 +151,7 @@ const WorkOrders = () => {
       periodicite_jours: '',
       technicien_assigne: ''
     });
+    setShowCustomTechnicien(false);
     setShowModal(true);
   };
 
@@ -168,6 +169,9 @@ const WorkOrders = () => {
       periodicite_jours: wo.periodicite_jours?.toString() || '',
       technicien_assigne: wo.technicien_assigne || ''
     });
+    // Check if technicien is not in the list
+    const isInList = technicians.some(t => `${t.prenom} ${t.nom}` === wo.technicien_assigne);
+    setShowCustomTechnicien(wo.technicien_assigne && !isInList);
     setShowModal(true);
   };
 

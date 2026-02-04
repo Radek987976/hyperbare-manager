@@ -282,6 +282,12 @@ async def get_users(admin: dict = Depends(require_admin)):
     users = await db.users.find({}, {"_id": 0, "password_hash": 0}).to_list(1000)
     return users
 
+@api_router.get("/users/technicians", response_model=List[dict])
+async def get_technicians(current_user: dict = Depends(get_current_user)):
+    """Get all users (for technician dropdown)"""
+    users = await db.users.find({"is_active": True}, {"_id": 0, "password_hash": 0}).to_list(1000)
+    return users
+
 @api_router.put("/users/{user_id}/role")
 async def update_user_role(user_id: str, role: str, admin: dict = Depends(require_admin)):
     if role not in ["admin", "technicien"]:

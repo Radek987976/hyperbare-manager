@@ -174,6 +174,7 @@ class InspectionBase(BaseModel):
     organisme_certificateur: Optional[str] = None
     resultat: Optional[str] = None
     observations: Optional[str] = None
+    procedure_documents: List[dict] = []  # Liste des procédures PDF [{filename, url, uploaded_at}]
 
 class InspectionCreate(InspectionBase):
     pass

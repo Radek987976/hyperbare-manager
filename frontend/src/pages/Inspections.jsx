@@ -435,6 +435,21 @@ const Inspections = () => {
               />
             </div>
             <div className="space-y-2">
+              <Label>Périodicité *</Label>
+              <Select value={formData.periodicite} onValueChange={(v) => handleSelectChange('periodicite', v)}>
+                <SelectTrigger data-testid="input-periodicite">
+                  <SelectValue placeholder="Sélectionner une périodicité" />
+                </SelectTrigger>
+                <SelectContent>
+                  {PERIODICITES.map(p => (
+                    <SelectItem key={p} value={p}>
+                      {periodiciteLabels[p]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
               <Label>Équipement concerné</Label>
               <Select value={formData.equipment_id || "caisson"} onValueChange={(v) => handleSelectChange('equipment_id', v === "caisson" ? "" : v)}>
                 <SelectTrigger data-testid="input-equipment">
@@ -451,7 +466,7 @@ const Inspections = () => {
               </Select>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="date_realisation">Date de réalisation</Label>
+              <Label htmlFor="date_realisation">Date de réalisation *</Label>
               <Input
                 id="date_realisation"
                 name="date_realisation"
@@ -460,17 +475,7 @@ const Inspections = () => {
                 onChange={handleChange}
                 data-testid="input-date-realisation"
               />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="date_validite">Date de validité *</Label>
-              <Input
-                id="date_validite"
-                name="date_validite"
-                type="date"
-                value={formData.date_validite}
-                onChange={handleChange}
-                data-testid="input-date-validite"
-              />
+              <p className="text-xs text-slate-500">La prochaine échéance sera calculée automatiquement</p>
             </div>
             <div className="space-y-2">
               <Label htmlFor="organisme_certificateur">Organisme certificateur</Label>

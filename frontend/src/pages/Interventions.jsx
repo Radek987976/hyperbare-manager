@@ -27,6 +27,7 @@ function Interventions() {
   const [selectedItem, setSelectedItem] = useState(null);
   const [saving, setSaving] = useState(false);
   const [partSelect, setPartSelect] = useState({ part: '', qty: '1' });
+  const [showCustomTechnicien, setShowCustomTechnicien] = useState(false);
   
   const emptyForm = {
     work_order_id: '',

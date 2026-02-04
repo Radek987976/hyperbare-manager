@@ -479,9 +479,25 @@ async def get_intervention(intervention_id: str, current_user: dict = Depends(ge
 
 # ==================== INSPECTION ROUTES ====================
 
+def calculate_next_date(date_realisation: str, periodicite: str) -> str:
+    """Calculate next inspection date based on periodicity"""
+    if not date_realisation:
+        # Si pas de date de réalisation, partir d'aujourd'hui
+        base_date = datetime.now(timezone.utc).date()
+    else:
+        base_date = datetime.strptime(date_realisation, "%Y-%m-%d").date()
+    
+    days = PERIODICITES.get(periodicite, 365)
+    next_date = base_date + timedelta(days=days)
+    return next_date.strftime("%Y-%m-%d")
+
 @api_router.post("/inspections", response_model=Inspection)
 async def create_inspection(data: InspectionCreate, current_user: dict = Depends(get_current_user)):
-    inspection = Inspection(**data.model_dump())
+    data_dict = data.model_dump()
+    # Calculer automatiquement la date de validité
+    data_dict["date_validite"] = calculate_next_date(data_dict.get("date_realisation"), data_dict.get("periodicite", "annuel"))
+    
+    inspection = Inspection(**data_dict)
     doc = inspection.model_dump()
     doc["created_at"] = doc["created_at"].isoformat()
     await db.inspections.insert_one(doc)
@@ -501,7 +517,11 @@ async def get_inspection(inspection_id: str, current_user: dict = Depends(get_cu
 
 @api_router.put("/inspections/{inspection_id}", response_model=Inspection)
 async def update_inspection(inspection_id: str, data: InspectionCreate, current_user: dict = Depends(get_current_user)):
-    result = await db.inspections.update_one({"id": inspection_id}, {"$set": data.model_dump()})
+    data_dict = data.model_dump()
+    # Recalculer la date de validité si date_realisation ou periodicite change
+    data_dict["date_validite"] = calculate_next_date(data_dict.get("date_realisation"), data_dict.get("periodicite", "annuel"))
+    
+    result = await db.inspections.update_one({"id": inspection_id}, {"$set": data_dict})
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Contrôle non trouvé")
     inspection = await db.inspections.find_one({"id": inspection_id}, {"_id": 0})

@@ -548,15 +548,20 @@ const WorkOrders = () => {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="technicien_assigne">Technicien assigné</Label>
-              <Input
-                id="technicien_assigne"
-                name="technicien_assigne"
-                value={formData.technicien_assigne}
-                onChange={handleChange}
-                placeholder="Nom du technicien"
-                data-testid="input-technicien"
-              />
+              <Label>Technicien assigné</Label>
+              <Select value={formData.technicien_assigne || "none"} onValueChange={(v) => handleSelectChange('technicien_assigne', v === "none" ? "" : v)}>
+                <SelectTrigger data-testid="input-technicien">
+                  <SelectValue placeholder="Sélectionner un technicien" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Non assigné</SelectItem>
+                  {technicians.map(tech => (
+                    <SelectItem key={tech.id} value={`${tech.prenom} ${tech.nom}`}>
+                      {tech.prenom} {tech.nom} ({tech.role})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
           <DialogFooter>

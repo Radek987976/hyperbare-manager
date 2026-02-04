@@ -150,7 +150,7 @@ function Interventions() {
           <p className="text-slate-500 mt-1">{data.interventions.length} intervention(s)</p>
         </div>
         <Button 
-          onClick={() => { setFormData(emptyForm); setShowModal(true); }}
+          onClick={() => { setFormData(emptyForm); setShowCustomTechnicien(false); setShowModal(true); }}
           className="bg-[#005F73] hover:bg-[#004C5C]"
           disabled={pendingWo.length === 0}
           data-testid="add-intervention-btn"

@@ -122,10 +122,10 @@ const Inspections = () => {
     setFormData({
       titre: '',
       type_controle: '',
+      periodicite: 'annuel',
       caisson_id: caisson?.id || '',
       equipment_id: '',
-      date_realisation: '',
-      date_validite: '',
+      date_realisation: new Date().toISOString().split('T')[0],
       organisme_certificateur: '',
       resultat: '',
       observations: ''
@@ -138,10 +138,10 @@ const Inspections = () => {
     setFormData({
       titre: inspection.titre,
       type_controle: inspection.type_controle,
+      periodicite: inspection.periodicite || 'annuel',
       caisson_id: inspection.caisson_id || '',
       equipment_id: inspection.equipment_id || '',
       date_realisation: inspection.date_realisation || '',
-      date_validite: inspection.date_validite,
       organisme_certificateur: inspection.organisme_certificateur || '',
       resultat: inspection.resultat || '',
       observations: inspection.observations || ''

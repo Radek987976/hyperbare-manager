@@ -121,11 +121,6 @@ const WorkOrders = () => {
       setEquipments(equipmentsRes.data || []);
       setCaisson(caissonRes.data);
       setTechnicians(techniciansRes.data || []);
-        caissonAPI.get()
-      ]);
-      setWorkOrders(workOrdersRes.data || []);
-      setEquipments(equipmentsRes.data || []);
-      setCaisson(caissonRes.data);
     } catch (error) {
       console.error('Erreur chargement:', error);
     } finally {

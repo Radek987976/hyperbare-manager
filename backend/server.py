@@ -141,13 +141,26 @@ class Intervention(InterventionBase):
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 # Inspection (Contrôle réglementaire) Model
+PERIODICITES = {
+    "hebdomadaire": 7,
+    "mensuel": 30,
+    "trimestriel": 90,
+    "semestriel": 180,
+    "annuel": 365,
+    "biannuel": 730,
+    "triennal": 1095,
+    "quinquennal": 1825,
+    "decennal": 3650
+}
+
 class InspectionBase(BaseModel):
     titre: str
     type_controle: str
+    periodicite: str = Field(default="annuel", description="hebdomadaire, mensuel, trimestriel, semestriel, annuel, biannuel, triennal, quinquennal, decennal")
     caisson_id: Optional[str] = None
     equipment_id: Optional[str] = None
     date_realisation: Optional[str] = None
-    date_validite: str
+    date_validite: Optional[str] = None  # Calculée automatiquement
     organisme_certificateur: Optional[str] = None
     resultat: Optional[str] = None
     observations: Optional[str] = None

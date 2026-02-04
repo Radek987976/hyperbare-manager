@@ -91,6 +91,7 @@ const WorkOrders = () => {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [selectedWorkOrder, setSelectedWorkOrder] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [showCustomTechnicien, setShowCustomTechnicien] = useState(false);
   
   const [formData, setFormData] = useState({
     titre: '',

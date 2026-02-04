@@ -102,6 +102,8 @@ class EquipmentBase(BaseModel):
     date_installation: Optional[str] = None
     photos: List[str] = []  # Liste des URLs des photos
     documents: List[dict] = []  # Liste des documents PDF [{filename, url, uploaded_at}]
+    compteur_horaire: Optional[float] = None  # Compteur horaire pour les compresseurs (en heures)
+    historique_compteur: List[dict] = []  # Historique des relevés [{date, valeur, technicien}]
 
 class EquipmentCreate(EquipmentBase):
     pass

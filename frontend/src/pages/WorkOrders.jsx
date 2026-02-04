@@ -550,19 +550,54 @@ const WorkOrders = () => {
             </div>
             <div className="space-y-2">
               <Label>Technicien assigné</Label>
-              <Select value={formData.technicien_assigne || "none"} onValueChange={(v) => handleSelectChange('technicien_assigne', v === "none" ? "" : v)}>
-                <SelectTrigger data-testid="input-technicien">
-                  <SelectValue placeholder="Sélectionner un technicien" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">Non assigné</SelectItem>
-                  {technicians.map(tech => (
-                    <SelectItem key={tech.id} value={`${tech.prenom} ${tech.nom}`}>
-                      {tech.prenom} {tech.nom} ({tech.role})
+              {!showCustomTechnicien ? (
+                <Select 
+                  value={formData.technicien_assigne || "none"} 
+                  onValueChange={(v) => {
+                    if (v === "custom") {
+                      setShowCustomTechnicien(true);
+                      handleSelectChange('technicien_assigne', '');
+                    } else {
+                      handleSelectChange('technicien_assigne', v === "none" ? "" : v);
+                    }
+                  }}
+                >
+                  <SelectTrigger data-testid="input-technicien">
+                    <SelectValue placeholder="Sélectionner un technicien" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Non assigné</SelectItem>
+                    {technicians.map(tech => (
+                      <SelectItem key={tech.id} value={`${tech.prenom} ${tech.nom}`}>
+                        {tech.prenom} {tech.nom} ({tech.role})
+                      </SelectItem>
+                    ))}
+                    <SelectItem value="custom" className="text-[#005F73] font-medium">
+                      + Saisir un autre nom...
                     </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                  </SelectContent>
+                </Select>
+              ) : (
+                <div className="flex gap-2">
+                  <Input
+                    value={formData.technicien_assigne}
+                    onChange={(e) => handleSelectChange('technicien_assigne', e.target.value)}
+                    placeholder="Nom du technicien"
+                    data-testid="input-technicien-custom"
+                  />
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    size="icon"
+                    onClick={() => {
+                      setShowCustomTechnicien(false);
+                      handleSelectChange('technicien_assigne', '');
+                    }}
+                  >
+                    ×
+                  </Button>
+                </div>
+              )}
             </div>
           </div>
           <DialogFooter>

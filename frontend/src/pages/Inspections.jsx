@@ -61,6 +61,8 @@ import {
   Calendar
 } from 'lucide-react';
 
+const PERIODICITES = ['hebdomadaire', 'mensuel', 'trimestriel', 'semestriel', 'annuel', 'biannuel', 'triennal', 'quinquennal', 'decennal'];
+
 const Inspections = () => {
   const [inspections, setInspections] = useState([]);
   const [caisson, setCaisson] = useState(null);
@@ -77,10 +79,10 @@ const Inspections = () => {
   const [formData, setFormData] = useState({
     titre: '',
     type_controle: '',
+    periodicite: 'annuel',
     caisson_id: '',
     equipment_id: '',
     date_realisation: '',
-    date_validite: '',
     organisme_certificateur: '',
     resultat: '',
     observations: ''

@@ -518,7 +518,7 @@ const Inspections = () => {
             </Button>
             <Button 
               onClick={handleSave} 
-              disabled={saving || !formData.titre || !formData.type_controle || !formData.date_validite}
+              disabled={saving || !formData.titre || !formData.type_controle || !formData.periodicite || !formData.date_realisation}
               className="bg-[#005F73] hover:bg-[#004C5C]"
               data-testid="save-inspection-btn"
             >

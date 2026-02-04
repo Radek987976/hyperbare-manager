@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { interventionsAPI, workOrdersAPI, sparePartsAPI } from '../lib/api';
-import { formatDate, formatDateTime } from '../lib/utils';
+import { formatDate } from '../lib/utils';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
@@ -8,39 +8,10 @@ import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Textarea } from '../components/ui/textarea';
 import { Skeleton } from '../components/ui/skeleton';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '../components/ui/table';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from '../components/ui/dialog';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '../components/ui/select';
-import {
-  History,
-  Plus,
-  Search,
-  Eye,
-  Loader2,
-  Clock,
-  User,
-  Package,
-  Wrench
-} from 'lucide-react';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
+import { History, Plus, Search, Eye, Loader2, Clock, User, Package } from 'lucide-react';
 
 const Interventions = () => {
   const [interventions, setInterventions] = useState([]);
@@ -48,11 +19,12 @@ const Interventions = () => {
   const [spareParts, setSpareParts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  
   const [showModal, setShowModal] = useState(false);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [selectedIntervention, setSelectedIntervention] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [selectedPart, setSelectedPart] = useState('');
+  const [partQuantity, setPartQuantity] = useState('1');
   
   const [formData, setFormData] = useState({
     work_order_id: '',
@@ -64,23 +36,20 @@ const Interventions = () => {
     pieces_utilisees: []
   });
 
-  const [selectedPart, setSelectedPart] = useState('');
-  const [partQuantity, setPartQuantity] = useState('1');
-
   useEffect(() => {
     loadData();
   }, []);
 
   const loadData = async () => {
     try {
-      const [interventionsRes, workOrdersRes, sparePartsRes] = await Promise.all([
+      const results = await Promise.all([
         interventionsAPI.getAll(),
         workOrdersAPI.getAll(),
         sparePartsAPI.getAll()
       ]);
-      setInterventions(interventionsRes.data || []);
-      setWorkOrders(workOrdersRes.data || []);
-      setSpareParts(sparePartsRes.data || []);
+      setInterventions(results[0].data || []);
+      setWorkOrders(results[1].data || []);
+      setSpareParts(results[2].data || []);
     } catch (error) {
       console.error('Erreur chargement:', error);
     } finally {
@@ -98,7 +67,6 @@ const Interventions = () => {
 
   const addPiece = () => {
     if (!selectedPart || !partQuantity) return;
-    
     const part = spareParts.find(p => p.id === selectedPart);
     if (!part) return;
     
@@ -121,7 +89,6 @@ const Interventions = () => {
         ]
       });
     }
-    
     setSelectedPart('');
     setPartQuantity('1');
   };
@@ -158,7 +125,6 @@ const Interventions = () => {
           quantite: p.quantite
         }))
       };
-      
       await interventionsAPI.create(data);
       await loadData();
       setShowModal(false);
@@ -184,7 +150,6 @@ const Interventions = () => {
     );
   });
 
-  // Pending work orders (not completed)
   const pendingWorkOrders = workOrders.filter(wo => 
     wo.statut === 'planifiee' || wo.statut === 'en_cours'
   );
@@ -200,15 +165,12 @@ const Interventions = () => {
 
   return (
     <div className="space-y-6" data-testid="interventions-page">
-      {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold font-['Barlow_Condensed'] uppercase tracking-tight text-slate-900">
             Historique des interventions
           </h1>
-          <p className="text-slate-500 mt-1">
-            {interventions.length} intervention(s) enregistrée(s)
-          </p>
+          <p className="text-slate-500 mt-1">{interventions.length} intervention(s)</p>
         </div>
         <Button 
           onClick={openCreateModal}
@@ -223,17 +185,16 @@ const Interventions = () => {
 
       {pendingWorkOrders.length === 0 && (
         <div className="bg-blue-50 border border-blue-200 text-blue-800 px-4 py-3 rounded-md">
-          Aucun ordre de travail en attente. Créez un ordre de travail pour pouvoir enregistrer une intervention.
+          Aucun ordre de travail en attente.
         </div>
       )}
 
-      {/* Search */}
       <Card>
         <CardContent className="p-4">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
             <Input
-              placeholder="Rechercher par technicien, ordre de travail..."
+              placeholder="Rechercher..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="pl-10"
@@ -243,36 +204,32 @@ const Interventions = () => {
         </CardContent>
       </Card>
 
-      {/* Table */}
       <Card>
         <CardContent className="p-0">
           <div className="overflow-x-auto">
             <Table data-testid="interventions-table">
               <TableHeader>
                 <TableRow className="bg-slate-50">
-                  <TableHead className="font-semibold">Date</TableHead>
-                  <TableHead className="font-semibold">Ordre de travail</TableHead>
-                  <TableHead className="font-semibold">Technicien</TableHead>
-                  <TableHead className="font-semibold">Actions réalisées</TableHead>
-                  <TableHead className="font-semibold">Durée</TableHead>
-                  <TableHead className="font-semibold">Pièces</TableHead>
+                  <TableHead>Date</TableHead>
+                  <TableHead>Ordre de travail</TableHead>
+                  <TableHead>Technicien</TableHead>
+                  <TableHead>Actions</TableHead>
+                  <TableHead>Durée</TableHead>
                   <TableHead className="w-16"></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredInterventions.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center py-12 text-slate-500">
+                    <TableCell colSpan={6} className="text-center py-12 text-slate-500">
                       <History className="w-12 h-12 mx-auto mb-3 text-slate-300" />
-                      <p>Aucune intervention enregistrée</p>
+                      <p>Aucune intervention</p>
                     </TableCell>
                   </TableRow>
                 ) : (
                   filteredInterventions.map((intervention) => (
-                    <TableRow key={intervention.id} data-testid={`intervention-row-${intervention.id}`}>
-                      <TableCell className="font-medium">
-                        {formatDate(intervention.date_intervention)}
-                      </TableCell>
+                    <TableRow key={intervention.id}>
+                      <TableCell>{formatDate(intervention.date_intervention)}</TableCell>
                       <TableCell>{getWorkOrderTitle(intervention.work_order_id)}</TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2">
@@ -280,22 +237,13 @@ const Interventions = () => {
                           {intervention.technicien}
                         </div>
                       </TableCell>
-                      <TableCell className="max-w-xs truncate">
-                        {intervention.actions_realisees}
-                      </TableCell>
+                      <TableCell className="max-w-xs truncate">{intervention.actions_realisees}</TableCell>
                       <TableCell>
                         {intervention.duree_minutes ? (
-                          <div className="flex items-center gap-1 text-sm">
+                          <span className="flex items-center gap-1">
                             <Clock className="w-4 h-4 text-slate-400" />
                             {intervention.duree_minutes} min
-                          </div>
-                        ) : '-'}
-                      </TableCell>
-                      <TableCell>
-                        {intervention.pieces_utilisees?.length > 0 ? (
-                          <Badge variant="outline">
-                            {intervention.pieces_utilisees.length} pièce(s)
-                          </Badge>
+                          </span>
                         ) : '-'}
                       </TableCell>
                       <TableCell>
@@ -306,7 +254,6 @@ const Interventions = () => {
                             setSelectedIntervention(intervention);
                             setShowDetailModal(true);
                           }}
-                          data-testid={`view-intervention-${intervention.id}`}
                         >
                           <Eye className="w-4 h-4" />
                         </Button>
@@ -320,7 +267,6 @@ const Interventions = () => {
         </CardContent>
       </Card>
 
-      {/* Create Modal */}
       <Dialog open={showModal} onOpenChange={setShowModal}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
@@ -334,26 +280,23 @@ const Interventions = () => {
                 <Label>Ordre de travail *</Label>
                 <Select value={formData.work_order_id} onValueChange={(v) => handleSelectChange('work_order_id', v)}>
                   <SelectTrigger data-testid="input-work-order">
-                    <SelectValue placeholder="Sélectionner un ordre" />
+                    <SelectValue placeholder="Sélectionner" />
                   </SelectTrigger>
                   <SelectContent>
                     {pendingWorkOrders.map(wo => (
-                      <SelectItem key={wo.id} value={wo.id}>
-                        {wo.titre}
-                      </SelectItem>
+                      <SelectItem key={wo.id} value={wo.id}>{wo.titre}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="date_intervention">Date de l'intervention *</Label>
+                <Label htmlFor="date_intervention">Date *</Label>
                 <Input
                   id="date_intervention"
                   name="date_intervention"
                   type="date"
                   value={formData.date_intervention}
                   onChange={handleChange}
-                  data-testid="input-date"
                 />
               </div>
               <div className="space-y-2">
@@ -364,7 +307,6 @@ const Interventions = () => {
                   value={formData.technicien}
                   onChange={handleChange}
                   placeholder="Nom du technicien"
-                  data-testid="input-technicien"
                 />
               </div>
               <div className="space-y-2">
@@ -375,8 +317,6 @@ const Interventions = () => {
                   type="number"
                   value={formData.duree_minutes}
                   onChange={handleChange}
-                  placeholder="Ex: 60"
-                  data-testid="input-duree"
                 />
               </div>
             </div>
@@ -388,9 +328,7 @@ const Interventions = () => {
                 name="actions_realisees"
                 value={formData.actions_realisees}
                 onChange={handleChange}
-                placeholder="Décrivez les actions effectuées..."
                 rows={3}
-                data-testid="input-actions"
               />
             </div>
             
@@ -401,13 +339,10 @@ const Interventions = () => {
                 name="observations"
                 value={formData.observations}
                 onChange={handleChange}
-                placeholder="Observations, recommandations..."
                 rows={2}
-                data-testid="input-observations"
               />
             </div>
 
-            {/* Pièces utilisées */}
             <div className="space-y-3 pt-4 border-t">
               <Label className="flex items-center gap-2">
                 <Package className="w-4 h-4" />
@@ -416,7 +351,7 @@ const Interventions = () => {
               
               <div className="flex gap-2">
                 <Select value={selectedPart} onValueChange={setSelectedPart}>
-                  <SelectTrigger className="flex-1" data-testid="select-part">
+                  <SelectTrigger className="flex-1">
                     <SelectValue placeholder="Sélectionner une pièce" />
                   </SelectTrigger>
                   <SelectContent>
@@ -433,9 +368,8 @@ const Interventions = () => {
                   value={partQuantity}
                   onChange={(e) => setPartQuantity(e.target.value)}
                   className="w-20"
-                  data-testid="input-part-quantity"
                 />
-                <Button type="button" variant="outline" onClick={addPiece} data-testid="add-part-btn">
+                <Button type="button" variant="outline" onClick={addPiece}>
                   <Plus className="w-4 h-4" />
                 </Button>
               </div>
@@ -443,21 +377,11 @@ const Interventions = () => {
               {formData.pieces_utilisees.length > 0 && (
                 <div className="space-y-2">
                   {formData.pieces_utilisees.map((piece) => (
-                    <div 
-                      key={piece.spare_part_id}
-                      className="flex items-center justify-between p-2 bg-slate-50 rounded-md"
-                    >
+                    <div key={piece.spare_part_id} className="flex items-center justify-between p-2 bg-slate-50 rounded-md">
                       <span>{piece.nom}</span>
                       <div className="flex items-center gap-2">
                         <Badge variant="outline">x{piece.quantite}</Badge>
-                        <Button 
-                          type="button" 
-                          variant="ghost" 
-                          size="sm"
-                          onClick={() => removePiece(piece.spare_part_id)}
-                        >
-                          ×
-                        </Button>
+                        <Button type="button" variant="ghost" size="sm" onClick={() => removePiece(piece.spare_part_id)}>×</Button>
                       </div>
                     </div>
                   ))}
@@ -466,23 +390,19 @@ const Interventions = () => {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowModal(false)}>
-              Annuler
-            </Button>
+            <Button variant="outline" onClick={() => setShowModal(false)}>Annuler</Button>
             <Button 
               onClick={handleSave} 
               disabled={saving || !formData.work_order_id || !formData.technicien || !formData.actions_realisees}
               className="bg-[#005F73] hover:bg-[#004C5C]"
-              data-testid="save-intervention-btn"
             >
-              {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+              {saving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
               Enregistrer
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Detail Modal */}
       <Dialog open={showDetailModal} onOpenChange={setShowDetailModal}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
@@ -520,22 +440,6 @@ const Interventions = () => {
                 <div>
                   <p className="text-xs text-slate-500 uppercase">Observations</p>
                   <p className="text-slate-700 mt-1">{selectedIntervention.observations}</p>
-                </div>
-              )}
-              {selectedIntervention.pieces_utilisees?.length > 0 && (
-                <div>
-                  <p className="text-xs text-slate-500 uppercase mb-2">Pièces utilisées</p>
-                  <div className="space-y-1">
-                    {selectedIntervention.pieces_utilisees.map((piece, idx) => {
-                      const part = spareParts.find(p => p.id === piece.spare_part_id);
-                      return (
-                        <div key={idx} className="flex items-center justify-between p-2 bg-slate-50 rounded">
-                          <span>{part?.nom || piece.spare_part_id}</span>
-                          <Badge variant="outline">x{piece.quantite}</Badge>
-                        </div>
-                      );
-                    })}
-                  </div>
                 </div>
               )}
             </div>

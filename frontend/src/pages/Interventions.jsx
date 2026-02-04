@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { interventionsAPI, workOrdersAPI, sparePartsAPI } from '../lib/api';
+import { interventionsAPI, workOrdersAPI, sparePartsAPI, usersAPI } from '../lib/api';
 import { formatDate } from '../lib/utils';
 import { Card, CardContent } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
@@ -17,7 +17,8 @@ function Interventions() {
   const [data, setData] = useState({
     interventions: [],
     workOrders: [],
-    spareParts: []
+    spareParts: [],
+    technicians: []
   });
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');

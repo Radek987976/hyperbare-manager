@@ -812,6 +812,325 @@ async def export_json(current_user: dict = Depends(get_current_user)):
         headers={"Content-Disposition": "attachment; filename=hypermaint_export.json"}
     )
 
+# ==================== FILE UPLOAD ROUTES ====================
+
+ALLOWED_IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".gif", ".webp"}
+ALLOWED_DOC_EXTENSIONS = {".pdf"}
+MAX_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
+
+def get_file_extension(filename: str) -> str:
+    return Path(filename).suffix.lower()
+
+@api_router.post("/equipments/{equipment_id}/photos")
+async def upload_equipment_photo(
+    equipment_id: str,
+    file: UploadFile = File(...),
+    current_user: dict = Depends(get_current_user)
+):
+    """Upload a photo for an equipment"""
+    # Verify equipment exists
+    equipment = await db.equipments.find_one({"id": equipment_id})
+    if not equipment:
+        raise HTTPException(status_code=404, detail="Équipement non trouvé")
+    
+    # Validate file extension
+    ext = get_file_extension(file.filename)
+    if ext not in ALLOWED_IMAGE_EXTENSIONS:
+        raise HTTPException(status_code=400, detail=f"Format non supporté. Formats acceptés: {', '.join(ALLOWED_IMAGE_EXTENSIONS)}")
+    
+    # Generate unique filename
+    unique_filename = f"{uuid.uuid4()}{ext}"
+    file_path = UPLOADS_DIR / "equipments" / unique_filename
+    
+    # Save file
+    with open(file_path, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+    
+    # Update equipment in database
+    photo_url = f"/api/uploads/equipments/{unique_filename}"
+    await db.equipments.update_one(
+        {"id": equipment_id},
+        {"$push": {"photos": photo_url}}
+    )
+    
+    return {"filename": file.filename, "url": photo_url}
+
+@api_router.post("/equipments/{equipment_id}/documents")
+async def upload_equipment_document(
+    equipment_id: str,
+    file: UploadFile = File(...),
+    current_user: dict = Depends(get_current_user)
+):
+    """Upload a PDF document for an equipment"""
+    # Verify equipment exists
+    equipment = await db.equipments.find_one({"id": equipment_id})
+    if not equipment:
+        raise HTTPException(status_code=404, detail="Équipement non trouvé")
+    
+    # Validate file extension
+    ext = get_file_extension(file.filename)
+    if ext not in ALLOWED_DOC_EXTENSIONS:
+        raise HTTPException(status_code=400, detail="Seuls les fichiers PDF sont acceptés")
+    
+    # Generate unique filename
+    unique_filename = f"{uuid.uuid4()}{ext}"
+    file_path = UPLOADS_DIR / "equipments" / unique_filename
+    
+    # Save file
+    with open(file_path, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+    
+    # Update equipment in database
+    doc_url = f"/api/uploads/equipments/{unique_filename}"
+    doc_info = {
+        "filename": file.filename,
+        "url": doc_url,
+        "uploaded_at": datetime.now(timezone.utc).isoformat()
+    }
+    await db.equipments.update_one(
+        {"id": equipment_id},
+        {"$push": {"documents": doc_info}}
+    )
+    
+    return doc_info
+
+@api_router.delete("/equipments/{equipment_id}/photos")
+async def delete_equipment_photo(
+    equipment_id: str,
+    photo_url: str,
+    current_user: dict = Depends(get_current_user)
+):
+    """Delete a photo from an equipment"""
+    # Remove from database
+    await db.equipments.update_one(
+        {"id": equipment_id},
+        {"$pull": {"photos": photo_url}}
+    )
+    
+    # Delete file
+    filename = photo_url.split("/")[-1]
+    file_path = UPLOADS_DIR / "equipments" / filename
+    if file_path.exists():
+        file_path.unlink()
+    
+    return {"message": "Photo supprimée"}
+
+@api_router.delete("/equipments/{equipment_id}/documents")
+async def delete_equipment_document(
+    equipment_id: str,
+    doc_url: str,
+    current_user: dict = Depends(get_current_user)
+):
+    """Delete a document from an equipment"""
+    # Remove from database
+    await db.equipments.update_one(
+        {"id": equipment_id},
+        {"$pull": {"documents": {"url": doc_url}}}
+    )
+    
+    # Delete file
+    filename = doc_url.split("/")[-1]
+    file_path = UPLOADS_DIR / "equipments" / filename
+    if file_path.exists():
+        file_path.unlink()
+    
+    return {"message": "Document supprimé"}
+
+@api_router.post("/inspections/{inspection_id}/procedures")
+async def upload_inspection_procedure(
+    inspection_id: str,
+    file: UploadFile = File(...),
+    current_user: dict = Depends(get_current_user)
+):
+    """Upload a procedure PDF for an inspection"""
+    # Verify inspection exists
+    inspection = await db.inspections.find_one({"id": inspection_id})
+    if not inspection:
+        raise HTTPException(status_code=404, detail="Contrôle non trouvé")
+    
+    # Validate file extension
+    ext = get_file_extension(file.filename)
+    if ext not in ALLOWED_DOC_EXTENSIONS:
+        raise HTTPException(status_code=400, detail="Seuls les fichiers PDF sont acceptés")
+    
+    # Generate unique filename
+    unique_filename = f"{uuid.uuid4()}{ext}"
+    file_path = UPLOADS_DIR / "inspections" / unique_filename
+    
+    # Save file
+    with open(file_path, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+    
+    # Update inspection in database
+    doc_url = f"/api/uploads/inspections/{unique_filename}"
+    doc_info = {
+        "filename": file.filename,
+        "url": doc_url,
+        "uploaded_at": datetime.now(timezone.utc).isoformat()
+    }
+    await db.inspections.update_one(
+        {"id": inspection_id},
+        {"$push": {"procedure_documents": doc_info}}
+    )
+    
+    return doc_info
+
+@api_router.delete("/inspections/{inspection_id}/procedures")
+async def delete_inspection_procedure(
+    inspection_id: str,
+    doc_url: str,
+    current_user: dict = Depends(get_current_user)
+):
+    """Delete a procedure from an inspection"""
+    # Remove from database
+    await db.inspections.update_one(
+        {"id": inspection_id},
+        {"$pull": {"procedure_documents": {"url": doc_url}}}
+    )
+    
+    # Delete file
+    filename = doc_url.split("/")[-1]
+    file_path = UPLOADS_DIR / "inspections" / filename
+    if file_path.exists():
+        file_path.unlink()
+    
+    return {"message": "Procédure supprimée"}
+
+# Serve uploaded files
+@api_router.get("/uploads/{folder}/{filename}")
+async def get_uploaded_file(folder: str, filename: str):
+    """Serve uploaded files"""
+    if folder not in ["equipments", "inspections"]:
+        raise HTTPException(status_code=404, detail="Dossier non trouvé")
+    
+    file_path = UPLOADS_DIR / folder / filename
+    if not file_path.exists():
+        raise HTTPException(status_code=404, detail="Fichier non trouvé")
+    
+    # Determine content type
+    ext = get_file_extension(filename)
+    content_types = {
+        ".pdf": "application/pdf",
+        ".jpg": "image/jpeg",
+        ".jpeg": "image/jpeg",
+        ".png": "image/png",
+        ".gif": "image/gif",
+        ".webp": "image/webp"
+    }
+    content_type = content_types.get(ext, "application/octet-stream")
+    
+    return FileResponse(file_path, media_type=content_type)
+
+# ==================== MAINTENANCE REPORT ====================
+
+@api_router.get("/reports/maintenance")
+async def get_maintenance_report(
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+    current_user: dict = Depends(get_current_user)
+):
+    """Generate a maintenance report"""
+    query = {}
+    
+    # Filter by date range if provided
+    if start_date or end_date:
+        date_filter = {}
+        if start_date:
+            date_filter["$gte"] = start_date
+        if end_date:
+            date_filter["$lte"] = end_date
+        query["date_intervention"] = date_filter
+    
+    # Get interventions
+    interventions = await db.interventions.find(query, {"_id": 0}).to_list(10000)
+    
+    # Get work orders for reference
+    work_orders = await db.work_orders.find({}, {"_id": 0}).to_list(10000)
+    wo_dict = {wo["id"]: wo for wo in work_orders}
+    
+    # Get equipments for reference
+    equipments = await db.equipments.find({}, {"_id": 0}).to_list(10000)
+    eq_dict = {eq["id"]: eq for eq in equipments}
+    
+    # Build report
+    report = {
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "period": {
+            "start": start_date or "Début",
+            "end": end_date or "Aujourd'hui"
+        },
+        "summary": {
+            "total_interventions": len(interventions),
+            "total_duration_minutes": sum(i.get("duree_minutes", 0) or 0 for i in interventions),
+            "preventive_count": 0,
+            "corrective_count": 0
+        },
+        "interventions": []
+    }
+    
+    for intervention in interventions:
+        wo = wo_dict.get(intervention.get("work_order_id"), {})
+        eq = eq_dict.get(wo.get("equipment_id"), {})
+        
+        if wo.get("type_maintenance") == "preventive":
+            report["summary"]["preventive_count"] += 1
+        else:
+            report["summary"]["corrective_count"] += 1
+        
+        report["interventions"].append({
+            "date": intervention.get("date_intervention"),
+            "technicien": intervention.get("technicien"),
+            "ordre_travail": wo.get("titre", "N/A"),
+            "type_maintenance": wo.get("type_maintenance", "N/A"),
+            "equipement": f"{eq.get('type', 'Caisson')} - {eq.get('reference', 'N/A')}",
+            "actions": intervention.get("actions_realisees"),
+            "duree_minutes": intervention.get("duree_minutes"),
+            "observations": intervention.get("observations"),
+            "pieces_utilisees": intervention.get("pieces_utilisees", [])
+        })
+    
+    return report
+
+@api_router.get("/reports/maintenance/csv")
+async def export_maintenance_report_csv(
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+    current_user: dict = Depends(get_current_user)
+):
+    """Export maintenance report as CSV"""
+    report = await get_maintenance_report(start_date, end_date, current_user)
+    
+    output = io.StringIO()
+    writer = csv.writer(output, delimiter=';')
+    
+    # Header
+    writer.writerow([
+        "Date", "Technicien", "Ordre de travail", "Type maintenance",
+        "Équipement", "Actions réalisées", "Durée (min)", "Observations"
+    ])
+    
+    # Data
+    for i in report["interventions"]:
+        writer.writerow([
+            i["date"],
+            i["technicien"],
+            i["ordre_travail"],
+            i["type_maintenance"],
+            i["equipement"],
+            i["actions"],
+            i["duree_minutes"] or "",
+            i["observations"] or ""
+        ])
+    
+    output.seek(0)
+    filename = f"rapport_maintenance_{start_date or 'debut'}_{end_date or 'fin'}.csv"
+    
+    return StreamingResponse(
+        iter([output.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": f"attachment; filename={filename}"}
+    )
+
 # ==================== HEALTH CHECK ====================
 
 @api_router.get("/")

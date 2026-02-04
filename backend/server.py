@@ -100,6 +100,8 @@ class EquipmentBase(BaseModel):
     caisson_id: str
     description: Optional[str] = None
     date_installation: Optional[str] = None
+    photos: List[str] = []  # Liste des URLs des photos
+    documents: List[dict] = []  # Liste des documents PDF [{filename, url, uploaded_at}]
 
 class EquipmentCreate(EquipmentBase):
     pass

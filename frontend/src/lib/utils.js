@@ -72,6 +72,19 @@ export const maintenanceTypeLabels = {
   corrective: 'Corrective'
 };
 
+// Periodicity labels
+export const periodiciteLabels = {
+  hebdomadaire: 'Hebdomadaire (7 jours)',
+  mensuel: 'Mensuel (1 mois)',
+  trimestriel: 'Trimestriel (3 mois)',
+  semestriel: 'Semestriel (6 mois)',
+  annuel: 'Annuel (1 an)',
+  biannuel: 'Biannuel (2 ans)',
+  triennal: 'Triennal (3 ans)',
+  quinquennal: 'Quinquennal (5 ans)',
+  decennal: 'Décennal (10 ans)'
+};
+
 // Get status class for styling
 export function getStatusClass(status) {
   const classes = {

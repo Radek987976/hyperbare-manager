@@ -45,15 +45,17 @@ function Interventions() {
 
   async function loadData() {
     try {
-      const [r1, r2, r3] = await Promise.all([
+      const [r1, r2, r3, r4] = await Promise.all([
         interventionsAPI.getAll(),
         workOrdersAPI.getAll(),
-        sparePartsAPI.getAll()
+        sparePartsAPI.getAll(),
+        usersAPI.getTechnicians()
       ]);
       setData({
         interventions: r1.data || [],
         workOrders: r2.data || [],
-        spareParts: r3.data || []
+        spareParts: r3.data || [],
+        technicians: r4.data || []
       });
     } catch (e) {
       console.error(e);

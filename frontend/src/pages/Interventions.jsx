@@ -228,7 +228,17 @@ function Interventions() {
               </div>
               <div>
                 <Label>Technicien</Label>
-                <Input name="technicien" value={formData.technicien} onChange={handleChange} />
+                <Select value={formData.technicien || "none"} onValueChange={v => setFormData(p => ({ ...p, technicien: v === "none" ? "" : v }))}>
+                  <SelectTrigger><SelectValue placeholder="Sélectionner" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Sélectionner un technicien</SelectItem>
+                    {data.technicians.map(tech => (
+                      <SelectItem key={tech.id} value={`${tech.prenom} ${tech.nom}`}>
+                        {tech.prenom} {tech.nom}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div>
                 <Label>Durée (min)</Label>

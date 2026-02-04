@@ -78,6 +78,7 @@ const TYPES_MAINTENANCE = ['preventive', 'corrective'];
 const WorkOrders = () => {
   const [workOrders, setWorkOrders] = useState([]);
   const [equipments, setEquipments] = useState([]);
+  const [technicians, setTechnicians] = useState([]);
   const [caisson, setCaisson] = useState(null);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -110,9 +111,16 @@ const WorkOrders = () => {
 
   const loadData = async () => {
     try {
-      const [workOrdersRes, equipmentsRes, caissonRes] = await Promise.all([
+      const [workOrdersRes, equipmentsRes, caissonRes, techniciansRes] = await Promise.all([
         workOrdersAPI.getAll(),
         equipmentsAPI.getAll(),
+        caissonAPI.get(),
+        usersAPI.getTechnicians()
+      ]);
+      setWorkOrders(workOrdersRes.data || []);
+      setEquipments(equipmentsRes.data || []);
+      setCaisson(caissonRes.data);
+      setTechnicians(techniciansRes.data || []);
         caissonAPI.get()
       ]);
       setWorkOrders(workOrdersRes.data || []);

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { interventionsAPI, workOrdersAPI, sparePartsAPI } from '../lib/api';
 import { formatDate } from '../lib/utils';
-import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
+import { Card, CardContent } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
@@ -13,154 +13,127 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { History, Plus, Search, Eye, Loader2, Clock, User, Package } from 'lucide-react';
 
-const Interventions = () => {
-  const [interventions, setInterventions] = useState([]);
-  const [workOrders, setWorkOrders] = useState([]);
-  const [spareParts, setSpareParts] = useState([]);
+function Interventions() {
+  const [data, setData] = useState({
+    interventions: [],
+    workOrders: [],
+    spareParts: []
+  });
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [showDetailModal, setShowDetailModal] = useState(false);
-  const [selectedIntervention, setSelectedIntervention] = useState(null);
+  const [selectedItem, setSelectedItem] = useState(null);
   const [saving, setSaving] = useState(false);
-  const [selectedPart, setSelectedPart] = useState('');
-  const [partQuantity, setPartQuantity] = useState('1');
+  const [partSelect, setPartSelect] = useState({ part: '', qty: '1' });
   
-  const [formData, setFormData] = useState({
+  const emptyForm = {
     work_order_id: '',
-    date_intervention: '',
+    date_intervention: new Date().toISOString().split('T')[0],
     technicien: '',
     actions_realisees: '',
     observations: '',
     duree_minutes: '',
     pieces_utilisees: []
-  });
+  };
+  const [formData, setFormData] = useState(emptyForm);
 
   useEffect(() => {
     loadData();
   }, []);
 
-  const loadData = async () => {
+  async function loadData() {
     try {
-      const results = await Promise.all([
+      const [r1, r2, r3] = await Promise.all([
         interventionsAPI.getAll(),
         workOrdersAPI.getAll(),
         sparePartsAPI.getAll()
       ]);
-      setInterventions(results[0].data || []);
-      setWorkOrders(results[1].data || []);
-      setSpareParts(results[2].data || []);
-    } catch (error) {
-      console.error('Erreur chargement:', error);
-    } finally {
-      setLoading(false);
+      setData({
+        interventions: r1.data || [],
+        workOrders: r2.data || [],
+        spareParts: r3.data || []
+      });
+    } catch (e) {
+      console.error(e);
     }
-  };
+    setLoading(false);
+  }
 
-  const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
-  };
+  function handleChange(e) {
+    setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
+  }
 
-  const handleSelectChange = (name, value) => {
-    setFormData({ ...formData, [name]: value });
-  };
-
-  const addPiece = () => {
-    if (!selectedPart || !partQuantity) return;
-    const part = spareParts.find(p => p.id === selectedPart);
+  function addPiece() {
+    if (!partSelect.part) return;
+    const part = data.spareParts.find(p => p.id === partSelect.part);
     if (!part) return;
     
-    const existing = formData.pieces_utilisees.find(p => p.spare_part_id === selectedPart);
-    if (existing) {
-      setFormData({
-        ...formData,
-        pieces_utilisees: formData.pieces_utilisees.map(p =>
-          p.spare_part_id === selectedPart
-            ? { ...p, quantite: p.quantite + parseInt(partQuantity) }
-            : p
-        )
-      });
+    const existingIdx = formData.pieces_utilisees.findIndex(p => p.spare_part_id === partSelect.part);
+    if (existingIdx >= 0) {
+      const updated = [...formData.pieces_utilisees];
+      updated[existingIdx].quantite += parseInt(partSelect.qty);
+      setFormData(prev => ({ ...prev, pieces_utilisees: updated }));
     } else {
-      setFormData({
-        ...formData,
-        pieces_utilisees: [
-          ...formData.pieces_utilisees,
-          { spare_part_id: selectedPart, quantite: parseInt(partQuantity), nom: part.nom }
-        ]
-      });
+      setFormData(prev => ({
+        ...prev,
+        pieces_utilisees: [...prev.pieces_utilisees, {
+          spare_part_id: partSelect.part,
+          quantite: parseInt(partSelect.qty),
+          nom: part.nom
+        }]
+      }));
     }
-    setSelectedPart('');
-    setPartQuantity('1');
-  };
+    setPartSelect({ part: '', qty: '1' });
+  }
 
-  const removePiece = (partId) => {
-    setFormData({
-      ...formData,
-      pieces_utilisees: formData.pieces_utilisees.filter(p => p.spare_part_id !== partId)
-    });
-  };
+  function removePiece(partId) {
+    setFormData(prev => ({
+      ...prev,
+      pieces_utilisees: prev.pieces_utilisees.filter(p => p.spare_part_id !== partId)
+    }));
+  }
 
-  const openCreateModal = () => {
-    setSelectedIntervention(null);
-    setFormData({
-      work_order_id: '',
-      date_intervention: new Date().toISOString().split('T')[0],
-      technicien: '',
-      actions_realisees: '',
-      observations: '',
-      duree_minutes: '',
-      pieces_utilisees: []
-    });
-    setShowModal(true);
-  };
-
-  const handleSave = async () => {
+  async function handleSave() {
     setSaving(true);
     try {
-      const data = {
-        ...formData,
+      const payload = {
+        work_order_id: formData.work_order_id,
+        date_intervention: formData.date_intervention,
+        technicien: formData.technicien,
+        actions_realisees: formData.actions_realisees,
+        observations: formData.observations,
         duree_minutes: formData.duree_minutes ? parseInt(formData.duree_minutes) : null,
         pieces_utilisees: formData.pieces_utilisees.map(p => ({
           spare_part_id: p.spare_part_id,
           quantite: p.quantite
         }))
       };
-      await interventionsAPI.create(data);
+      await interventionsAPI.create(payload);
       await loadData();
       setShowModal(false);
-    } catch (error) {
-      console.error('Erreur sauvegarde:', error);
-      alert(error.response?.data?.detail || 'Erreur lors de la sauvegarde');
-    } finally {
-      setSaving(false);
+    } catch (e) {
+      alert(e.response?.data?.detail || 'Erreur');
     }
-  };
+    setSaving(false);
+  }
 
-  const getWorkOrderTitle = (woId) => {
-    const wo = workOrders.find(w => w.id === woId);
-    return wo?.titre || '-';
-  };
+  function getWoTitle(id) {
+    const wo = data.workOrders.find(w => w.id === id);
+    return wo ? wo.titre : '-';
+  }
 
-  const filteredInterventions = interventions.filter(int => {
-    const woTitle = getWorkOrderTitle(int.work_order_id).toLowerCase();
-    return (
-      int.technicien.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      int.actions_realisees.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      woTitle.includes(searchTerm.toLowerCase())
-    );
+  const pendingWo = data.workOrders.filter(wo => wo.statut === 'planifiee' || wo.statut === 'en_cours');
+  
+  const filtered = data.interventions.filter(i => {
+    const term = searchTerm.toLowerCase();
+    return i.technicien.toLowerCase().includes(term) || 
+           i.actions_realisees.toLowerCase().includes(term) ||
+           getWoTitle(i.work_order_id).toLowerCase().includes(term);
   });
 
-  const pendingWorkOrders = workOrders.filter(wo => 
-    wo.statut === 'planifiee' || wo.statut === 'en_cours'
-  );
-
   if (loading) {
-    return (
-      <div className="space-y-6" data-testid="interventions-loading">
-        <Skeleton className="h-10 w-48" />
-        <Skeleton className="h-96" />
-      </div>
-    );
+    return <div className="space-y-6"><Skeleton className="h-10 w-48" /><Skeleton className="h-96" /></div>;
   }
 
   return (
@@ -170,284 +143,148 @@ const Interventions = () => {
           <h1 className="text-3xl font-bold font-['Barlow_Condensed'] uppercase tracking-tight text-slate-900">
             Historique des interventions
           </h1>
-          <p className="text-slate-500 mt-1">{interventions.length} intervention(s)</p>
+          <p className="text-slate-500 mt-1">{data.interventions.length} intervention(s)</p>
         </div>
         <Button 
-          onClick={openCreateModal}
+          onClick={() => { setFormData(emptyForm); setShowModal(true); }}
           className="bg-[#005F73] hover:bg-[#004C5C]"
-          disabled={pendingWorkOrders.length === 0}
+          disabled={pendingWo.length === 0}
           data-testid="add-intervention-btn"
         >
           <Plus className="w-4 h-4 mr-2" />
-          Enregistrer une intervention
+          Enregistrer
         </Button>
       </div>
-
-      {pendingWorkOrders.length === 0 && (
-        <div className="bg-blue-50 border border-blue-200 text-blue-800 px-4 py-3 rounded-md">
-          Aucun ordre de travail en attente.
-        </div>
-      )}
 
       <Card>
         <CardContent className="p-4">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-            <Input
-              placeholder="Rechercher..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10"
-              data-testid="search-input"
-            />
+            <Input placeholder="Rechercher..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="pl-10" />
           </div>
         </CardContent>
       </Card>
 
       <Card>
-        <CardContent className="p-0">
-          <div className="overflow-x-auto">
-            <Table data-testid="interventions-table">
-              <TableHeader>
-                <TableRow className="bg-slate-50">
-                  <TableHead>Date</TableHead>
-                  <TableHead>Ordre de travail</TableHead>
-                  <TableHead>Technicien</TableHead>
-                  <TableHead>Actions</TableHead>
-                  <TableHead>Durée</TableHead>
-                  <TableHead className="w-16"></TableHead>
+        <CardContent className="p-0 overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow className="bg-slate-50">
+                <TableHead>Date</TableHead>
+                <TableHead>Ordre de travail</TableHead>
+                <TableHead>Technicien</TableHead>
+                <TableHead>Actions</TableHead>
+                <TableHead>Durée</TableHead>
+                <TableHead className="w-16"></TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filtered.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center py-12 text-slate-500">
+                    <History className="w-12 h-12 mx-auto mb-3 text-slate-300" />
+                    <p>Aucune intervention</p>
+                  </TableCell>
                 </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredInterventions.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={6} className="text-center py-12 text-slate-500">
-                      <History className="w-12 h-12 mx-auto mb-3 text-slate-300" />
-                      <p>Aucune intervention</p>
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  filteredInterventions.map((intervention) => (
-                    <TableRow key={intervention.id}>
-                      <TableCell>{formatDate(intervention.date_intervention)}</TableCell>
-                      <TableCell>{getWorkOrderTitle(intervention.work_order_id)}</TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <User className="w-4 h-4 text-slate-400" />
-                          {intervention.technicien}
-                        </div>
-                      </TableCell>
-                      <TableCell className="max-w-xs truncate">{intervention.actions_realisees}</TableCell>
-                      <TableCell>
-                        {intervention.duree_minutes ? (
-                          <span className="flex items-center gap-1">
-                            <Clock className="w-4 h-4 text-slate-400" />
-                            {intervention.duree_minutes} min
-                          </span>
-                        ) : '-'}
-                      </TableCell>
-                      <TableCell>
-                        <Button 
-                          variant="ghost" 
-                          size="icon"
-                          onClick={() => {
-                            setSelectedIntervention(intervention);
-                            setShowDetailModal(true);
-                          }}
-                        >
-                          <Eye className="w-4 h-4" />
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </div>
+              ) : filtered.map(item => (
+                <TableRow key={item.id}>
+                  <TableCell>{formatDate(item.date_intervention)}</TableCell>
+                  <TableCell>{getWoTitle(item.work_order_id)}</TableCell>
+                  <TableCell><User className="w-4 h-4 inline mr-1 text-slate-400" />{item.technicien}</TableCell>
+                  <TableCell className="max-w-xs truncate">{item.actions_realisees}</TableCell>
+                  <TableCell>{item.duree_minutes ? `${item.duree_minutes} min` : '-'}</TableCell>
+                  <TableCell>
+                    <Button variant="ghost" size="icon" onClick={() => { setSelectedItem(item); setShowDetailModal(true); }}>
+                      <Eye className="w-4 h-4" />
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
         </CardContent>
       </Card>
 
       <Dialog open={showModal} onOpenChange={setShowModal}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="font-['Barlow_Condensed'] uppercase text-xl">
-              Enregistrer une intervention
-            </DialogTitle>
-          </DialogHeader>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader><DialogTitle>Enregistrer une intervention</DialogTitle></DialogHeader>
           <div className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Ordre de travail *</Label>
-                <Select value={formData.work_order_id} onValueChange={(v) => handleSelectChange('work_order_id', v)}>
-                  <SelectTrigger data-testid="input-work-order">
-                    <SelectValue placeholder="Sélectionner" />
-                  </SelectTrigger>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>Ordre de travail</Label>
+                <Select value={formData.work_order_id} onValueChange={v => setFormData(p => ({ ...p, work_order_id: v }))}>
+                  <SelectTrigger><SelectValue placeholder="Sélectionner" /></SelectTrigger>
                   <SelectContent>
-                    {pendingWorkOrders.map(wo => (
-                      <SelectItem key={wo.id} value={wo.id}>{wo.titre}</SelectItem>
-                    ))}
+                    {pendingWo.map(wo => <SelectItem key={wo.id} value={wo.id}>{wo.titre}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="date_intervention">Date *</Label>
-                <Input
-                  id="date_intervention"
-                  name="date_intervention"
-                  type="date"
-                  value={formData.date_intervention}
-                  onChange={handleChange}
-                />
+              <div>
+                <Label>Date</Label>
+                <Input name="date_intervention" type="date" value={formData.date_intervention} onChange={handleChange} />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="technicien">Technicien *</Label>
-                <Input
-                  id="technicien"
-                  name="technicien"
-                  value={formData.technicien}
-                  onChange={handleChange}
-                  placeholder="Nom du technicien"
-                />
+              <div>
+                <Label>Technicien</Label>
+                <Input name="technicien" value={formData.technicien} onChange={handleChange} />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="duree_minutes">Durée (minutes)</Label>
-                <Input
-                  id="duree_minutes"
-                  name="duree_minutes"
-                  type="number"
-                  value={formData.duree_minutes}
-                  onChange={handleChange}
-                />
+              <div>
+                <Label>Durée (min)</Label>
+                <Input name="duree_minutes" type="number" value={formData.duree_minutes} onChange={handleChange} />
               </div>
             </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="actions_realisees">Actions réalisées *</Label>
-              <Textarea
-                id="actions_realisees"
-                name="actions_realisees"
-                value={formData.actions_realisees}
-                onChange={handleChange}
-                rows={3}
-              />
+            <div>
+              <Label>Actions réalisées</Label>
+              <Textarea name="actions_realisees" value={formData.actions_realisees} onChange={handleChange} rows={3} />
             </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="observations">Observations</Label>
-              <Textarea
-                id="observations"
-                name="observations"
-                value={formData.observations}
-                onChange={handleChange}
-                rows={2}
-              />
+            <div>
+              <Label>Observations</Label>
+              <Textarea name="observations" value={formData.observations} onChange={handleChange} rows={2} />
             </div>
-
-            <div className="space-y-3 pt-4 border-t">
-              <Label className="flex items-center gap-2">
-                <Package className="w-4 h-4" />
-                Pièces utilisées
-              </Label>
-              
-              <div className="flex gap-2">
-                <Select value={selectedPart} onValueChange={setSelectedPart}>
-                  <SelectTrigger className="flex-1">
-                    <SelectValue placeholder="Sélectionner une pièce" />
-                  </SelectTrigger>
+            <div className="border-t pt-4">
+              <Label className="flex items-center gap-2 mb-2"><Package className="w-4 h-4" />Pièces utilisées</Label>
+              <div className="flex gap-2 mb-2">
+                <Select value={partSelect.part} onValueChange={v => setPartSelect(p => ({ ...p, part: v }))}>
+                  <SelectTrigger className="flex-1"><SelectValue placeholder="Pièce" /></SelectTrigger>
                   <SelectContent>
-                    {spareParts.map(part => (
-                      <SelectItem key={part.id} value={part.id}>
-                        {part.nom} (stock: {part.quantite_stock})
-                      </SelectItem>
-                    ))}
+                    {data.spareParts.map(p => <SelectItem key={p.id} value={p.id}>{p.nom}</SelectItem>)}
                   </SelectContent>
                 </Select>
-                <Input
-                  type="number"
-                  min="1"
-                  value={partQuantity}
-                  onChange={(e) => setPartQuantity(e.target.value)}
-                  className="w-20"
-                />
-                <Button type="button" variant="outline" onClick={addPiece}>
-                  <Plus className="w-4 h-4" />
-                </Button>
+                <Input type="number" className="w-20" value={partSelect.qty} onChange={e => setPartSelect(p => ({ ...p, qty: e.target.value }))} />
+                <Button variant="outline" onClick={addPiece}><Plus className="w-4 h-4" /></Button>
               </div>
-
-              {formData.pieces_utilisees.length > 0 && (
-                <div className="space-y-2">
-                  {formData.pieces_utilisees.map((piece) => (
-                    <div key={piece.spare_part_id} className="flex items-center justify-between p-2 bg-slate-50 rounded-md">
-                      <span>{piece.nom}</span>
-                      <div className="flex items-center gap-2">
-                        <Badge variant="outline">x{piece.quantite}</Badge>
-                        <Button type="button" variant="ghost" size="sm" onClick={() => removePiece(piece.spare_part_id)}>×</Button>
-                      </div>
-                    </div>
-                  ))}
+              {formData.pieces_utilisees.map(p => (
+                <div key={p.spare_part_id} className="flex justify-between p-2 bg-slate-50 rounded mb-1">
+                  <span>{p.nom}</span>
+                  <div><Badge variant="outline">x{p.quantite}</Badge> <Button variant="ghost" size="sm" onClick={() => removePiece(p.spare_part_id)}>×</Button></div>
                 </div>
-              )}
+              ))}
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowModal(false)}>Annuler</Button>
-            <Button 
-              onClick={handleSave} 
-              disabled={saving || !formData.work_order_id || !formData.technicien || !formData.actions_realisees}
-              className="bg-[#005F73] hover:bg-[#004C5C]"
-            >
-              {saving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-              Enregistrer
+            <Button onClick={handleSave} disabled={saving || !formData.work_order_id || !formData.technicien} className="bg-[#005F73]">
+              {saving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}Enregistrer
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
       <Dialog open={showDetailModal} onOpenChange={setShowDetailModal}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle className="font-['Barlow_Condensed'] uppercase text-xl">
-              Détails de l'intervention
-            </DialogTitle>
-          </DialogHeader>
-          {selectedIntervention && (
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <p className="text-xs text-slate-500 uppercase">Date</p>
-                  <p className="font-medium">{formatDate(selectedIntervention.date_intervention)}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-slate-500 uppercase">Technicien</p>
-                  <p className="font-medium">{selectedIntervention.technicien}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-slate-500 uppercase">Ordre de travail</p>
-                  <p className="font-medium">{getWorkOrderTitle(selectedIntervention.work_order_id)}</p>
-                </div>
-                {selectedIntervention.duree_minutes && (
-                  <div>
-                    <p className="text-xs text-slate-500 uppercase">Durée</p>
-                    <p className="font-medium">{selectedIntervention.duree_minutes} minutes</p>
-                  </div>
-                )}
-              </div>
-              <div>
-                <p className="text-xs text-slate-500 uppercase">Actions réalisées</p>
-                <p className="text-slate-700 mt-1">{selectedIntervention.actions_realisees}</p>
-              </div>
-              {selectedIntervention.observations && (
-                <div>
-                  <p className="text-xs text-slate-500 uppercase">Observations</p>
-                  <p className="text-slate-700 mt-1">{selectedIntervention.observations}</p>
-                </div>
-              )}
+        <DialogContent>
+          <DialogHeader><DialogTitle>Détails</DialogTitle></DialogHeader>
+          {selectedItem && (
+            <div className="space-y-3">
+              <p><strong>Date:</strong> {formatDate(selectedItem.date_intervention)}</p>
+              <p><strong>Technicien:</strong> {selectedItem.technicien}</p>
+              <p><strong>OT:</strong> {getWoTitle(selectedItem.work_order_id)}</p>
+              <p><strong>Actions:</strong> {selectedItem.actions_realisees}</p>
+              {selectedItem.observations && <p><strong>Observations:</strong> {selectedItem.observations}</p>}
             </div>
           )}
         </DialogContent>
       </Dialog>
     </div>
   );
-};
+}
 
 export default Interventions;

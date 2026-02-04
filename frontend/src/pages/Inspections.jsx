@@ -329,8 +329,8 @@ const Inspections = () => {
                 <TableRow className="bg-slate-50">
                   <TableHead className="font-semibold">Titre</TableHead>
                   <TableHead className="font-semibold">Type</TableHead>
-                  <TableHead className="font-semibold">Équipement</TableHead>
-                  <TableHead className="font-semibold">Date de validité</TableHead>
+                  <TableHead className="font-semibold">Périodicité</TableHead>
+                  <TableHead className="font-semibold">Prochaine échéance</TableHead>
                   <TableHead className="font-semibold">Statut</TableHead>
                   <TableHead className="font-semibold">Organisme</TableHead>
                   <TableHead className="w-16"></TableHead>
@@ -349,7 +349,11 @@ const Inspections = () => {
                     <TableRow key={inspection.id} data-testid={`inspection-row-${inspection.id}`}>
                       <TableCell className="font-medium">{inspection.titre}</TableCell>
                       <TableCell>{inspection.type_controle}</TableCell>
-                      <TableCell>{getEquipmentLabel(inspection.equipment_id)}</TableCell>
+                      <TableCell>
+                        <Badge variant="outline">
+                          {periodiciteLabels[inspection.periodicite] || inspection.periodicite || 'Annuel'}
+                        </Badge>
+                      </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2">
                           <Calendar className="w-4 h-4 text-slate-400" />

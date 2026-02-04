@@ -430,12 +430,12 @@ const Inspections = () => {
             </div>
             <div className="space-y-2">
               <Label>Équipement concerné</Label>
-              <Select value={formData.equipment_id} onValueChange={(v) => handleSelectChange('equipment_id', v)}>
+              <Select value={formData.equipment_id || "caisson"} onValueChange={(v) => handleSelectChange('equipment_id', v === "caisson" ? "" : v)}>
                 <SelectTrigger data-testid="input-equipment">
                   <SelectValue placeholder="Caisson entier" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Caisson entier</SelectItem>
+                  <SelectItem value="caisson">Caisson entier</SelectItem>
                   {equipments.map(eq => (
                     <SelectItem key={eq.id} value={eq.id}>
                       {equipmentTypeLabels[eq.type]} - {eq.reference}

@@ -350,27 +350,92 @@ async def get_users(admin: dict = Depends(require_admin)):
     users = await db.users.find({}, {"_id": 0, "password_hash": 0}).to_list(1000)
     return users
 
+@api_router.get("/users/pending", response_model=List[dict])
+async def get_pending_users(admin: dict = Depends(require_admin)):
+    """Get users pending approval"""
+    users = await db.users.find({"is_approved": False}, {"_id": 0, "password_hash": 0}).to_list(1000)
+    return users
+
 @api_router.get("/users/technicians", response_model=List[dict])
 async def get_technicians(current_user: dict = Depends(get_current_user)):
-    """Get all users (for technician dropdown)"""
-    users = await db.users.find({"is_active": True}, {"_id": 0, "password_hash": 0}).to_list(1000)
+    """Get all active users (for technician dropdown)"""
+    users = await db.users.find({"is_active": True, "is_approved": True}, {"_id": 0, "password_hash": 0}).to_list(1000)
     return users
 
 @api_router.put("/users/{user_id}/role")
 async def update_user_role(user_id: str, role: str, admin: dict = Depends(require_admin)):
-    if role not in ["admin", "technicien"]:
-        raise HTTPException(status_code=400, detail="Rôle invalide")
+    if role not in ROLES:
+        raise HTTPException(status_code=400, detail=f"Rôle invalide. Choix: {', '.join(ROLES)}")
     result = await db.users.update_one({"id": user_id}, {"$set": {"role": role}})
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Utilisateur non trouvé")
     return {"message": "Rôle mis à jour"}
 
+@api_router.put("/users/{user_id}/approve")
+async def approve_user(user_id: str, admin: dict = Depends(require_admin)):
+    """Approve a pending user"""
+    result = await db.users.update_one(
+        {"id": user_id}, 
+        {"$set": {"is_approved": True, "is_active": True}}
+    )
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Utilisateur non trouvé")
+    return {"message": "Utilisateur approuvé"}
+
+@api_router.put("/users/{user_id}/reject")
+async def reject_user(user_id: str, admin: dict = Depends(require_admin)):
+    """Reject a pending user (delete them)"""
+    result = await db.users.delete_one({"id": user_id, "is_approved": False})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Utilisateur non trouvé ou déjà approuvé")
+    return {"message": "Demande refusée"}
+
+@api_router.put("/users/{user_id}/suspend")
+async def suspend_user(user_id: str, admin: dict = Depends(require_admin)):
+    """Suspend a user"""
+    # Prevent admin from suspending themselves
+    if user_id == admin["id"]:
+        raise HTTPException(status_code=400, detail="Vous ne pouvez pas vous suspendre vous-même")
+    
+    result = await db.users.update_one({"id": user_id}, {"$set": {"is_active": False}})
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Utilisateur non trouvé")
+    return {"message": "Utilisateur suspendu"}
+
+@api_router.put("/users/{user_id}/activate")
+async def activate_user(user_id: str, admin: dict = Depends(require_admin)):
+    """Reactivate a suspended user"""
+    result = await db.users.update_one({"id": user_id}, {"$set": {"is_active": True}})
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Utilisateur non trouvé")
+    return {"message": "Utilisateur réactivé"}
+
 @api_router.delete("/users/{user_id}")
 async def delete_user(user_id: str, admin: dict = Depends(require_admin)):
+    # Prevent admin from deleting themselves
+    if user_id == admin["id"]:
+        raise HTTPException(status_code=400, detail="Vous ne pouvez pas supprimer votre propre compte")
+    
     result = await db.users.delete_one({"id": user_id})
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Utilisateur non trouvé")
     return {"message": "Utilisateur supprimé"}
+
+@api_router.get("/users/permissions")
+async def get_user_permissions(current_user: dict = Depends(get_current_user)):
+    """Return permissions for the current user based on their role"""
+    role = current_user.get("role", "invite")
+    
+    permissions = {
+        "can_create": role in ["admin", "technicien"],
+        "can_modify": role in ["admin", "technicien"],
+        "can_delete": role == "admin",
+        "can_export": role in ["admin", "technicien"],
+        "can_manage_users": role == "admin",
+        "role": role
+    }
+    
+    return permissions
 
 # ==================== CAISSON ROUTES ====================
 

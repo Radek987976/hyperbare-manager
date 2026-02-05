@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { authAPI } from '../lib/api';
+import { authAPI, usersAPI } from '../lib/api';
 
 const AuthContext = createContext(null);
 
@@ -13,6 +13,14 @@ export const useAuth = () => {
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
+  const [permissions, setPermissions] = useState({
+    can_create: false,
+    can_modify: false,
+    can_delete: false,
+    can_export: false,
+    can_manage_users: false,
+    role: 'invite'
+  });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -21,7 +29,10 @@ export const AuthProvider = ({ children }) => {
     
     if (token && savedUser) {
       try {
-        setUser(JSON.parse(savedUser));
+        const parsedUser = JSON.parse(savedUser);
+        setUser(parsedUser);
+        // Set permissions based on role
+        updatePermissionsFromRole(parsedUser.role);
       } catch (e) {
         localStorage.removeItem('token');
         localStorage.removeItem('user');
@@ -30,6 +41,19 @@ export const AuthProvider = ({ children }) => {
     setLoading(false);
   }, []);
 
+  const updatePermissionsFromRole = (role) => {
+    const perms = {
+      can_create: role === 'admin' || role === 'technicien',
+      can_modify: role === 'admin' || role === 'technicien',
+      can_delete: role === 'admin',
+      can_export: role === 'admin' || role === 'technicien',
+      can_manage_users: role === 'admin',
+      role: role
+    };
+    setPermissions(perms);
+    return perms;
+  };
+
   const login = async (email, password) => {
     const response = await authAPI.login({ email, password });
     const { access_token, user: userData } = response.data;
@@ -37,17 +61,25 @@ export const AuthProvider = ({ children }) => {
     localStorage.setItem('token', access_token);
     localStorage.setItem('user', JSON.stringify(userData));
     setUser(userData);
+    updatePermissionsFromRole(userData.role);
     
     return userData;
   };
 
   const register = async (userData) => {
     const response = await authAPI.register(userData);
+    
+    // Handle pending approval case
+    if (response.data.pending_approval) {
+      return { pending_approval: true, message: response.data.message };
+    }
+    
     const { access_token, user: newUser } = response.data;
     
     localStorage.setItem('token', access_token);
     localStorage.setItem('user', JSON.stringify(newUser));
     setUser(newUser);
+    updatePermissionsFromRole(newUser.role);
     
     return newUser;
   };
@@ -56,19 +88,51 @@ export const AuthProvider = ({ children }) => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     setUser(null);
+    setPermissions({
+      can_create: false,
+      can_modify: false,
+      can_delete: false,
+      can_export: false,
+      can_manage_users: false,
+      role: 'invite'
+    });
   };
 
-  const isAdmin = () => {
-    return user?.role === 'admin';
+  const isAdmin = () => user?.role === 'admin';
+  const isTechnicien = () => user?.role === 'technicien';
+  const isInvite = () => user?.role === 'invite';
+  
+  const canCreate = () => permissions.can_create;
+  const canModify = () => permissions.can_modify;
+  const canDelete = () => permissions.can_delete;
+  const canExport = () => permissions.can_export;
+  const canManageUsers = () => permissions.can_manage_users;
+
+  const getRoleLabel = (role) => {
+    const labels = {
+      admin: 'Administrateur',
+      technicien: 'Technicien',
+      invite: 'Invité'
+    };
+    return labels[role] || role;
   };
 
   const value = {
     user,
+    permissions,
     loading,
     login,
     register,
     logout,
     isAdmin,
+    isTechnicien,
+    isInvite,
+    canCreate,
+    canModify,
+    canDelete,
+    canExport,
+    canManageUsers,
+    getRoleLabel,
     isAuthenticated: !!user,
   };
 

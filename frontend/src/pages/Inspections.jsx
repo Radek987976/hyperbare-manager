@@ -381,20 +381,24 @@ const Inspections = () => {
                               <Eye className="w-4 h-4 mr-2" />
                               Voir détails
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => openEditModal(inspection)}>
-                              <Edit className="w-4 h-4 mr-2" />
-                              Modifier
-                            </DropdownMenuItem>
-                            <DropdownMenuItem 
-                              onClick={() => {
-                                setSelectedInspection(inspection);
-                                setShowDeleteDialog(true);
-                              }}
-                              className="text-red-600"
-                            >
-                              <Trash2 className="w-4 h-4 mr-2" />
-                              Supprimer
-                            </DropdownMenuItem>
+                            {canModify() && (
+                              <DropdownMenuItem onClick={() => openEditModal(inspection)}>
+                                <Edit className="w-4 h-4 mr-2" />
+                                Modifier
+                              </DropdownMenuItem>
+                            )}
+                            {canDelete() && (
+                              <DropdownMenuItem 
+                                onClick={() => {
+                                  setSelectedInspection(inspection);
+                                  setShowDeleteDialog(true);
+                                }}
+                                className="text-red-600"
+                              >
+                                <Trash2 className="w-4 h-4 mr-2" />
+                                Supprimer
+                              </DropdownMenuItem>
+                            )}
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </TableCell>

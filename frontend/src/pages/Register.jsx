@@ -6,7 +6,7 @@ import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { Alert, AlertDescription } from '../components/ui/alert';
-import { Gauge, AlertCircle, Loader2 } from 'lucide-react';
+import { Gauge, AlertCircle, Loader2, Clock, CheckCircle2 } from 'lucide-react';
 
 const Register = () => {
   const [formData, setFormData] = useState({
@@ -18,6 +18,7 @@ const Register = () => {
   });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [pendingApproval, setPendingApproval] = useState(false);
   const { register } = useAuth();
   const navigate = useNavigate();
 
@@ -42,20 +43,79 @@ const Register = () => {
     setLoading(true);
 
     try {
-      await register({
+      const result = await register({
         email: formData.email,
         password: formData.password,
         nom: formData.nom,
         prenom: formData.prenom,
-        role: 'technicien', // Default role
       });
-      navigate('/');
+      
+      // Check if pending approval
+      if (result.pending_approval) {
+        setPendingApproval(true);
+      } else {
+        navigate('/');
+      }
     } catch (err) {
       setError(err.response?.data?.detail || 'Erreur lors de l\'inscription');
     } finally {
       setLoading(false);
     }
   };
+
+  // Show pending approval message
+  if (pendingApproval) {
+    return (
+      <div className="login-container">
+        <div className="login-left">
+          <div className="text-center">
+            <div className="w-20 h-20 bg-white/10 rounded-lg flex items-center justify-center mx-auto mb-6">
+              <Gauge className="w-12 h-12 text-white" />
+            </div>
+            <h1 className="text-4xl font-bold font-['Barlow_Condensed'] uppercase tracking-tight mb-2">
+              HyperMaint
+            </h1>
+            <p className="text-[#94e2d5] text-lg">
+              Gestion de Maintenance Assistée par Ordinateur
+            </p>
+          </div>
+        </div>
+
+        <div className="login-right">
+          <Card className="w-full max-w-md border-0 shadow-none">
+            <CardContent className="pt-8">
+              <div className="text-center space-y-6">
+                <div className="w-20 h-20 bg-amber-100 rounded-full flex items-center justify-center mx-auto">
+                  <Clock className="w-10 h-10 text-amber-600" />
+                </div>
+                <div>
+                  <h2 className="text-2xl font-bold text-slate-900 mb-2">
+                    Inscription réussie !
+                  </h2>
+                  <p className="text-slate-600">
+                    Votre compte a été créé avec succès.
+                  </p>
+                </div>
+                <Alert className="bg-amber-50 border-amber-200 text-left">
+                  <Clock className="h-4 w-4 text-amber-600" />
+                  <AlertDescription className="text-amber-800">
+                    <strong>En attente d'approbation</strong><br />
+                    Un administrateur doit approuver votre compte avant que vous puissiez vous connecter.
+                    Vous serez notifié une fois votre compte activé.
+                  </AlertDescription>
+                </Alert>
+                <Link to="/login">
+                  <Button variant="outline" className="mt-4">
+                    Retour à la connexion
+                  </Button>
+                </Link>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="login-container">
@@ -90,10 +150,17 @@ const Register = () => {
               Créer un compte
             </CardTitle>
             <CardDescription>
-              Inscrivez-vous pour commencer
+              Inscrivez-vous pour demander l'accès
             </CardDescription>
           </CardHeader>
           <CardContent>
+            <Alert className="mb-4 bg-blue-50 border-blue-200">
+              <Clock className="h-4 w-4 text-blue-600" />
+              <AlertDescription className="text-blue-800 text-sm">
+                Votre compte nécessitera l'approbation d'un administrateur.
+              </AlertDescription>
+            </Alert>
+            
             <form onSubmit={handleSubmit} className="space-y-4">
               {error && (
                 <Alert variant="destructive" data-testid="register-error">
@@ -183,7 +250,7 @@ const Register = () => {
                     Création...
                   </>
                 ) : (
-                  'Créer mon compte'
+                  'Demander l\'accès'
                 )}
               </Button>
             </form>

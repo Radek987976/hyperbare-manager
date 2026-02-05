@@ -234,15 +234,17 @@ const Equipments = () => {
             {equipments.length} équipement(s) enregistré(s)
           </p>
         </div>
-        <Button 
-          onClick={openCreateModal}
-          className="bg-[#005F73] hover:bg-[#004C5C]"
-          disabled={!caisson}
-          data-testid="add-equipment-btn"
-        >
-          <Plus className="w-4 h-4 mr-2" />
-          Ajouter un équipement
-        </Button>
+        {canCreate() && (
+          <Button 
+            onClick={openCreateModal}
+            className="bg-[#005F73] hover:bg-[#004C5C]"
+            disabled={!caisson}
+            data-testid="add-equipment-btn"
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            Ajouter un équipement
+          </Button>
+        )}
       </div>
 
       {!caisson && (

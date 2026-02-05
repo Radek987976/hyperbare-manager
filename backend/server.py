@@ -275,7 +275,7 @@ def can_export(user: dict) -> bool:
 
 # ==================== AUTH ROUTES ====================
 
-@api_router.post("/auth/register", response_model=TokenResponse)
+@api_router.post("/auth/register", response_model=dict)
 async def register(user_data: UserCreate):
     existing = await db.users.find_one({"email": user_data.email})
     if existing:
@@ -283,6 +283,18 @@ async def register(user_data: UserCreate):
     
     user_dict = user_data.model_dump()
     password = user_dict.pop("password")
+    
+    # Check if first user - make them admin and auto-approve
+    user_count = await db.users.count_documents({})
+    if user_count == 0:
+        user_dict["role"] = "admin"
+        user_dict["is_active"] = True
+        user_dict["is_approved"] = True
+    else:
+        user_dict["role"] = "invite"  # New users start as invite
+        user_dict["is_active"] = False
+        user_dict["is_approved"] = False
+    
     user_obj = User(**user_dict)
     
     doc = user_obj.model_dump()
@@ -291,18 +303,34 @@ async def register(user_data: UserCreate):
     
     await db.users.insert_one(doc)
     
+    # If not approved, return message instead of token
+    if not user_obj.is_approved:
+        return {
+            "message": "Inscription réussie. Votre compte est en attente d'approbation par l'administrateur.",
+            "pending_approval": True,
+            "user": {"id": user_obj.id, "email": user_obj.email, "nom": user_obj.nom, "prenom": user_obj.prenom}
+        }
+    
     token = create_access_token({"sub": user_obj.id, "email": user_obj.email, "role": user_obj.role})
     
-    return TokenResponse(
-        access_token=token,
-        user={"id": user_obj.id, "email": user_obj.email, "nom": user_obj.nom, "prenom": user_obj.prenom, "role": user_obj.role}
-    )
+    return {
+        "access_token": token,
+        "token_type": "bearer",
+        "user": {"id": user_obj.id, "email": user_obj.email, "nom": user_obj.nom, "prenom": user_obj.prenom, "role": user_obj.role}
+    }
 
 @api_router.post("/auth/login", response_model=TokenResponse)
 async def login(credentials: UserLogin):
     user = await db.users.find_one({"email": credentials.email}, {"_id": 0})
     if not user or not verify_password(credentials.password, user.get("password_hash", "")):
         raise HTTPException(status_code=401, detail="Email ou mot de passe incorrect")
+    
+    # Check if user is approved and active
+    if not user.get("is_approved", False):
+        raise HTTPException(status_code=403, detail="Votre compte est en attente d'approbation par l'administrateur")
+    
+    if not user.get("is_active", False):
+        raise HTTPException(status_code=403, detail="Votre compte a été suspendu. Contactez l'administrateur.")
     
     token = create_access_token({"sub": user["id"], "email": user["email"], "role": user["role"]})
     

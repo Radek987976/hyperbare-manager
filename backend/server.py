@@ -48,11 +48,13 @@ api_router = APIRouter(prefix="/api")
 # ==================== MODELS ====================
 
 # User Models
+ROLES = ["admin", "technicien", "invite"]
+
 class UserBase(BaseModel):
     email: EmailStr
     nom: str
     prenom: str
-    role: str = Field(default="technicien", description="admin or technicien")
+    role: str = Field(default="invite", description="admin, technicien, or invite")
 
 class UserCreate(UserBase):
     password: str
@@ -61,7 +63,8 @@ class User(UserBase):
     model_config = ConfigDict(extra="ignore")
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    is_active: bool = True
+    is_active: bool = False  # Requires admin approval
+    is_approved: bool = False  # Approval status
 
 class UserLogin(BaseModel):
     email: EmailStr
@@ -245,6 +248,30 @@ async def require_admin(current_user: dict = Depends(get_current_user)):
     if current_user.get("role") != "admin":
         raise HTTPException(status_code=403, detail="Accès réservé aux administrateurs")
     return current_user
+
+async def require_technicien_or_admin(current_user: dict = Depends(get_current_user)):
+    """Allow admin and technicien roles - can create/modify but technicien cannot delete"""
+    if current_user.get("role") not in ["admin", "technicien"]:
+        raise HTTPException(status_code=403, detail="Accès réservé aux administrateurs et techniciens")
+    return current_user
+
+async def require_active_user(current_user: dict = Depends(get_current_user)):
+    """Ensure user is active and approved"""
+    if not current_user.get("is_active") or not current_user.get("is_approved"):
+        raise HTTPException(status_code=403, detail="Compte non activé. Veuillez contacter l'administrateur.")
+    return current_user
+
+def can_delete(user: dict) -> bool:
+    """Only admin can delete"""
+    return user.get("role") == "admin"
+
+def can_modify(user: dict) -> bool:
+    """Admin and technicien can modify"""
+    return user.get("role") in ["admin", "technicien"]
+
+def can_export(user: dict) -> bool:
+    """Only admin and technicien can export"""
+    return user.get("role") in ["admin", "technicien"]
 
 # ==================== AUTH ROUTES ====================
 

@@ -413,20 +413,24 @@ const WorkOrders = () => {
                                 <Eye className="w-4 h-4 mr-2" />
                                 Voir détails
                               </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => openEditModal(wo)}>
-                                <Edit className="w-4 h-4 mr-2" />
-                                Modifier
-                              </DropdownMenuItem>
-                              <DropdownMenuItem 
-                                onClick={() => {
-                                  setSelectedWorkOrder(wo);
-                                  setShowDeleteDialog(true);
-                                }}
-                                className="text-red-600"
-                              >
-                                <Trash2 className="w-4 h-4 mr-2" />
-                                Supprimer
-                              </DropdownMenuItem>
+                              {canModify() && (
+                                <DropdownMenuItem onClick={() => openEditModal(wo)}>
+                                  <Edit className="w-4 h-4 mr-2" />
+                                  Modifier
+                                </DropdownMenuItem>
+                              )}
+                              {canDelete() && (
+                                <DropdownMenuItem 
+                                  onClick={() => {
+                                    setSelectedWorkOrder(wo);
+                                    setShowDeleteDialog(true);
+                                  }}
+                                  className="text-red-600"
+                                >
+                                  <Trash2 className="w-4 h-4 mr-2" />
+                                  Supprimer
+                                </DropdownMenuItem>
+                              )}
                             </DropdownMenuContent>
                           </DropdownMenu>
                         </TableCell>

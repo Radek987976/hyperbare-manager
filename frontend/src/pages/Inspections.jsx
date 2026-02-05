@@ -65,6 +65,7 @@ import {
 const PERIODICITES = ['hebdomadaire', 'mensuel', 'trimestriel', 'semestriel', 'annuel', 'biannuel', 'triennal', 'quinquennal', 'decennal'];
 
 const Inspections = () => {
+  const { canCreate, canModify, canDelete } = useAuth();
   const [inspections, setInspections] = useState([]);
   const [caisson, setCaisson] = useState(null);
   const [equipments, setEquipments] = useState([]);

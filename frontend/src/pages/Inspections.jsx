@@ -264,14 +264,16 @@ const Inspections = () => {
             Suivi des contrôles obligatoires et certifications
           </p>
         </div>
-        <Button 
-          onClick={openCreateModal}
-          className="bg-[#005F73] hover:bg-[#004C5C]"
-          data-testid="add-inspection-btn"
-        >
-          <Plus className="w-4 h-4 mr-2" />
-          Nouveau contrôle
-        </Button>
+        {canCreate() && (
+          <Button 
+            onClick={openCreateModal}
+            className="bg-[#005F73] hover:bg-[#004C5C]"
+            data-testid="add-inspection-btn"
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            Nouveau contrôle
+          </Button>
+        )}
       </div>
 
       {/* Stats */}

@@ -1,6 +1,6 @@
-import React, { useAuth } from '../context/AuthContext';
 import React, { useState, useEffect } from 'react';
 import { interventionsAPI, workOrdersAPI, sparePartsAPI, usersAPI } from '../lib/api';
+import { useAuth } from '../context/AuthContext';
 import { formatDate } from '../lib/utils';
 import { Card, CardContent } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';

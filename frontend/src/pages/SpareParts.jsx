@@ -62,6 +62,7 @@ import {
 const EQUIPMENT_TYPES = ['porte', 'joint', 'soupape', 'compresseur', 'capteur', 'systeme_securite'];
 
 const SpareParts = () => {
+  const { canCreate, canModify, canDelete } = useAuth();
   const [spareParts, setSpareParts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');

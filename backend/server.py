@@ -1220,6 +1220,10 @@ async def export_maintenance_report_csv(
     current_user: dict = Depends(get_current_user)
 ):
     """Export maintenance report as CSV"""
+    # Check permission
+    if not can_export(current_user):
+        raise HTTPException(status_code=403, detail="Accès réservé aux administrateurs et techniciens")
+    
     report = await get_maintenance_report(start_date, end_date, current_user)
     
     output = io.StringIO()
@@ -1246,6 +1250,157 @@ async def export_maintenance_report_csv(
     
     output.seek(0)
     filename = f"rapport_maintenance_{start_date or 'debut'}_{end_date or 'fin'}.csv"
+    
+    return StreamingResponse(
+        iter([output.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": f"attachment; filename={filename}"}
+    )
+
+@api_router.get("/reports/statistics")
+async def get_statistics_report(current_user: dict = Depends(get_current_user)):
+    """Get comprehensive statistics report"""
+    if not can_export(current_user):
+        raise HTTPException(status_code=403, detail="Accès réservé aux administrateurs et techniciens")
+    
+    today = datetime.now(timezone.utc).date()
+    
+    # Equipment stats
+    equipments = await db.equipments.find({}, {"_id": 0}).to_list(1000)
+    equipment_by_type = {}
+    equipment_by_status = {"en_service": 0, "maintenance": 0, "hors_service": 0}
+    equipment_by_criticite = {"critique": 0, "haute": 0, "normale": 0, "basse": 0}
+    
+    for eq in equipments:
+        eq_type = eq.get("type", "Autre")
+        equipment_by_type[eq_type] = equipment_by_type.get(eq_type, 0) + 1
+        equipment_by_status[eq.get("statut", "en_service")] = equipment_by_status.get(eq.get("statut", "en_service"), 0) + 1
+        equipment_by_criticite[eq.get("criticite", "normale")] = equipment_by_criticite.get(eq.get("criticite", "normale"), 0) + 1
+    
+    # Work order stats
+    work_orders = await db.work_orders.find({}, {"_id": 0}).to_list(1000)
+    wo_by_status = {"planifiee": 0, "en_cours": 0, "terminee": 0, "annulee": 0}
+    wo_by_type = {"preventive": 0, "corrective": 0}
+    overdue_count = 0
+    
+    for wo in work_orders:
+        wo_by_status[wo.get("statut", "planifiee")] = wo_by_status.get(wo.get("statut", "planifiee"), 0) + 1
+        wo_by_type[wo.get("type_maintenance", "corrective")] = wo_by_type.get(wo.get("type_maintenance", "corrective"), 0) + 1
+        try:
+            planned_date = datetime.strptime(wo["date_planifiee"], "%Y-%m-%d").date()
+            if planned_date < today and wo.get("statut") in ["planifiee", "en_cours"]:
+                overdue_count += 1
+        except:
+            pass
+    
+    # Interventions stats
+    interventions = await db.interventions.find({}, {"_id": 0}).to_list(1000)
+    total_duration = sum(i.get("duree_minutes", 0) or 0 for i in interventions)
+    
+    # Inspections stats
+    inspections = await db.inspections.find({}, {"_id": 0}).to_list(1000)
+    expired_inspections = 0
+    upcoming_inspections = 0
+    
+    for insp in inspections:
+        try:
+            validity_date = datetime.strptime(insp.get("date_validite", ""), "%Y-%m-%d").date()
+            if validity_date < today:
+                expired_inspections += 1
+            elif (validity_date - today).days <= 30:
+                upcoming_inspections += 1
+        except:
+            pass
+    
+    # Spare parts stats
+    spare_parts = await db.spare_parts.find({}, {"_id": 0}).to_list(1000)
+    low_stock_count = sum(1 for p in spare_parts if p.get("quantite_stock", 0) <= p.get("seuil_minimum", 1))
+    total_stock_value = sum((p.get("quantite_stock", 0) * (p.get("prix_unitaire", 0) or 0)) for p in spare_parts)
+    
+    return {
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "equipments": {
+            "total": len(equipments),
+            "by_type": equipment_by_type,
+            "by_status": equipment_by_status,
+            "by_criticite": equipment_by_criticite
+        },
+        "work_orders": {
+            "total": len(work_orders),
+            "by_status": wo_by_status,
+            "by_type": wo_by_type,
+            "overdue": overdue_count
+        },
+        "interventions": {
+            "total": len(interventions),
+            "total_duration_minutes": total_duration,
+            "average_duration_minutes": round(total_duration / len(interventions), 1) if interventions else 0
+        },
+        "inspections": {
+            "total": len(inspections),
+            "expired": expired_inspections,
+            "upcoming_30_days": upcoming_inspections
+        },
+        "spare_parts": {
+            "total": len(spare_parts),
+            "low_stock": low_stock_count,
+            "total_stock_value": round(total_stock_value, 2)
+        }
+    }
+
+@api_router.get("/reports/statistics/csv")
+async def export_statistics_csv(current_user: dict = Depends(get_current_user)):
+    """Export statistics as CSV"""
+    if not can_export(current_user):
+        raise HTTPException(status_code=403, detail="Accès réservé aux administrateurs et techniciens")
+    
+    stats = await get_statistics_report(current_user)
+    
+    output = io.StringIO()
+    writer = csv.writer(output, delimiter=';')
+    
+    # Write statistics
+    writer.writerow(["Rapport de statistiques HyperMaint"])
+    writer.writerow(["Généré le", stats["generated_at"]])
+    writer.writerow([])
+    
+    writer.writerow(["=== ÉQUIPEMENTS ==="])
+    writer.writerow(["Total", stats["equipments"]["total"]])
+    writer.writerow(["Par statut"])
+    for k, v in stats["equipments"]["by_status"].items():
+        writer.writerow(["", k, v])
+    writer.writerow(["Par type"])
+    for k, v in stats["equipments"]["by_type"].items():
+        writer.writerow(["", k, v])
+    writer.writerow([])
+    
+    writer.writerow(["=== ORDRES DE TRAVAIL ==="])
+    writer.writerow(["Total", stats["work_orders"]["total"]])
+    writer.writerow(["En retard", stats["work_orders"]["overdue"]])
+    writer.writerow(["Par statut"])
+    for k, v in stats["work_orders"]["by_status"].items():
+        writer.writerow(["", k, v])
+    writer.writerow([])
+    
+    writer.writerow(["=== INTERVENTIONS ==="])
+    writer.writerow(["Total", stats["interventions"]["total"]])
+    writer.writerow(["Durée totale (min)", stats["interventions"]["total_duration_minutes"]])
+    writer.writerow(["Durée moyenne (min)", stats["interventions"]["average_duration_minutes"]])
+    writer.writerow([])
+    
+    writer.writerow(["=== CONTRÔLES RÉGLEMENTAIRES ==="])
+    writer.writerow(["Total", stats["inspections"]["total"]])
+    writer.writerow(["Expirés", stats["inspections"]["expired"]])
+    writer.writerow(["À renouveler (30j)", stats["inspections"]["upcoming_30_days"]])
+    writer.writerow([])
+    
+    writer.writerow(["=== PIÈCES DÉTACHÉES ==="])
+    writer.writerow(["Total", stats["spare_parts"]["total"]])
+    writer.writerow(["Stock bas", stats["spare_parts"]["low_stock"]])
+    writer.writerow(["Valeur totale stock (€)", stats["spare_parts"]["total_stock_value"]])
+    
+    output.seek(0)
+    filename = f"statistiques_hypermaint_{datetime.now(timezone.utc).strftime('%Y%m%d')}.csv"
     
     return StreamingResponse(
         iter([output.getvalue()]),

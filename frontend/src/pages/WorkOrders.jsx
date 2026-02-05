@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { workOrdersAPI, equipmentsAPI, caissonAPI, usersAPI } from '../lib/api';
+import { useAuth } from '../context/AuthContext';
 import { 
   formatDate, 
   statusLabels, 

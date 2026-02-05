@@ -41,9 +41,15 @@ export const authAPI = {
 // Users
 export const usersAPI = {
   getAll: () => api.get('/users'),
+  getPending: () => api.get('/users/pending'),
   getTechnicians: () => api.get('/users/technicians'),
   updateRole: (userId, role) => api.put(`/users/${userId}/role?role=${role}`),
+  approve: (userId) => api.put(`/users/${userId}/approve`),
+  reject: (userId) => api.put(`/users/${userId}/reject`),
+  suspend: (userId) => api.put(`/users/${userId}/suspend`),
+  activate: (userId) => api.put(`/users/${userId}/activate`),
   delete: (userId) => api.delete(`/users/${userId}`),
+  getPermissions: () => api.get('/users/permissions'),
 };
 
 // Caisson
@@ -125,6 +131,24 @@ export const exportAPI = {
   csv: (collection) => api.get(`/export/csv/${collection}`, { responseType: 'blob' }),
   sql: () => api.get('/export/sql', { responseType: 'blob' }),
   json: () => api.get('/export/json', { responseType: 'blob' }),
+};
+
+// Reports
+export const reportsAPI = {
+  getMaintenanceReport: (startDate, endDate) => {
+    const params = {};
+    if (startDate) params.start_date = startDate;
+    if (endDate) params.end_date = endDate;
+    return api.get('/reports/maintenance', { params });
+  },
+  exportMaintenanceCSV: (startDate, endDate) => {
+    const params = {};
+    if (startDate) params.start_date = startDate;
+    if (endDate) params.end_date = endDate;
+    return api.get('/reports/maintenance/csv', { params, responseType: 'blob' });
+  },
+  getStatistics: () => api.get('/reports/statistics'),
+  exportStatisticsCSV: () => api.get('/reports/statistics/csv', { responseType: 'blob' }),
 };
 
 export default api;

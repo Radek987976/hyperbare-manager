@@ -71,6 +71,7 @@ const STATUTS = ['en_service', 'maintenance', 'hors_service'];
 const CRITICITES = ['critique', 'haute', 'normale', 'basse'];
 
 const Equipments = () => {
+  const { canCreate, canModify, canDelete } = useAuth();
   const [equipments, setEquipments] = useState([]);
   const [caisson, setCaisson] = useState(null);
   const [loading, setLoading] = useState(true);

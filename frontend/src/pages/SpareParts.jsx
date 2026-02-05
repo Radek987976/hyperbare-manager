@@ -1,3 +1,4 @@
+import React, { useAuth } from '../context/AuthContext';
 import React, { useState, useEffect } from 'react';
 import { sparePartsAPI } from '../lib/api';
 import { equipmentTypeLabels } from '../lib/utils';

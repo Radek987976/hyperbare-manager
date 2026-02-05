@@ -1,3 +1,4 @@
+import React, { useAuth } from '../context/AuthContext';
 import React, { useState, useEffect } from 'react';
 import { interventionsAPI, workOrdersAPI, sparePartsAPI, usersAPI } from '../lib/api';
 import { formatDate } from '../lib/utils';

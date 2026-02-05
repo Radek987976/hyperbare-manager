@@ -77,6 +77,7 @@ const PRIORITES = ['urgente', 'haute', 'normale', 'basse'];
 const TYPES_MAINTENANCE = ['preventive', 'corrective'];
 
 const WorkOrders = () => {
+  const { canCreate, canModify, canDelete } = useAuth();
   const [workOrders, setWorkOrders] = useState([]);
   const [equipments, setEquipments] = useState([]);
   const [technicians, setTechnicians] = useState([]);

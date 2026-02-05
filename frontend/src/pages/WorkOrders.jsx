@@ -264,14 +264,16 @@ const WorkOrders = () => {
             Gestion des maintenances préventives et correctives
           </p>
         </div>
-        <Button 
-          onClick={openCreateModal}
-          className="bg-[#005F73] hover:bg-[#004C5C]"
-          data-testid="add-work-order-btn"
-        >
-          <Plus className="w-4 h-4 mr-2" />
-          Nouvel ordre
-        </Button>
+        {canCreate() && (
+          <Button 
+            onClick={openCreateModal}
+            className="bg-[#005F73] hover:bg-[#004C5C]"
+            data-testid="add-work-order-btn"
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            Nouvel ordre
+          </Button>
+        )}
       </div>
 
       {/* Tabs */}

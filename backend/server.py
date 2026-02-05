@@ -863,6 +863,10 @@ async def get_upcoming_maintenance(current_user: dict = Depends(get_current_user
 
 @api_router.get("/export/csv/{collection}")
 async def export_csv(collection: str, current_user: dict = Depends(get_current_user)):
+    # Check permission
+    if not can_export(current_user):
+        raise HTTPException(status_code=403, detail="Accès réservé aux administrateurs et techniciens")
+    
     valid_collections = ["equipments", "work_orders", "interventions", "inspections", "spare_parts"]
     if collection not in valid_collections:
         raise HTTPException(status_code=400, detail="Collection invalide")
@@ -886,6 +890,10 @@ async def export_csv(collection: str, current_user: dict = Depends(get_current_u
 
 @api_router.get("/export/sql")
 async def export_sql(current_user: dict = Depends(get_current_user)):
+    # Check permission
+    if not can_export(current_user):
+        raise HTTPException(status_code=403, detail="Accès réservé aux administrateurs et techniciens")
+    
     collections = ["caisson", "equipments", "work_orders", "interventions", "inspections", "spare_parts", "users"]
     
     sql_output = []
@@ -919,6 +927,10 @@ async def export_sql(current_user: dict = Depends(get_current_user)):
 
 @api_router.get("/export/json")
 async def export_json(current_user: dict = Depends(get_current_user)):
+    # Check permission
+    if not can_export(current_user):
+        raise HTTPException(status_code=403, detail="Accès réservé aux administrateurs et techniciens")
+    
     collections = ["caisson", "equipments", "work_orders", "interventions", "inspections", "spare_parts"]
     
     export_data = {}

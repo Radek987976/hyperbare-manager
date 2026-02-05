@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { Badge } from './ui/badge';
 import {
   LayoutDashboard,
   Box,
@@ -14,16 +15,44 @@ import {
   LogOut,
   Menu,
   X,
-  Gauge
+  Gauge,
+  User,
+  Eye
 } from 'lucide-react';
 
 const Sidebar = ({ isOpen, onClose }) => {
-  const { user, logout, isAdmin } = useAuth();
+  const { user, logout, isAdmin, canExport, getRoleLabel } = useAuth();
   const navigate = useNavigate();
 
   const handleLogout = () => {
     logout();
     navigate('/login');
+  };
+
+  const getRoleIcon = () => {
+    switch (user?.role) {
+      case 'admin':
+        return <Shield className="w-3 h-3" />;
+      case 'technicien':
+        return <User className="w-3 h-3" />;
+      case 'invite':
+        return <Eye className="w-3 h-3" />;
+      default:
+        return <User className="w-3 h-3" />;
+    }
+  };
+
+  const getRoleBadgeClass = () => {
+    switch (user?.role) {
+      case 'admin':
+        return 'bg-[#005F73] text-white border-0';
+      case 'technicien':
+        return 'bg-blue-500/20 text-blue-300 border-0';
+      case 'invite':
+        return 'bg-slate-500/20 text-slate-300 border-0';
+      default:
+        return 'bg-slate-500/20 text-slate-300 border-0';
+    }
   };
 
   const navItems = [
@@ -37,8 +66,8 @@ const Sidebar = ({ isOpen, onClose }) => {
   ];
 
   const adminItems = [
-    { to: '/utilisateurs', icon: Users, label: 'Utilisateurs' },
-    { to: '/export', icon: Download, label: 'Export données' },
+    { to: '/utilisateurs', icon: Users, label: 'Utilisateurs', adminOnly: true },
+    { to: '/export', icon: Download, label: 'Export données', requireExport: true },
   ];
 
   return (
@@ -100,27 +129,34 @@ const Sidebar = ({ isOpen, onClose }) => {
             </NavLink>
           ))}
 
-          {isAdmin() && (
+          {/* Admin section - show to admin, and export to technicien */}
+          {(isAdmin() || canExport()) && (
             <>
               <div className="px-3 mt-6 mb-2">
                 <span className="text-xs uppercase tracking-wider text-slate-500 px-4">
                   Administration
                 </span>
               </div>
-              {adminItems.map((item) => (
-                <NavLink
-                  key={item.to}
-                  to={item.to}
-                  className={({ isActive }) =>
-                    `sidebar-link mx-3 ${isActive ? 'active' : ''}`
-                  }
-                  onClick={onClose}
-                  data-testid={`nav-${item.to.replace('/', '')}`}
-                >
-                  <item.icon className="w-5 h-5" />
-                  <span>{item.label}</span>
-                </NavLink>
-              ))}
+              {adminItems.map((item) => {
+                // Check permissions
+                if (item.adminOnly && !isAdmin()) return null;
+                if (item.requireExport && !canExport()) return null;
+                
+                return (
+                  <NavLink
+                    key={item.to}
+                    to={item.to}
+                    className={({ isActive }) =>
+                      `sidebar-link mx-3 ${isActive ? 'active' : ''}`
+                    }
+                    onClick={onClose}
+                    data-testid={`nav-${item.to.replace('/', '')}`}
+                  >
+                    <item.icon className="w-5 h-5" />
+                    <span>{item.label}</span>
+                  </NavLink>
+                );
+              })}
             </>
           )}
         </nav>
@@ -135,7 +171,10 @@ const Sidebar = ({ isOpen, onClose }) => {
               <p className="text-sm font-medium text-white truncate">
                 {user?.prenom} {user?.nom}
               </p>
-              <p className="text-xs text-slate-400 capitalize">{user?.role}</p>
+              <Badge className={`text-[10px] px-1.5 py-0 ${getRoleBadgeClass()}`}>
+                {getRoleIcon()}
+                <span className="ml-1">{getRoleLabel(user?.role)}</span>
+              </Badge>
             </div>
           </div>
           <button

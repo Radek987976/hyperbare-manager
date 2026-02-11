@@ -280,9 +280,9 @@ const Equipments = () => {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Tous les types</SelectItem>
-                {EQUIPMENT_TYPES.map(type => (
-                  <SelectItem key={type} value={type}>
-                    {equipmentTypeLabels[type]}
+                {equipmentTypes.map(type => (
+                  <SelectItem key={type.code} value={type.code}>
+                    {type.nom}
                   </SelectItem>
                 ))}
               </SelectContent>

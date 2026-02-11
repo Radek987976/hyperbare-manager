@@ -539,7 +539,7 @@ const WorkOrders = () => {
                   <SelectItem value="caisson">Caisson entier</SelectItem>
                   {equipments.map(eq => (
                     <SelectItem key={eq.id} value={eq.id}>
-                      {equipmentTypeLabels[eq.type]} - {eq.reference}
+                      {getTypeLabel(eq.type)} - {eq.reference}
                     </SelectItem>
                   ))}
                 </SelectContent>

@@ -712,6 +712,145 @@ const SpareParts = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Detail Modal with Files */}
+      <Dialog open={showDetailModal} onOpenChange={setShowDetailModal}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="font-['Barlow_Condensed'] uppercase text-xl">
+              Détails de la pièce
+            </DialogTitle>
+          </DialogHeader>
+          {selectedPart && (
+            <div className="space-y-6 max-h-[70vh] overflow-y-auto">
+              {/* Informations */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-sm text-slate-500">Nom</p>
+                  <p className="font-medium">{selectedPart.nom}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-slate-500">Référence</p>
+                  <p className="font-medium">{selectedPart.reference_fabricant}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-slate-500">Stock actuel</p>
+                  <p className="font-medium text-xl">{selectedPart.quantite_stock}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-slate-500">Fournisseur</p>
+                  <p className="font-medium">{selectedPart.fournisseur || '-'}</p>
+                </div>
+              </div>
+
+              {/* Photos */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <h4 className="font-semibold flex items-center gap-2">
+                    <Image className="w-4 h-4" /> Photos
+                  </h4>
+                  {canModify() && (
+                    <label className="cursor-pointer">
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={handlePhotoUpload}
+                        disabled={uploading}
+                      />
+                      <Button variant="outline" size="sm" asChild>
+                        <span>
+                          {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4 mr-1" />}
+                          Ajouter photo
+                        </span>
+                      </Button>
+                    </label>
+                  )}
+                </div>
+                <div className="grid grid-cols-3 gap-2">
+                  {(selectedPart.photos || []).map((url, i) => (
+                    <div key={i} className="relative group">
+                      <img
+                        src={`${backendUrl}${url}`}
+                        alt=""
+                        className="w-full h-24 object-cover rounded border"
+                      />
+                      {canDelete() && (
+                        <button
+                          onClick={() => handleDeletePhoto(url)}
+                          className="absolute top-1 right-1 bg-red-600 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                  {(!selectedPart.photos || selectedPart.photos.length === 0) && (
+                    <p className="text-sm text-slate-400 col-span-3">Aucune photo</p>
+                  )}
+                </div>
+              </div>
+
+              {/* Documents */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <h4 className="font-semibold flex items-center gap-2">
+                    <FileText className="w-4 h-4" /> Documents PDF
+                  </h4>
+                  {canModify() && (
+                    <label className="cursor-pointer">
+                      <input
+                        type="file"
+                        accept=".pdf"
+                        className="hidden"
+                        onChange={handleDocUpload}
+                        disabled={uploading}
+                      />
+                      <Button variant="outline" size="sm" asChild>
+                        <span>
+                          {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4 mr-1" />}
+                          Ajouter PDF
+                        </span>
+                      </Button>
+                    </label>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  {(selectedPart.documents || []).map((doc, i) => (
+                    <div key={i} className="flex items-center justify-between p-2 bg-slate-50 rounded">
+                      <a
+                        href={`${backendUrl}${doc.url}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-[#005F73] hover:underline flex items-center gap-2"
+                      >
+                        <FileText className="w-4 h-4" />
+                        {doc.filename}
+                      </a>
+                      {canDelete() && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-red-600"
+                          onClick={() => handleDeleteDoc(doc.url)}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      )}
+                    </div>
+                  ))}
+                  {(!selectedPart.documents || selectedPart.documents.length === 0) && (
+                    <p className="text-sm text-slate-400">Aucun document</p>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowDetailModal(false)}>Fermer</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

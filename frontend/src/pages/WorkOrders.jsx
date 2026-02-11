@@ -105,6 +105,8 @@ const WorkOrders = () => {
     equipment_id: '',
     date_planifiee: '',
     periodicite_jours: '',
+    periodicite_heures: '',
+    compteur_declenchement: '',
     technicien_assigne: ''
   });
 

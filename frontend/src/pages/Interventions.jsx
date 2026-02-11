@@ -39,6 +39,7 @@ function Interventions() {
     actions_realisees: '',
     observations: '',
     duree_minutes: '',
+    compteur_horaire: '',
     pieces_utilisees: []
   };
   const [formData, setFormData] = useState(emptyForm);
@@ -49,10 +50,20 @@ function Interventions() {
 
   async function loadData() {
     try {
-      const [r1, r2, r3, r4] = await Promise.all([
+      const [r1, r2, r3, r4, r5] = await Promise.all([
         interventionsAPI.getAll(),
         workOrdersAPI.getAll(),
         sparePartsAPI.getAll(),
+        usersAPI.getTechnicians(),
+        equipmentsAPI.getAll()
+      ]);
+      setData({
+        interventions: r1.data || [],
+        workOrders: r2.data || [],
+        spareParts: r3.data || [],
+        technicians: r4.data || [],
+        equipments: r5.data || []
+      });
         usersAPI.getTechnicians()
       ]);
       setData({

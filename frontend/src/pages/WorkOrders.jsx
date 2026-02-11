@@ -228,7 +228,7 @@ const WorkOrders = () => {
   const getEquipmentLabel = (equipmentId) => {
     const equipment = equipments.find(e => e.id === equipmentId);
     if (!equipment) return '-';
-    return `${equipmentTypeLabels[equipment.type]} - ${equipment.reference}`;
+    return `${getTypeLabel(equipment.type)} - ${equipment.reference}`;
   };
 
   const filteredWorkOrders = workOrders.filter(wo => {

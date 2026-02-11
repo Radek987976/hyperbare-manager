@@ -108,7 +108,9 @@ function Interventions() {
     setSaving(true);
     try {
       const payload = {
-        work_order_id: formData.work_order_id,
+        type_intervention: formData.type_intervention,
+        work_order_id: formData.type_intervention === 'curative' ? formData.work_order_id : null,
+        maintenance_preventive_id: formData.type_intervention === 'preventive' ? formData.maintenance_preventive_id : null,
         date_intervention: formData.date_intervention,
         technicien: formData.technicien,
         actions_realisees: formData.actions_realisees,
@@ -131,6 +133,11 @@ function Interventions() {
   function getWoTitle(id) {
     const wo = data.workOrders.find(w => w.id === id);
     return wo ? wo.titre : '-';
+  }
+
+  function getInspectionTitle(id) {
+    const insp = data.inspections.find(i => i.id === id);
+    return insp ? insp.titre : '-';
   }
 
   const pendingWo = data.workOrders.filter(wo => wo.statut === 'planifiee' || wo.statut === 'en_cours');

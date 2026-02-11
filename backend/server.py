@@ -823,11 +823,27 @@ async def create_intervention(data: InterventionCreate, current_user: dict = Dep
     doc["created_at"] = doc["created_at"].isoformat()
     await db.interventions.insert_one(doc)
     
-    # Update work order status
-    await db.work_orders.update_one(
-        {"id": data.work_order_id},
-        {"$set": {"statut": "terminee"}}
-    )
+    # Si maintenance curative (ordre de travail)
+    if data.type_intervention == "curative" and data.work_order_id:
+        await db.work_orders.update_one(
+            {"id": data.work_order_id},
+            {"$set": {"statut": "terminee"}}
+        )
+    
+    # Si maintenance préventive, mettre à jour la prochaine date
+    if data.type_intervention == "preventive" and data.maintenance_preventive_id:
+        inspection = await db.inspections.find_one({"id": data.maintenance_preventive_id})
+        if inspection:
+            # Recalculer la prochaine date de validité basée sur la date d'intervention
+            new_date_validite = calculate_next_date(data.date_intervention, inspection.get("periodicite", "annuel"))
+            await db.inspections.update_one(
+                {"id": data.maintenance_preventive_id},
+                {"$set": {
+                    "date_realisation": data.date_intervention,
+                    "date_validite": new_date_validite,
+                    "resultat": "conforme"
+                }}
+            )
     
     return intervention
 

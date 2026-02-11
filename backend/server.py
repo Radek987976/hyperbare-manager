@@ -869,6 +869,98 @@ async def delete_work_order(work_order_id: str, current_user: dict = Depends(get
         raise HTTPException(status_code=404, detail="Ordre de travail non trouvé")
     return {"message": "Ordre de travail supprimé"}
 
+# Work orders file uploads
+@api_router.post("/work-orders/{work_order_id}/photos")
+async def upload_work_order_photo(
+    work_order_id: str,
+    file: UploadFile = File(...),
+    current_user: dict = Depends(get_current_user)
+):
+    work_order = await db.work_orders.find_one({"id": work_order_id})
+    if not work_order:
+        raise HTTPException(status_code=404, detail="Maintenance non trouvée")
+    
+    ext = Path(file.filename).suffix.lower()
+    if ext not in {".jpg", ".jpeg", ".png", ".gif", ".webp"}:
+        raise HTTPException(status_code=400, detail="Format non supporté")
+    
+    unique_filename = f"{uuid.uuid4()}{ext}"
+    file_path = UPLOADS_DIR / "workorders" / unique_filename
+    
+    with open(file_path, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+    
+    photo_url = f"/api/uploads/workorders/{unique_filename}"
+    await db.work_orders.update_one(
+        {"id": work_order_id},
+        {"$push": {"photos": photo_url}}
+    )
+    return {"filename": file.filename, "url": photo_url}
+
+@api_router.post("/work-orders/{work_order_id}/documents")
+async def upload_work_order_document(
+    work_order_id: str,
+    file: UploadFile = File(...),
+    current_user: dict = Depends(get_current_user)
+):
+    work_order = await db.work_orders.find_one({"id": work_order_id})
+    if not work_order:
+        raise HTTPException(status_code=404, detail="Maintenance non trouvée")
+    
+    ext = Path(file.filename).suffix.lower()
+    if ext != ".pdf":
+        raise HTTPException(status_code=400, detail="Seuls les fichiers PDF sont acceptés")
+    
+    unique_filename = f"{uuid.uuid4()}{ext}"
+    file_path = UPLOADS_DIR / "workorders" / unique_filename
+    
+    with open(file_path, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+    
+    doc_url = f"/api/uploads/workorders/{unique_filename}"
+    doc_info = {
+        "filename": file.filename,
+        "url": doc_url,
+        "uploaded_at": datetime.now(timezone.utc).isoformat()
+    }
+    await db.work_orders.update_one(
+        {"id": work_order_id},
+        {"$push": {"documents": doc_info}}
+    )
+    return doc_info
+
+@api_router.delete("/work-orders/{work_order_id}/photos")
+async def delete_work_order_photo(
+    work_order_id: str,
+    photo_url: str,
+    current_user: dict = Depends(get_current_user)
+):
+    await db.work_orders.update_one(
+        {"id": work_order_id},
+        {"$pull": {"photos": photo_url}}
+    )
+    filename = photo_url.split("/")[-1]
+    file_path = UPLOADS_DIR / "workorders" / filename
+    if file_path.exists():
+        file_path.unlink()
+    return {"message": "Photo supprimée"}
+
+@api_router.delete("/work-orders/{work_order_id}/documents")
+async def delete_work_order_document(
+    work_order_id: str,
+    doc_url: str,
+    current_user: dict = Depends(get_current_user)
+):
+    await db.work_orders.update_one(
+        {"id": work_order_id},
+        {"$pull": {"documents": {"url": doc_url}}}
+    )
+    filename = doc_url.split("/")[-1]
+    file_path = UPLOADS_DIR / "workorders" / filename
+    if file_path.exists():
+        file_path.unlink()
+    return {"message": "Document supprimé"}
+
 # ==================== INTERVENTION ROUTES ====================
 
 @api_router.post("/interventions", response_model=Intervention)

@@ -62,9 +62,8 @@ const Sidebar = ({ isOpen, onClose }) => {
     { to: '/caisson', icon: Box, label: 'Caisson' },
     { to: '/equipements', icon: Settings2, label: 'Équipements' },
     { to: '/sous-equipements', icon: Layers, label: 'Sous-équipements' },
-    { to: '/ordres-travail', icon: ClipboardList, label: 'Ordres de travail' },
+    { to: '/ordres-travail', icon: ClipboardList, label: 'Maintenance préventive' },
     { to: '/interventions', icon: History, label: 'Interventions' },
-    { to: '/controles', icon: Wrench, label: 'Maintenance préventive' },
     { to: '/stock', icon: Package, label: 'Stock pièces' },
   ];
 

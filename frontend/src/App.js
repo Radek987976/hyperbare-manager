@@ -8,6 +8,8 @@ import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
 import Caisson from './pages/Caisson';
 import Equipments from './pages/Equipments';
+import EquipmentTypes from './pages/EquipmentTypes';
+import SubEquipments from './pages/SubEquipments';
 import WorkOrders from './pages/WorkOrders';
 import Interventions from './pages/Interventions';
 import Inspections from './pages/Inspections';

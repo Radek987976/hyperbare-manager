@@ -79,6 +79,7 @@ const WorkOrders = () => {
   const { canCreate, canModify, canDelete } = useAuth();
   const [workOrders, setWorkOrders] = useState([]);
   const [equipments, setEquipments] = useState([]);
+  const [equipmentTypes, setEquipmentTypes] = useState([]);
   const [technicians, setTechnicians] = useState([]);
   const [caisson, setCaisson] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -113,16 +114,18 @@ const WorkOrders = () => {
 
   const loadData = async () => {
     try {
-      const [workOrdersRes, equipmentsRes, caissonRes, techniciansRes] = await Promise.all([
+      const [workOrdersRes, equipmentsRes, caissonRes, techniciansRes, typesRes] = await Promise.all([
         workOrdersAPI.getAll(),
         equipmentsAPI.getAll(),
         caissonAPI.get(),
-        usersAPI.getTechnicians()
+        usersAPI.getTechnicians(),
+        equipmentTypesAPI.getAll()
       ]);
       setWorkOrders(workOrdersRes.data || []);
       setEquipments(equipmentsRes.data || []);
       setCaisson(caissonRes.data);
       setTechnicians(techniciansRes.data || []);
+      setEquipmentTypes(typesRes.data || []);
     } catch (error) {
       console.error('Erreur chargement:', error);
     } finally {

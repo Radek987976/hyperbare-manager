@@ -230,6 +230,65 @@ const SpareParts = () => {
     }
   };
 
+  // File upload handlers
+  const handlePhotoUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file || !selectedPart) return;
+    
+    setUploading(true);
+    try {
+      await sparePartsAPI.uploadPhoto(selectedPart.id, file);
+      const res = await sparePartsAPI.getById(selectedPart.id);
+      setSelectedPart(res.data);
+      await loadData();
+    } catch (error) {
+      alert('Erreur lors de l\'upload');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleDocUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file || !selectedPart) return;
+    
+    setUploading(true);
+    try {
+      await sparePartsAPI.uploadDocument(selectedPart.id, file);
+      const res = await sparePartsAPI.getById(selectedPart.id);
+      setSelectedPart(res.data);
+      await loadData();
+    } catch (error) {
+      alert('Erreur lors de l\'upload');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleDeletePhoto = async (photoUrl) => {
+    if (!selectedPart) return;
+    try {
+      await sparePartsAPI.deletePhoto(selectedPart.id, photoUrl);
+      const res = await sparePartsAPI.getById(selectedPart.id);
+      setSelectedPart(res.data);
+      await loadData();
+    } catch (error) {
+      alert('Erreur lors de la suppression');
+    }
+  };
+
+  const handleDeleteDoc = async (docUrl) => {
+    if (!selectedPart) return;
+    try {
+      await sparePartsAPI.deleteDocument(selectedPart.id, docUrl);
+      const res = await sparePartsAPI.getById(selectedPart.id);
+      setSelectedPart(res.data);
+      await loadData();
+    } catch (error) {
+      alert('Erreur lors de la suppression');
+    }
+  };
+
   const isLowStock = (part) => part.quantite_stock <= part.seuil_minimum;
 
   const filteredParts = spareParts.filter(part => {

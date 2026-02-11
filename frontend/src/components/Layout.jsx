@@ -17,7 +17,9 @@ import {
   X,
   Gauge,
   User,
-  Eye
+  Eye,
+  Layers,
+  Wrench
 } from 'lucide-react';
 
 const Sidebar = ({ isOpen, onClose }) => {
@@ -59,13 +61,15 @@ const Sidebar = ({ isOpen, onClose }) => {
     { to: '/', icon: LayoutDashboard, label: 'Tableau de bord' },
     { to: '/caisson', icon: Box, label: 'Caisson' },
     { to: '/equipements', icon: Settings2, label: 'Équipements' },
+    { to: '/sous-equipements', icon: Layers, label: 'Sous-équipements' },
     { to: '/ordres-travail', icon: ClipboardList, label: 'Ordres de travail' },
     { to: '/interventions', icon: History, label: 'Interventions' },
-    { to: '/controles', icon: Shield, label: 'Contrôles' },
+    { to: '/controles', icon: Wrench, label: 'Maintenance préventive' },
     { to: '/stock', icon: Package, label: 'Stock pièces' },
   ];
 
   const adminItems = [
+    { to: '/types-equipement', icon: Settings2, label: 'Types équipement', adminOnly: true },
     { to: '/utilisateurs', icon: Users, label: 'Utilisateurs', adminOnly: true },
     { to: '/export', icon: Download, label: 'Export données', requireExport: true },
   ];

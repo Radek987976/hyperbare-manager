@@ -161,6 +161,8 @@ const WorkOrders = () => {
       equipment_id: '',
       date_planifiee: '',
       periodicite_jours: '',
+      periodicite_heures: '',
+      compteur_declenchement: '',
       technicien_assigne: ''
     });
     setShowCustomTechnicien(false);
@@ -179,6 +181,8 @@ const WorkOrders = () => {
       equipment_id: wo.equipment_id || '',
       date_planifiee: wo.date_planifiee,
       periodicite_jours: wo.periodicite_jours?.toString() || '',
+      periodicite_heures: wo.periodicite_heures?.toString() || '',
+      compteur_declenchement: wo.compteur_declenchement?.toString() || '',
       technicien_assigne: wo.technicien_assigne || ''
     });
     // Check if technicien is not in the list
@@ -187,12 +191,22 @@ const WorkOrders = () => {
     setShowModal(true);
   };
 
+  // Get selected equipment to check if it's a compressor
+  const getSelectedEquipment = () => {
+    return equipments.find(eq => eq.id === formData.equipment_id);
+  };
+
   const handleSave = async () => {
     setSaving(true);
     try {
+      const selectedEq = getSelectedEquipment();
       const data = {
         ...formData,
         periodicite_jours: formData.periodicite_jours ? parseInt(formData.periodicite_jours) : null,
+        periodicite_heures: formData.periodicite_heures ? parseInt(formData.periodicite_heures) : null,
+        compteur_declenchement: formData.compteur_declenchement ? parseFloat(formData.compteur_declenchement) : 
+          (selectedEq && selectedEq.type === 'compresseur' && formData.periodicite_heures ? 
+            (selectedEq.compteur_horaire || 0) + parseInt(formData.periodicite_heures) : null),
         equipment_id: formData.equipment_id || null,
         caisson_id: formData.caisson_id || null
       };

@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { sparePartsAPI } from '../lib/api';
+import { sparePartsAPI, equipmentTypesAPI } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
-import { equipmentTypeLabels } from '../lib/utils';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
@@ -59,11 +58,10 @@ import {
   PlusCircle
 } from 'lucide-react';
 
-const EQUIPMENT_TYPES = ['porte', 'joint', 'soupape', 'compresseur', 'capteur', 'systeme_securite'];
-
 const SpareParts = () => {
   const { canCreate, canModify, canDelete } = useAuth();
   const [spareParts, setSpareParts] = useState([]);
+  const [equipmentTypes, setEquipmentTypes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState('all');

@@ -69,7 +69,10 @@ import {
   Calendar,
   Wrench,
   AlertTriangle,
-  Clock
+  Clock,
+  Upload,
+  FileText,
+  Image
 } from 'lucide-react';
 
 const STATUTS = ['planifiee', 'en_cours', 'terminee', 'annulee'];

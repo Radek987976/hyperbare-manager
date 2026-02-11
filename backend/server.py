@@ -1219,6 +1219,49 @@ async def get_upcoming_maintenance(current_user: dict = Depends(get_current_user
     
     return upcoming[:10]  # Return next 10
 
+@api_router.get("/dashboard/calendar")
+async def get_maintenance_calendar(current_user: dict = Depends(get_current_user)):
+    """Retourne les maintenances planifiées sur 52 semaines pour le calendrier"""
+    today = datetime.now(timezone.utc).date()
+    end_date = today + timedelta(weeks=52)
+    
+    work_orders = await db.work_orders.find(
+        {"statut": {"$in": ["planifiee", "en_cours", "terminee"]}},
+        {"_id": 0}
+    ).to_list(1000)
+    
+    calendar_data = []
+    
+    for wo in work_orders:
+        try:
+            planned_date = datetime.strptime(wo["date_planifiee"], "%Y-%m-%d").date()
+            # Inclure les maintenances passées (4 semaines) et futures (52 semaines)
+            if planned_date >= today - timedelta(weeks=4) and planned_date <= end_date:
+                # Calculer le numéro de semaine
+                week_number = planned_date.isocalendar()[1]
+                year = planned_date.year
+                
+                calendar_data.append({
+                    "id": wo["id"],
+                    "titre": wo["titre"],
+                    "type_maintenance": wo.get("type_maintenance", "preventive"),
+                    "date_planifiee": wo["date_planifiee"],
+                    "statut": wo["statut"],
+                    "equipment_id": wo.get("equipment_id"),
+                    "priorite": wo.get("priorite", "normale"),
+                    "week_number": week_number,
+                    "year": year,
+                    "periodicite_jours": wo.get("periodicite_jours"),
+                    "periodicite_heures": wo.get("periodicite_heures")
+                })
+        except (ValueError, KeyError):
+            pass
+    
+    # Trier par date
+    calendar_data.sort(key=lambda x: x["date_planifiee"])
+    
+    return calendar_data
+
 # ==================== EXPORT ROUTES ====================
 
 @api_router.get("/export/csv/{collection}")

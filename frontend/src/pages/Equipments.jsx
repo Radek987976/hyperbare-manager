@@ -65,13 +65,13 @@ import {
   X
 } from 'lucide-react';
 
-const EQUIPMENT_TYPES = ['porte', 'joint', 'soupape', 'compresseur', 'capteur', 'systeme_securite'];
 const STATUTS = ['en_service', 'maintenance', 'hors_service'];
 const CRITICITES = ['critique', 'haute', 'normale', 'basse'];
 
 const Equipments = () => {
   const { canCreate, canModify, canDelete } = useAuth();
   const [equipments, setEquipments] = useState([]);
+  const [equipmentTypes, setEquipmentTypes] = useState([]);
   const [caisson, setCaisson] = useState(null);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');

@@ -616,6 +616,60 @@ async def delete_equipment(equipment_id: str, current_user: dict = Depends(get_c
     await db.subequipments.delete_many({"parent_equipment_id": equipment_id})
     return {"message": "Équipement supprimé"}
 
+# Route pour mettre à jour le compteur horaire d'un compresseur
+class CompteurHoraireUpdate(BaseModel):
+    compteur_horaire: float
+    technicien: Optional[str] = None
+
+@api_router.put("/equipments/{equipment_id}/compteur-horaire")
+async def update_compteur_horaire(
+    equipment_id: str, 
+    data: CompteurHoraireUpdate, 
+    current_user: dict = Depends(get_current_user)
+):
+    equipment = await db.equipments.find_one({"id": equipment_id})
+    if not equipment:
+        raise HTTPException(status_code=404, detail="Équipement non trouvé")
+    
+    if equipment.get("type") != "compresseur":
+        raise HTTPException(status_code=400, detail="Le compteur horaire n'est disponible que pour les compresseurs")
+    
+    # Ajouter à l'historique
+    historique_entry = {
+        "date": datetime.now(timezone.utc).isoformat(),
+        "valeur": data.compteur_horaire,
+        "technicien": data.technicien or current_user.get("email"),
+        "ancienne_valeur": equipment.get("compteur_horaire", 0)
+    }
+    
+    await db.equipments.update_one(
+        {"id": equipment_id},
+        {
+            "$set": {"compteur_horaire": data.compteur_horaire},
+            "$push": {"historique_compteur": historique_entry}
+        }
+    )
+    
+    # Vérifier s'il y a des maintenances préventives basées sur les heures à déclencher
+    maintenances = await db.work_orders.find({
+        "equipment_id": equipment_id,
+        "periodicite_heures": {"$ne": None},
+        "statut": {"$in": ["planifiee", "terminee"]}
+    }).to_list(100)
+    
+    alerts = []
+    for wo in maintenances:
+        compteur_declenchement = wo.get("compteur_declenchement", 0)
+        if data.compteur_horaire >= compteur_declenchement and wo.get("statut") == "planifiee":
+            alerts.append({
+                "work_order_id": wo["id"],
+                "titre": wo["titre"],
+                "message": f"Maintenance à effectuer: compteur {data.compteur_horaire}h >= seuil {compteur_declenchement}h"
+            })
+    
+    updated = await db.equipments.find_one({"id": equipment_id}, {"_id": 0})
+    return {"equipment": updated, "alerts": alerts}
+
 # ==================== SUB-EQUIPMENT ROUTES ====================
 
 @api_router.post("/subequipments", response_model=SubEquipment)

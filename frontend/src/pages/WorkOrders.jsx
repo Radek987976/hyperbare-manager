@@ -68,7 +68,8 @@ import {
   X,
   Calendar,
   Wrench,
-  AlertTriangle
+  AlertTriangle,
+  Clock
 } from 'lucide-react';
 
 const STATUTS = ['planifiee', 'en_cours', 'terminee', 'annulee'];

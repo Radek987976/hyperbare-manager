@@ -92,13 +92,23 @@ const SpareParts = () => {
 
   const loadData = async () => {
     try {
-      const response = await sparePartsAPI.getAll();
-      setSpareParts(response.data || []);
+      const [partsRes, typesRes] = await Promise.all([
+        sparePartsAPI.getAll(),
+        equipmentTypesAPI.getAll()
+      ]);
+      setSpareParts(partsRes.data || []);
+      setEquipmentTypes(typesRes.data || []);
     } catch (error) {
       console.error('Erreur chargement:', error);
     } finally {
       setLoading(false);
     }
+  };
+
+  // Helper to get type label from dynamic types
+  const getTypeLabel = (typeCode) => {
+    const type = equipmentTypes.find(t => t.code === typeCode);
+    return type ? type.nom : typeCode;
   };
 
   const handleChange = (e) => {

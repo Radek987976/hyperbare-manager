@@ -887,20 +887,54 @@ async def create_intervention(data: InterventionCreate, current_user: dict = Dep
             {"$set": {"statut": "terminee"}}
         )
     
-    # Si maintenance préventive, mettre à jour la prochaine date
+    # Si maintenance préventive, mettre à jour le work order ET recalculer la prochaine échéance
     if data.type_intervention == "preventive" and data.maintenance_preventive_id:
-        inspection = await db.inspections.find_one({"id": data.maintenance_preventive_id})
-        if inspection:
-            # Recalculer la prochaine date de validité basée sur la date d'intervention
-            new_date_validite = calculate_next_date(data.date_intervention, inspection.get("periodicite", "annuel"))
-            await db.inspections.update_one(
+        # Récupérer le work order préventif
+        work_order = await db.work_orders.find_one({"id": data.maintenance_preventive_id})
+        if work_order:
+            # Marquer comme terminée
+            await db.work_orders.update_one(
                 {"id": data.maintenance_preventive_id},
-                {"$set": {
-                    "date_realisation": data.date_intervention,
-                    "date_validite": new_date_validite,
-                    "resultat": "conforme"
-                }}
+                {"$set": {"statut": "terminee"}}
             )
+            
+            # Si périodicité définie, créer automatiquement la prochaine maintenance
+            if work_order.get("periodicite_jours") or work_order.get("periodicite_heures"):
+                from datetime import timedelta
+                
+                # Calculer la prochaine date
+                if work_order.get("periodicite_jours"):
+                    next_date = datetime.strptime(data.date_intervention, "%Y-%m-%d") + timedelta(days=work_order["periodicite_jours"])
+                    next_date_str = next_date.strftime("%Y-%m-%d")
+                else:
+                    next_date_str = data.date_intervention  # Pour les heures, on garde la même date
+                
+                # Calculer le prochain compteur de déclenchement si basé sur les heures
+                next_compteur = None
+                if work_order.get("periodicite_heures"):
+                    equipment = await db.equipments.find_one({"id": work_order.get("equipment_id")})
+                    if equipment:
+                        current_compteur = equipment.get("compteur_horaire", 0)
+                        next_compteur = current_compteur + work_order["periodicite_heures"]
+                
+                # Créer le nouveau work order
+                new_wo = WorkOrder(
+                    titre=work_order["titre"],
+                    description=work_order["description"],
+                    type_maintenance="preventive",
+                    priorite=work_order.get("priorite", "normale"),
+                    statut="planifiee",
+                    caisson_id=work_order.get("caisson_id"),
+                    equipment_id=work_order.get("equipment_id"),
+                    date_planifiee=next_date_str,
+                    periodicite_jours=work_order.get("periodicite_jours"),
+                    periodicite_heures=work_order.get("periodicite_heures"),
+                    compteur_declenchement=next_compteur,
+                    technicien_assigne=work_order.get("technicien_assigne")
+                )
+                new_doc = new_wo.model_dump()
+                new_doc["created_at"] = new_doc["created_at"].isoformat()
+                await db.work_orders.insert_one(new_doc)
     
     return intervention
 

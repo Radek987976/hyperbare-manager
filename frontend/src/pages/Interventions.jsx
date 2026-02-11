@@ -358,6 +358,36 @@ function Interventions() {
                 <Input name="duree_minutes" type="number" value={formData.duree_minutes} onChange={handleChange} />
               </div>
             </div>
+            
+            {/* Compteur horaire pour les compresseurs */}
+            {isCompressor && (
+              <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                <div className="flex items-center gap-2 mb-2">
+                  <Activity className="w-4 h-4 text-amber-600" />
+                  <Label className="text-amber-800 font-medium">Compteur horaire compresseur</Label>
+                </div>
+                <div className="flex items-center gap-4">
+                  <div className="text-sm text-amber-700">
+                    Valeur actuelle: <span className="font-bold">{selectedEquipment?.compteur_horaire?.toLocaleString() || 0} h</span>
+                  </div>
+                  <div className="flex-1">
+                    <Input
+                      name="compteur_horaire"
+                      type="number"
+                      step="0.1"
+                      min="0"
+                      value={formData.compteur_horaire}
+                      onChange={handleChange}
+                      placeholder="Nouveau compteur (heures)"
+                      className="bg-white"
+                    />
+                  </div>
+                </div>
+                <p className="text-xs text-amber-600 mt-1">
+                  Saisissez la valeur actuelle du compteur horaire du compresseur
+                </p>
+              </div>
+            )}
             <div>
               <Label>Actions réalisées</Label>
               <Textarea name="actions_realisees" value={formData.actions_realisees} onChange={handleChange} rows={3} />

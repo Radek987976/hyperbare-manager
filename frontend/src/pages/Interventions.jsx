@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { interventionsAPI, workOrdersAPI, sparePartsAPI, usersAPI } from '../lib/api';
+import { interventionsAPI, workOrdersAPI, sparePartsAPI, usersAPI, equipmentsAPI } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
 import { formatDate } from '../lib/utils';
 import { Card, CardContent } from '../components/ui/card';
@@ -12,12 +12,16 @@ import { Skeleton } from '../components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
-import { History, Plus, Search, Eye, Loader2, Clock, User, Package, Wrench } from 'lucide-react';
+import { History, Plus, Search, Eye, Loader2, Clock, User, Package, Wrench, Activity } from 'lucide-react';
 
 function Interventions() {
   const [data, setData] = useState({
     interventions: [],
     workOrders: [],
+    spareParts: [],
+    technicians: [],
+    equipments: []
+  });
     spareParts: [],
     technicians: []
   });

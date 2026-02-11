@@ -110,6 +110,22 @@ function AppRoutes() {
         }
       />
       <Route
+        path="/types-equipement"
+        element={
+          <ProtectedRoute adminOnly>
+            <EquipmentTypes />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/sous-equipements"
+        element={
+          <ProtectedRoute>
+            <SubEquipments />
+          </ProtectedRoute>
+        }
+      />
+      <Route
         path="/ordres-travail"
         element={
           <ProtectedRoute>

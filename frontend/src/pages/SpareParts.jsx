@@ -367,7 +367,7 @@ const SpareParts = () => {
                       <TableCell className="font-mono text-sm">{part.reference_fabricant}</TableCell>
                       <TableCell>
                         <Badge variant="outline">
-                          {equipmentTypeLabels[part.equipment_type] || part.equipment_type}
+                          {getTypeLabel(part.equipment_type)}
                         </Badge>
                       </TableCell>
                       <TableCell>

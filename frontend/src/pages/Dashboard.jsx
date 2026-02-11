@@ -437,6 +437,50 @@ const Dashboard = () => {
           </CardContent>
         </Card>
       </div>
+
+      {/* Compresseurs - Compteurs horaires */}
+      {stats?.compresseurs && stats.compresseurs.length > 0 && (
+        <Card className="dashboard-widget" data-testid="compressors-counters">
+          <CardHeader>
+            <CardTitle className="font-['Barlow_Condensed'] uppercase text-lg flex items-center gap-2">
+              <Activity className="w-5 h-5 text-[#005F73]" />
+              Compteurs horaires des compresseurs
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {stats.compresseurs.map((comp) => (
+                <div 
+                  key={comp.id} 
+                  className={`p-4 rounded-lg border ${
+                    comp.statut === 'hors_service' ? 'border-red-200 bg-red-50' :
+                    comp.statut === 'maintenance' ? 'border-yellow-200 bg-yellow-50' :
+                    'border-slate-200 bg-slate-50'
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="font-medium text-sm">{comp.reference}</span>
+                    <Badge variant="outline" className={
+                      comp.statut === 'hors_service' ? 'bg-red-100 text-red-700' :
+                      comp.statut === 'maintenance' ? 'bg-yellow-100 text-yellow-700' :
+                      'bg-green-100 text-green-700'
+                    }>
+                      {comp.statut === 'en_service' ? 'Actif' : 
+                       comp.statut === 'maintenance' ? 'Maintenance' : 'HS'}
+                    </Badge>
+                  </div>
+                  <div className="text-3xl font-bold font-['Barlow_Condensed'] text-[#005F73]">
+                    {comp.compteur_horaire ? comp.compteur_horaire.toLocaleString() : '0'} h
+                  </div>
+                  <div className="text-xs text-slate-500 mt-1">
+                    S/N: {comp.numero_serie || '-'}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 };

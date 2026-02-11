@@ -426,9 +426,9 @@ const Equipments = () => {
                   <SelectValue placeholder="Sélectionner un type" />
                 </SelectTrigger>
                 <SelectContent>
-                  {EQUIPMENT_TYPES.map(type => (
-                    <SelectItem key={type} value={type}>
-                      {equipmentTypeLabels[type]}
+                  {equipmentTypes.map(type => (
+                    <SelectItem key={type.code} value={type.code}>
+                      {type.nom}
                     </SelectItem>
                   ))}
                 </SelectContent>

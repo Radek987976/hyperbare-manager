@@ -117,63 +117,93 @@ user_problem_statement: |
 backend:
   - task: "Types d'équipement CRUD (GET, POST, PUT, DELETE)"
     implemented: true
-    working: "NA"
+    working: true
     file: "/app/backend/server.py"
     stuck_count: 0
     priority: "high"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
       - working: "NA"
         agent: "main"
         comment: "Routes ajoutées pour gérer les types d'équipement dynamiquement"
+      - working: true
+        agent: "testing"
+        comment: "✅ TESTED: All CRUD operations working correctly. GET returns 6 default types, POST creates new types, PUT updates existing types, DELETE works (tested in cleanup). Equipment type validation and code uniqueness enforced."
 
   - task: "Sous-équipements CRUD avec lien parent"
     implemented: true
-    working: "NA"
+    working: true
     file: "/app/backend/server.py"
     stuck_count: 0
     priority: "high"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
       - working: "NA"
         agent: "main"
         comment: "Routes CRUD + upload photos/PDF pour sous-équipements"
+      - working: true
+        agent: "testing"
+        comment: "✅ TESTED: All sub-equipment CRUD operations working. Parent equipment validation enforced, filtering by parent_equipment_id works, photo/document upload endpoints available. Proper parent-child relationship maintained."
 
   - task: "Interventions avec type curative/préventive"
     implemented: true
-    working: "NA"
+    working: true
     file: "/app/backend/server.py"
     stuck_count: 0
     priority: "high"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
       - working: "NA"
         agent: "main"
         comment: "Modification du modèle Intervention pour supporter curative et préventive avec mise à jour auto de la prochaine date"
+      - working: true
+        agent: "testing"
+        comment: "✅ TESTED: Both curative and preventive interventions working correctly. Curative interventions link to work_order_id, preventive interventions link to maintenance_preventive_id. Automatic date_validite update confirmed working - when preventive intervention created, inspection's date_realisation and date_validite are properly updated based on periodicite."
 
   - task: "Dashboard avec compteurs compresseurs"
     implemented: true
-    working: "NA"
+    working: true
     file: "/app/backend/server.py"
     stuck_count: 0
     priority: "medium"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
       - working: "NA"
         agent: "main"
         comment: "Route dashboard/stats modifiée pour retourner les compteurs horaires des compresseurs"
+      - working: true
+        agent: "testing"
+        comment: "✅ TESTED: Dashboard stats endpoint working correctly. Returns compresseurs array with compteur_horaire field for all compressor equipment. All expected fields present: equipment_stats, work_order_stats, low_stock_count, total_spare_parts."
 
   - task: "Export données (SQL, JSON, CSV)"
     implemented: true
-    working: "NA"
+    working: true
     file: "/app/backend/server.py"
     stuck_count: 0
     priority: "medium"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
       - working: "NA"
         agent: "main"
         comment: "Routes d'export existantes - à vérifier"
+      - working: true
+        agent: "testing"
+        comment: "✅ TESTED: All export endpoints working correctly. CSV export for equipments returns proper CSV format, JSON export returns complete database dump, SQL export generates proper SQL statements with CREATE TABLE and INSERT commands. All have correct content-types."
+
+  - task: "Suppression ordre de travail"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "medium"
+    needs_retesting: false
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Route DELETE pour supprimer les ordres de travail"
+      - working: true
+        agent: "testing"
+        comment: "✅ TESTED: Work order deletion working correctly. DELETE /api/work-orders/{id} returns 200, work order is properly removed from database (verified with 404 on subsequent GET)."
 
 frontend:
   - task: "Page Types d'équipement"

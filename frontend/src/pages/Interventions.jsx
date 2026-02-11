@@ -214,7 +214,6 @@ function Interventions() {
                       ? <><Wrench className="w-4 h-4 inline mr-1 text-green-600" />{getPreventiveTitle(item.maintenance_preventive_id)}</>
                       : getWoTitle(item.work_order_id)}
                   </TableCell>
-                  </TableCell>
                   <TableCell><User className="w-4 h-4 inline mr-1 text-slate-400" />{item.technicien}</TableCell>
                   <TableCell className="max-w-xs truncate">{item.actions_realisees}</TableCell>
                   <TableCell>{item.duree_minutes ? `${item.duree_minutes} min` : '-'}</TableCell>

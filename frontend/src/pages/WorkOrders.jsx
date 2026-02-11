@@ -584,6 +584,51 @@ const WorkOrders = () => {
                 data-testid="input-periodicite"
               />
             </div>
+            
+            {/* Périodicité horaire pour les compresseurs */}
+            {getSelectedEquipment()?.type === 'compresseur' && (
+              <>
+                <div className="space-y-2 md:col-span-2 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                  <p className="text-sm font-medium text-blue-800 flex items-center gap-2">
+                    <Clock className="w-4 h-4" />
+                    Maintenance basée sur le compteur horaire
+                  </p>
+                  <p className="text-xs text-blue-600">
+                    Compteur actuel: {getSelectedEquipment()?.compteur_horaire?.toLocaleString() || 0} h
+                  </p>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="periodicite_heures">Périodicité (heures de fonctionnement)</Label>
+                  <Input
+                    id="periodicite_heures"
+                    name="periodicite_heures"
+                    type="number"
+                    value={formData.periodicite_heures}
+                    onChange={handleChange}
+                    placeholder="Ex: 500"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="compteur_declenchement">Compteur de déclenchement (h)</Label>
+                  <Input
+                    id="compteur_declenchement"
+                    name="compteur_declenchement"
+                    type="number"
+                    step="0.1"
+                    value={formData.compteur_declenchement || (
+                      formData.periodicite_heures ? 
+                        (getSelectedEquipment()?.compteur_horaire || 0) + parseInt(formData.periodicite_heures || 0) : ''
+                    )}
+                    onChange={handleChange}
+                    placeholder="Auto-calculé"
+                  />
+                  <p className="text-xs text-slate-500">
+                    Maintenance à effectuer quand le compteur atteint cette valeur
+                  </p>
+                </div>
+              </>
+            )}
+            
             <div className="space-y-2">
               <Label>Technicien assigné</Label>
               {!showCustomTechnicien ? (

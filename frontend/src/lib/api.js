@@ -66,6 +66,7 @@ export const equipmentsAPI = {
   create: (data) => api.post('/equipments', data),
   update: (id, data) => api.put(`/equipments/${id}`, data),
   delete: (id) => api.delete(`/equipments/${id}`),
+  updateCompteurHoraire: (id, data) => api.put(`/equipments/${id}/compteur-horaire`, data),
   // File uploads
   uploadPhoto: (id, file) => {
     const formData = new FormData();

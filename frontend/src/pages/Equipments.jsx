@@ -62,7 +62,9 @@ import {
   Trash2,
   Eye,
   Loader2,
-  X
+  X,
+  Clock,
+  Activity
 } from 'lucide-react';
 
 const STATUTS = ['en_service', 'maintenance', 'hors_service'];
@@ -82,8 +84,10 @@ const Equipments = () => {
   const [showModal, setShowModal] = useState(false);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [showCompteurModal, setShowCompteurModal] = useState(false);
   const [selectedEquipment, setSelectedEquipment] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [compteurValue, setCompteurValue] = useState('');
   
   const [formData, setFormData] = useState({
     type: '',
@@ -92,7 +96,8 @@ const Equipments = () => {
     criticite: 'normale',
     statut: 'en_service',
     description: '',
-    date_installation: ''
+    date_installation: '',
+    compteur_horaire: ''
   });
 
   useEffect(() => {

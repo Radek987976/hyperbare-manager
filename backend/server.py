@@ -187,6 +187,8 @@ class InterventionBase(BaseModel):
     observations: Optional[str] = None
     pieces_utilisees: List[dict] = []  # [{spare_part_id, quantite}]
     duree_minutes: Optional[int] = None
+    compteur_horaire: Optional[float] = None  # Compteur horaire au moment de l'intervention (pour compresseurs)
+    equipment_id: Optional[str] = None  # Équipement concerné
 
 class InterventionCreate(InterventionBase):
     pass

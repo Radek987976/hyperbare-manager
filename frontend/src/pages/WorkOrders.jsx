@@ -266,7 +266,7 @@ const WorkOrders = () => {
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold font-['Barlow_Condensed'] uppercase tracking-tight text-slate-900">
-            Ordres de travail
+            Maintenance préventive
           </h1>
           <p className="text-slate-500 mt-1">
             Gestion des maintenances préventives et correctives
@@ -279,7 +279,7 @@ const WorkOrders = () => {
             data-testid="add-work-order-btn"
           >
             <Plus className="w-4 h-4 mr-2" />
-            Nouvel ordre
+            Nouvelle maintenance
           </Button>
         )}
       </div>

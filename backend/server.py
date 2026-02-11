@@ -94,6 +94,21 @@ class Caisson(CaissonBase):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
+# Equipment Type Model (Dynamic types)
+class EquipmentTypeBase(BaseModel):
+    nom: str
+    code: str
+    description: Optional[str] = None
+    icon: Optional[str] = None
+
+class EquipmentTypeCreate(EquipmentTypeBase):
+    pass
+
+class EquipmentType(EquipmentTypeBase):
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
 # Equipment Model
 class EquipmentBase(BaseModel):
     type: str  # porte, joint, soupape, compresseur, capteur, systeme_securite

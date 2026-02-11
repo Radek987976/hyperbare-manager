@@ -126,6 +126,22 @@ export const workOrdersAPI = {
   create: (data) => api.post('/work-orders', data),
   update: (id, data) => api.put(`/work-orders/${id}`, data),
   delete: (id) => api.delete(`/work-orders/${id}`),
+  uploadPhoto: (id, file) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return api.post(`/work-orders/${id}/photos`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    });
+  },
+  uploadDocument: (id, file) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return api.post(`/work-orders/${id}/documents`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    });
+  },
+  deletePhoto: (id, photoUrl) => api.delete(`/work-orders/${id}/photos?photo_url=${encodeURIComponent(photoUrl)}`),
+  deleteDocument: (id, docUrl) => api.delete(`/work-orders/${id}/documents?doc_url=${encodeURIComponent(docUrl)}`),
 };
 
 // Interventions

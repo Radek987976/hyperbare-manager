@@ -116,6 +116,18 @@ function Interventions() {
     }));
   }
 
+  // Récupérer l'équipement concerné par le work order sélectionné
+  function getSelectedEquipment() {
+    let woId = formData.type_intervention === 'curative' ? formData.work_order_id : formData.maintenance_preventive_id;
+    if (!woId) return null;
+    const wo = data.workOrders.find(w => w.id === woId);
+    if (!wo || !wo.equipment_id) return null;
+    return data.equipments.find(e => e.id === wo.equipment_id);
+  }
+
+  const selectedEquipment = getSelectedEquipment();
+  const isCompressor = selectedEquipment?.type === 'compresseur';
+
   async function handleSave() {
     setSaving(true);
     try {
@@ -128,6 +140,8 @@ function Interventions() {
         actions_realisees: formData.actions_realisees,
         observations: formData.observations,
         duree_minutes: formData.duree_minutes ? parseInt(formData.duree_minutes) : null,
+        compteur_horaire: formData.compteur_horaire ? parseFloat(formData.compteur_horaire) : null,
+        equipment_id: selectedEquipment?.id || null,
         pieces_utilisees: formData.pieces_utilisees.map(p => ({
           spare_part_id: p.spare_part_id,
           quantite: p.quantite

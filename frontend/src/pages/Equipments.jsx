@@ -350,7 +350,7 @@ const Equipments = () => {
                   filteredEquipments.map((equipment) => (
                     <TableRow key={equipment.id} data-testid={`equipment-row-${equipment.id}`}>
                       <TableCell className="font-medium">
-                        {equipmentTypeLabels[equipment.type] || equipment.type}
+                        {getTypeLabel(equipment.type)}
                       </TableCell>
                       <TableCell>{equipment.reference}</TableCell>
                       <TableCell className="font-mono text-sm">{equipment.numero_serie}</TableCell>

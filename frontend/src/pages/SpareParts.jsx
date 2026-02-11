@@ -459,6 +459,13 @@ const SpareParts = () => {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => {
+                              setSelectedPart(part);
+                              setShowDetailModal(true);
+                            }}>
+                              <Eye className="w-4 h-4 mr-2" />
+                              Voir détails / Fichiers
+                            </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => openStockModal(part)}>
                               <Package className="w-4 h-4 mr-2" />
                               Ajuster le stock

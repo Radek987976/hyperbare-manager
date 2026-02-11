@@ -158,6 +158,7 @@ export const dashboardAPI = {
   getStats: () => api.get('/dashboard/stats'),
   getAlerts: () => api.get('/dashboard/alerts'),
   getUpcomingMaintenance: () => api.get('/dashboard/upcoming-maintenance'),
+  getCalendar: () => api.get('/dashboard/calendar'),
 };
 
 // Export

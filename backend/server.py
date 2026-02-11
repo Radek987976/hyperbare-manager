@@ -1002,11 +1002,24 @@ async def get_dashboard_stats(current_user: dict = Depends(get_current_user)):
     spare_parts = await db.spare_parts.find({}, {"_id": 0}).to_list(1000)
     low_stock_parts = [p for p in spare_parts if p["quantite_stock"] <= p["seuil_minimum"]]
     
+    # Compresseurs avec compteur horaire
+    compresseurs = [e for e in equipments if e.get("type") == "compresseur"]
+    compresseurs_stats = []
+    for comp in compresseurs:
+        compresseurs_stats.append({
+            "id": comp.get("id"),
+            "reference": comp.get("reference"),
+            "numero_serie": comp.get("numero_serie"),
+            "compteur_horaire": comp.get("compteur_horaire", 0),
+            "statut": comp.get("statut")
+        })
+    
     return {
         "equipment_stats": equipment_stats,
         "work_order_stats": work_order_stats,
         "low_stock_count": len(low_stock_parts),
-        "total_spare_parts": len(spare_parts)
+        "total_spare_parts": len(spare_parts),
+        "compresseurs": compresseurs_stats
     }
 
 @api_router.get("/dashboard/alerts")

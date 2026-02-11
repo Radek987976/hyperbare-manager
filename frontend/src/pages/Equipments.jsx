@@ -144,7 +144,8 @@ const Equipments = () => {
       criticite: 'normale',
       statut: 'en_service',
       description: '',
-      date_installation: ''
+      date_installation: '',
+      compteur_horaire: ''
     });
     setShowModal(true);
   };
@@ -158,9 +159,38 @@ const Equipments = () => {
       criticite: equipment.criticite,
       statut: equipment.statut,
       description: equipment.description || '',
-      date_installation: equipment.date_installation || ''
+      date_installation: equipment.date_installation || '',
+      compteur_horaire: equipment.compteur_horaire?.toString() || ''
     });
     setShowModal(true);
+  };
+
+  const openCompteurModal = (equipment) => {
+    setSelectedEquipment(equipment);
+    setCompteurValue(equipment.compteur_horaire?.toString() || '');
+    setShowCompteurModal(true);
+  };
+
+  const handleUpdateCompteur = async () => {
+    if (!selectedEquipment || !compteurValue) return;
+    
+    setSaving(true);
+    try {
+      const response = await equipmentsAPI.updateCompteurHoraire(selectedEquipment.id, {
+        compteur_horaire: parseFloat(compteurValue)
+      });
+      
+      if (response.data.alerts && response.data.alerts.length > 0) {
+        alert(`⚠️ Maintenances à effectuer:\n${response.data.alerts.map(a => a.message).join('\n')}`);
+      }
+      
+      await loadData();
+      setShowCompteurModal(false);
+    } catch (error) {
+      alert(error.response?.data?.detail || 'Erreur lors de la mise à jour');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleSave = async () => {

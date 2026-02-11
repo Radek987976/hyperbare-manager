@@ -165,7 +165,6 @@ function Interventions() {
         <Button 
           onClick={() => { setFormData(emptyForm); setShowCustomTechnicien(false); setShowModal(true); }}
           className="bg-[#005F73] hover:bg-[#004C5C]"
-          disabled={pendingWo.length === 0}
           data-testid="add-intervention-btn"
         >
           <Plus className="w-4 h-4 mr-2" />

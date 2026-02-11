@@ -98,6 +98,9 @@ const WorkOrders = () => {
   const [selectedWorkOrder, setSelectedWorkOrder] = useState(null);
   const [saving, setSaving] = useState(false);
   const [showCustomTechnicien, setShowCustomTechnicien] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  
+  const backendUrl = process.env.REACT_APP_BACKEND_URL;
   
   const [formData, setFormData] = useState({
     titre: '',

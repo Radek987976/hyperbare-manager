@@ -132,6 +132,26 @@ class Equipment(EquipmentBase):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
+# Sub-Equipment Model (Sous-équipement)
+class SubEquipmentBase(BaseModel):
+    nom: str
+    reference: str
+    numero_serie: Optional[str] = None
+    parent_equipment_id: str  # Lien vers l'équipement parent
+    description: Optional[str] = None
+    date_installation: Optional[str] = None
+    statut: str = Field(default="en_service", description="en_service, maintenance, hors_service")
+    photos: List[str] = []
+    documents: List[dict] = []
+
+class SubEquipmentCreate(SubEquipmentBase):
+    pass
+
+class SubEquipment(SubEquipmentBase):
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
 # Work Order Model
 class WorkOrderBase(BaseModel):
     titre: str

@@ -101,17 +101,25 @@ const Equipments = () => {
 
   const loadData = async () => {
     try {
-      const [equipmentsRes, caissonRes] = await Promise.all([
+      const [equipmentsRes, caissonRes, typesRes] = await Promise.all([
         equipmentsAPI.getAll(),
-        caissonAPI.get()
+        caissonAPI.get(),
+        equipmentTypesAPI.getAll()
       ]);
       setEquipments(equipmentsRes.data || []);
       setCaisson(caissonRes.data);
+      setEquipmentTypes(typesRes.data || []);
     } catch (error) {
       console.error('Erreur chargement:', error);
     } finally {
       setLoading(false);
     }
+  };
+
+  // Helper to get type label from dynamic types
+  const getTypeLabel = (typeCode) => {
+    const type = equipmentTypes.find(t => t.code === typeCode);
+    return type ? type.nom : typeCode;
   };
 
   const handleChange = (e) => {

@@ -167,6 +167,8 @@ class WorkOrderBase(BaseModel):
     periodicite_heures: Optional[int] = None  # Périodicité en heures de fonctionnement
     compteur_declenchement: Optional[float] = None  # Compteur horaire au moment où la maintenance doit être faite
     technicien_assigne: Optional[str] = None
+    photos: List[str] = []
+    documents: List[dict] = []
 
 class WorkOrderCreate(WorkOrderBase):
     pass

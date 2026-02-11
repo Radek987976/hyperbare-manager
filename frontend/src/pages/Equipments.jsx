@@ -619,6 +619,16 @@ const Equipments = () => {
                   <p className="text-xs text-slate-500 uppercase">Installation</p>
                   <p className="font-medium">{formatDate(selectedEquipment.date_installation)}</p>
                 </div>
+                {selectedEquipment.type === 'compresseur' && (
+                  <div className="col-span-2 p-3 bg-[#005F73]/5 rounded-lg">
+                    <p className="text-xs text-slate-500 uppercase flex items-center gap-1">
+                      <Clock className="w-3 h-3" /> Compteur horaire
+                    </p>
+                    <p className="text-2xl font-bold font-['Barlow_Condensed'] text-[#005F73]">
+                      {selectedEquipment.compteur_horaire?.toLocaleString() || 0} h
+                    </p>
+                  </div>
+                )}
               </div>
               {selectedEquipment.description && (
                 <div>

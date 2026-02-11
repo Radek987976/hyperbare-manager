@@ -163,6 +163,9 @@ class WorkOrderBase(BaseModel):
     equipment_id: Optional[str] = None
     date_planifiee: str
     periodicite_jours: Optional[int] = None
+    # Pour les compresseurs - maintenance basée sur le compteur horaire
+    periodicite_heures: Optional[int] = None  # Périodicité en heures de fonctionnement
+    compteur_declenchement: Optional[float] = None  # Compteur horaire au moment où la maintenance doit être faite
     technicien_assigne: Optional[str] = None
 
 class WorkOrderCreate(WorkOrderBase):

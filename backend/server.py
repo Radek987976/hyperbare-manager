@@ -609,7 +609,150 @@ async def delete_equipment(equipment_id: str, current_user: dict = Depends(get_c
     result = await db.equipments.delete_one({"id": equipment_id})
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Équipement non trouvé")
+    # Supprimer aussi les sous-équipements liés
+    await db.subequipments.delete_many({"parent_equipment_id": equipment_id})
     return {"message": "Équipement supprimé"}
+
+# ==================== SUB-EQUIPMENT ROUTES ====================
+
+@api_router.post("/subequipments", response_model=SubEquipment)
+async def create_subequipment(data: SubEquipmentCreate, current_user: dict = Depends(get_current_user)):
+    # Vérifier que l'équipement parent existe
+    parent = await db.equipments.find_one({"id": data.parent_equipment_id})
+    if not parent:
+        raise HTTPException(status_code=404, detail="Équipement parent non trouvé")
+    
+    subequipment = SubEquipment(**data.model_dump())
+    doc = subequipment.model_dump()
+    doc["created_at"] = doc["created_at"].isoformat()
+    await db.subequipments.insert_one(doc)
+    return subequipment
+
+@api_router.get("/subequipments", response_model=List[SubEquipment])
+async def get_subequipments(
+    parent_equipment_id: Optional[str] = None,
+    current_user: dict = Depends(get_current_user)
+):
+    query = {}
+    if parent_equipment_id:
+        query["parent_equipment_id"] = parent_equipment_id
+    
+    subequipments = await db.subequipments.find(query, {"_id": 0}).to_list(1000)
+    return subequipments
+
+@api_router.get("/subequipments/{subequipment_id}", response_model=SubEquipment)
+async def get_subequipment(subequipment_id: str, current_user: dict = Depends(get_current_user)):
+    subequipment = await db.subequipments.find_one({"id": subequipment_id}, {"_id": 0})
+    if not subequipment:
+        raise HTTPException(status_code=404, detail="Sous-équipement non trouvé")
+    return subequipment
+
+@api_router.put("/subequipments/{subequipment_id}", response_model=SubEquipment)
+async def update_subequipment(subequipment_id: str, data: SubEquipmentCreate, current_user: dict = Depends(get_current_user)):
+    result = await db.subequipments.update_one({"id": subequipment_id}, {"$set": data.model_dump()})
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Sous-équipement non trouvé")
+    subequipment = await db.subequipments.find_one({"id": subequipment_id}, {"_id": 0})
+    return subequipment
+
+@api_router.delete("/subequipments/{subequipment_id}")
+async def delete_subequipment(subequipment_id: str, current_user: dict = Depends(get_current_user)):
+    result = await db.subequipments.delete_one({"id": subequipment_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Sous-équipement non trouvé")
+    return {"message": "Sous-équipement supprimé"}
+
+# Sub-equipment file uploads
+@api_router.post("/subequipments/{subequipment_id}/photos")
+async def upload_subequipment_photo(
+    subequipment_id: str,
+    file: UploadFile = File(...),
+    current_user: dict = Depends(get_current_user)
+):
+    subequipment = await db.subequipments.find_one({"id": subequipment_id})
+    if not subequipment:
+        raise HTTPException(status_code=404, detail="Sous-équipement non trouvé")
+    
+    ext = Path(file.filename).suffix.lower()
+    if ext not in {".jpg", ".jpeg", ".png", ".gif", ".webp"}:
+        raise HTTPException(status_code=400, detail="Format non supporté")
+    
+    unique_filename = f"{uuid.uuid4()}{ext}"
+    file_path = UPLOADS_DIR / "subequipments" / unique_filename
+    
+    with open(file_path, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+    
+    photo_url = f"/api/uploads/subequipments/{unique_filename}"
+    await db.subequipments.update_one(
+        {"id": subequipment_id},
+        {"$push": {"photos": photo_url}}
+    )
+    return {"filename": file.filename, "url": photo_url}
+
+@api_router.post("/subequipments/{subequipment_id}/documents")
+async def upload_subequipment_document(
+    subequipment_id: str,
+    file: UploadFile = File(...),
+    current_user: dict = Depends(get_current_user)
+):
+    subequipment = await db.subequipments.find_one({"id": subequipment_id})
+    if not subequipment:
+        raise HTTPException(status_code=404, detail="Sous-équipement non trouvé")
+    
+    ext = Path(file.filename).suffix.lower()
+    if ext != ".pdf":
+        raise HTTPException(status_code=400, detail="Seuls les fichiers PDF sont acceptés")
+    
+    unique_filename = f"{uuid.uuid4()}{ext}"
+    file_path = UPLOADS_DIR / "subequipments" / unique_filename
+    
+    with open(file_path, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+    
+    doc_url = f"/api/uploads/subequipments/{unique_filename}"
+    doc_info = {
+        "filename": file.filename,
+        "url": doc_url,
+        "uploaded_at": datetime.now(timezone.utc).isoformat()
+    }
+    await db.subequipments.update_one(
+        {"id": subequipment_id},
+        {"$push": {"documents": doc_info}}
+    )
+    return doc_info
+
+@api_router.delete("/subequipments/{subequipment_id}/photos")
+async def delete_subequipment_photo(
+    subequipment_id: str,
+    photo_url: str,
+    current_user: dict = Depends(get_current_user)
+):
+    await db.subequipments.update_one(
+        {"id": subequipment_id},
+        {"$pull": {"photos": photo_url}}
+    )
+    filename = photo_url.split("/")[-1]
+    file_path = UPLOADS_DIR / "subequipments" / filename
+    if file_path.exists():
+        file_path.unlink()
+    return {"message": "Photo supprimée"}
+
+@api_router.delete("/subequipments/{subequipment_id}/documents")
+async def delete_subequipment_document(
+    subequipment_id: str,
+    doc_url: str,
+    current_user: dict = Depends(get_current_user)
+):
+    await db.subequipments.update_one(
+        {"id": subequipment_id},
+        {"$pull": {"documents": {"url": doc_url}}}
+    )
+    filename = doc_url.split("/")[-1]
+    file_path = UPLOADS_DIR / "subequipments" / filename
+    if file_path.exists():
+        file_path.unlink()
+    return {"message": "Document supprimé"}
 
 # ==================== WORK ORDER ROUTES ====================
 

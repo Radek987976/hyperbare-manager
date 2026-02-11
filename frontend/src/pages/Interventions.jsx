@@ -205,7 +205,11 @@ function Interventions() {
               ) : filtered.map(item => (
                 <TableRow key={item.id}>
                   <TableCell>{formatDate(item.date_intervention)}</TableCell>
-                  <TableCell>{getWoTitle(item.work_order_id)}</TableCell>
+                  <TableCell>
+                    {item.type_intervention === 'preventive' 
+                      ? <><Wrench className="w-4 h-4 inline mr-1 text-green-600" />{getInspectionTitle(item.maintenance_preventive_id)}</>
+                      : getWoTitle(item.work_order_id)}
+                  </TableCell>
                   <TableCell><User className="w-4 h-4 inline mr-1 text-slate-400" />{item.technicien}</TableCell>
                   <TableCell className="max-w-xs truncate">{item.actions_realisees}</TableCell>
                   <TableCell>{item.duree_minutes ? `${item.duree_minutes} min` : '-'}</TableCell>
@@ -225,16 +229,41 @@ function Interventions() {
         <DialogContent className="max-w-2xl">
           <DialogHeader><DialogTitle>Enregistrer une intervention</DialogTitle></DialogHeader>
           <div className="space-y-4">
+            {/* Type d'intervention */}
+            <div>
+              <Label>Type d'intervention *</Label>
+              <Select value={formData.type_intervention} onValueChange={v => setFormData(p => ({ ...p, type_intervention: v, work_order_id: '', maintenance_preventive_id: '' }))}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="curative">Maintenance curative (ordre de travail)</SelectItem>
+                  <SelectItem value="preventive">Maintenance préventive planifiée</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
             <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label>Ordre de travail</Label>
-                <Select value={formData.work_order_id} onValueChange={v => setFormData(p => ({ ...p, work_order_id: v }))}>
-                  <SelectTrigger><SelectValue placeholder="Sélectionner" /></SelectTrigger>
-                  <SelectContent>
-                    {pendingWo.map(wo => <SelectItem key={wo.id} value={wo.id}>{wo.titre}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
+              {formData.type_intervention === 'curative' ? (
+                <div>
+                  <Label>Ordre de travail</Label>
+                  <Select value={formData.work_order_id} onValueChange={v => setFormData(p => ({ ...p, work_order_id: v }))}>
+                    <SelectTrigger><SelectValue placeholder="Sélectionner" /></SelectTrigger>
+                    <SelectContent>
+                      {pendingWo.map(wo => <SelectItem key={wo.id} value={wo.id}>{wo.titre}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+              ) : (
+                <div>
+                  <Label>Maintenance préventive</Label>
+                  <Select value={formData.maintenance_preventive_id} onValueChange={v => setFormData(p => ({ ...p, maintenance_preventive_id: v }))}>
+                    <SelectTrigger><SelectValue placeholder="Sélectionner" /></SelectTrigger>
+                    <SelectContent>
+                      {data.inspections.map(insp => <SelectItem key={insp.id} value={insp.id}>{insp.titre} ({insp.periodicite})</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-slate-500 mt-1">La prochaine date sera recalculée automatiquement</p>
+                </div>
+              )}
               <div>
                 <Label>Date</Label>
                 <Input name="date_intervention" type="date" value={formData.date_intervention} onChange={handleChange} />

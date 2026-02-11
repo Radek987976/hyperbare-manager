@@ -653,6 +653,56 @@ const Equipments = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Compteur Horaire Modal */}
+      <Dialog open={showCompteurModal} onOpenChange={setShowCompteurModal}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="font-['Barlow_Condensed'] uppercase flex items-center gap-2">
+              <Activity className="w-5 h-5 text-[#005F73]" />
+              Mettre à jour le compteur horaire
+            </DialogTitle>
+          </DialogHeader>
+          {selectedEquipment && (
+            <div className="space-y-4 py-4">
+              <div className="p-3 bg-slate-50 rounded-lg">
+                <p className="text-sm text-slate-500">Compresseur</p>
+                <p className="font-medium">{selectedEquipment.reference}</p>
+                <p className="text-sm text-slate-500 mt-2">Valeur actuelle</p>
+                <p className="text-2xl font-bold font-['Barlow_Condensed'] text-[#005F73]">
+                  {selectedEquipment.compteur_horaire?.toLocaleString() || 0} h
+                </p>
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="compteur">Nouveau compteur horaire (heures)</Label>
+                <Input
+                  id="compteur"
+                  type="number"
+                  step="0.1"
+                  min="0"
+                  value={compteurValue}
+                  onChange={(e) => setCompteurValue(e.target.value)}
+                  placeholder="Ex: 1250.5"
+                />
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowCompteurModal(false)}>
+              Annuler
+            </Button>
+            <Button 
+              onClick={handleUpdateCompteur}
+              disabled={saving || !compteurValue}
+              className="bg-[#005F73] hover:bg-[#004C5C]"
+            >
+              {saving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              Mettre à jour
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

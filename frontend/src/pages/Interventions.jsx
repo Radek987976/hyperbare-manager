@@ -211,8 +211,9 @@ function Interventions() {
                   <TableCell>{formatDate(item.date_intervention)}</TableCell>
                   <TableCell>
                     {item.type_intervention === 'preventive' 
-                      ? <><Wrench className="w-4 h-4 inline mr-1 text-green-600" />{getInspectionTitle(item.maintenance_preventive_id)}</>
+                      ? <><Wrench className="w-4 h-4 inline mr-1 text-green-600" />{getPreventiveTitle(item.maintenance_preventive_id)}</>
                       : getWoTitle(item.work_order_id)}
+                  </TableCell>
                   </TableCell>
                   <TableCell><User className="w-4 h-4 inline mr-1 text-slate-400" />{item.technicien}</TableCell>
                   <TableCell className="max-w-xs truncate">{item.actions_realisees}</TableCell>

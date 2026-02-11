@@ -50,25 +50,31 @@ function Interventions() {
 
   async function loadData() {
     try {
-      const [r1, r2, r3, r4, r5] = await Promise.all([
+      const [r1, r2, r3, r4] = await Promise.all([
         interventionsAPI.getAll(),
         workOrdersAPI.getAll(),
         sparePartsAPI.getAll(),
-        usersAPI.getTechnicians(),
-        inspectionsAPI.getAll()
+        usersAPI.getTechnicians()
       ]);
       setData({
         interventions: r1.data || [],
         workOrders: r2.data || [],
         spareParts: r3.data || [],
-        technicians: r4.data || [],
-        inspections: r5.data || []
+        technicians: r4.data || []
       });
     } catch (e) {
       console.error(e);
     }
     setLoading(false);
   }
+
+  // Filtrer les work orders par type
+  const curativeWorkOrders = data.workOrders.filter(wo => 
+    wo.type_maintenance === 'corrective' && (wo.statut === 'planifiee' || wo.statut === 'en_cours')
+  );
+  const preventiveWorkOrders = data.workOrders.filter(wo => 
+    wo.type_maintenance === 'preventive' && (wo.statut === 'planifiee' || wo.statut === 'en_cours')
+  );
 
   function handleChange(e) {
     setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));

@@ -242,6 +242,8 @@ class SparePartBase(BaseModel):
     emplacement: Optional[str] = None
     fournisseur: Optional[str] = None
     prix_unitaire: Optional[float] = None
+    photos: List[str] = []
+    documents: List[dict] = []
 
 class SparePartCreate(SparePartBase):
     pass

@@ -167,6 +167,22 @@ export const sparePartsAPI = {
   create: (data) => api.post('/spare-parts', data),
   update: (id, data) => api.put(`/spare-parts/${id}`, data),
   delete: (id) => api.delete(`/spare-parts/${id}`),
+  uploadPhoto: (id, file) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return api.post(`/spare-parts/${id}/photos`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    });
+  },
+  uploadDocument: (id, file) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return api.post(`/spare-parts/${id}/documents`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    });
+  },
+  deletePhoto: (id, photoUrl) => api.delete(`/spare-parts/${id}/photos?photo_url=${encodeURIComponent(photoUrl)}`),
+  deleteDocument: (id, docUrl) => api.delete(`/spare-parts/${id}/documents?doc_url=${encodeURIComponent(docUrl)}`),
 };
 
 // Dashboard

@@ -39,6 +39,7 @@ const Dashboard = () => {
   const [stats, setStats] = useState(null);
   const [alerts, setAlerts] = useState([]);
   const [upcoming, setUpcoming] = useState([]);
+  const [calendar, setCalendar] = useState([]);
   const [caisson, setCaisson] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -48,16 +49,19 @@ const Dashboard = () => {
 
   const loadDashboardData = async () => {
     try {
-      const [statsRes, alertsRes, upcomingRes, caissonRes] = await Promise.all([
+      const [statsRes, alertsRes, upcomingRes, caissonRes, calendarRes] = await Promise.all([
         dashboardAPI.getStats(),
         dashboardAPI.getAlerts(),
         dashboardAPI.getUpcomingMaintenance(),
-        caissonAPI.get()
+        caissonAPI.get(),
+        dashboardAPI.getCalendar()
       ]);
       
       setStats(statsRes.data);
       setAlerts(alertsRes.data);
       setUpcoming(upcomingRes.data);
+      setCaisson(caissonRes.data);
+      setCalendar(calendarRes.data || []);
       setCaisson(caissonRes.data);
     } catch (error) {
       console.error('Erreur chargement dashboard:', error);

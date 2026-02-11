@@ -867,17 +867,61 @@ async def delete_work_order(work_order_id: str, current_user: dict = Depends(get
 
 @api_router.post("/interventions", response_model=Intervention)
 async def create_intervention(data: InterventionCreate, current_user: dict = Depends(get_current_user)):
+    # Récupérer l'équipement concerné (depuis work_order ou directement)
+    equipment_id = data.equipment_id
+    if not equipment_id:
+        if data.work_order_id:
+            wo = await db.work_orders.find_one({"id": data.work_order_id})
+            if wo:
+                equipment_id = wo.get("equipment_id")
+        elif data.maintenance_preventive_id:
+            wo = await db.work_orders.find_one({"id": data.maintenance_preventive_id})
+            if wo:
+                equipment_id = wo.get("equipment_id")
+    
+    # Mettre à jour le compteur horaire si fourni et si c'est un compresseur
+    if data.compteur_horaire is not None and equipment_id:
+        equipment = await db.equipments.find_one({"id": equipment_id})
+        if equipment and equipment.get("type") == "compresseur":
+            # Mettre à jour le compteur horaire de l'équipement
+            historique_entry = {
+                "date": datetime.now(timezone.utc).isoformat(),
+                "valeur": data.compteur_horaire,
+                "technicien": data.technicien,
+                "ancienne_valeur": equipment.get("compteur_horaire", 0),
+                "intervention": True
+            }
+            await db.equipments.update_one(
+                {"id": equipment_id},
+                {
+                    "$set": {"compteur_horaire": data.compteur_horaire},
+                    "$push": {"historique_compteur": historique_entry}
+                }
+            )
+    
     # Décrémentation du stock des pièces utilisées
+    pieces_details = []
     for piece in data.pieces_utilisees:
         spare_part = await db.spare_parts.find_one({"id": piece.get("spare_part_id")})
         if spare_part:
-            new_qty = spare_part["quantite_stock"] - piece.get("quantite", 0)
+            quantite = piece.get("quantite", 0)
+            new_qty = spare_part["quantite_stock"] - quantite
             await db.spare_parts.update_one(
                 {"id": piece.get("spare_part_id")},
                 {"$set": {"quantite_stock": max(0, new_qty)}}
             )
+            pieces_details.append({
+                "spare_part_id": piece.get("spare_part_id"),
+                "nom": spare_part["nom"],
+                "quantite": quantite,
+                "stock_avant": spare_part["quantite_stock"],
+                "stock_apres": max(0, new_qty)
+            })
     
-    intervention = Intervention(**data.model_dump())
+    # Créer l'intervention avec l'equipment_id
+    intervention_data = data.model_dump()
+    intervention_data["equipment_id"] = equipment_id
+    intervention = Intervention(**intervention_data)
     doc = intervention.model_dump()
     doc["created_at"] = doc["created_at"].isoformat()
     await db.interventions.insert_one(doc)

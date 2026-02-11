@@ -55,7 +55,12 @@ import {
   Loader2,
   AlertTriangle,
   MinusCircle,
-  PlusCircle
+  PlusCircle,
+  Eye,
+  Upload,
+  FileText,
+  Image,
+  X
 } from 'lucide-react';
 
 const SpareParts = () => {

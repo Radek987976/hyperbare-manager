@@ -101,3 +101,144 @@
 #====================================================================================================
 # Testing Data - Main Agent and testing sub agent both should log testing data below this section
 #====================================================================================================
+
+user_problem_statement: |
+  HyperMaint GMAO - Améliorations demandées:
+  1. Ajouter et modifier les types d'équipement
+  2. Export de données (corriger si nécessaire)
+  3. Créer des sous-équipements et les lier à des équipements
+  4. Insérer des photos et PDF à équipement et sous-équipement
+  5. Supprimer ordre de travail
+  6. Modifier contrôle par maintenance préventive
+  7. Dans intervention: choisir maintenance curative ou préventive
+  8. Si maintenance préventive: mise à jour automatique de la prochaine date
+  9. Sur tableau de bord: compteur horaire des compresseurs
+
+backend:
+  - task: "Types d'équipement CRUD (GET, POST, PUT, DELETE)"
+    implemented: true
+    working: "NA"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Routes ajoutées pour gérer les types d'équipement dynamiquement"
+
+  - task: "Sous-équipements CRUD avec lien parent"
+    implemented: true
+    working: "NA"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Routes CRUD + upload photos/PDF pour sous-équipements"
+
+  - task: "Interventions avec type curative/préventive"
+    implemented: true
+    working: "NA"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Modification du modèle Intervention pour supporter curative et préventive avec mise à jour auto de la prochaine date"
+
+  - task: "Dashboard avec compteurs compresseurs"
+    implemented: true
+    working: "NA"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "medium"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Route dashboard/stats modifiée pour retourner les compteurs horaires des compresseurs"
+
+  - task: "Export données (SQL, JSON, CSV)"
+    implemented: true
+    working: "NA"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "medium"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Routes d'export existantes - à vérifier"
+
+frontend:
+  - task: "Page Types d'équipement"
+    implemented: true
+    working: "NA"
+    file: "/app/frontend/src/pages/EquipmentTypes.jsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Nouvelle page créée pour gérer les types"
+
+  - task: "Page Sous-équipements avec upload"
+    implemented: true
+    working: "NA"
+    file: "/app/frontend/src/pages/SubEquipments.jsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Nouvelle page avec CRUD et upload photos/PDF"
+
+  - task: "Interventions curative/préventive"
+    implemented: true
+    working: "NA"
+    file: "/app/frontend/src/pages/Interventions.jsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Modification du formulaire pour choisir le type"
+
+  - task: "Dashboard compteurs compresseurs"
+    implemented: true
+    working: "NA"
+    file: "/app/frontend/src/pages/Dashboard.jsx"
+    stuck_count: 0
+    priority: "medium"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Section compteurs ajoutée au dashboard"
+
+metadata:
+  created_by: "main_agent"
+  version: "1.0"
+  test_sequence: 1
+  run_ui: false
+
+test_plan:
+  current_focus: "Backend API testing"
+  next_steps:
+    - "Test CRUD equipment types"
+    - "Test CRUD subequipments"
+    - "Test intervention creation with curative/preventive"
+    - "Test dashboard stats with compressors"
+    - "Test export endpoints"
+  auth_info:
+    email: "admin@hypermaint.fr"
+    password: "admin123"
+  notes: "Tester toutes les nouvelles routes backend ajoutées"

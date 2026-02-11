@@ -502,6 +502,65 @@ async def update_caisson(caisson_id: str, data: CaissonCreate, current_user: dic
     caisson = await db.caisson.find_one({"id": caisson_id}, {"_id": 0})
     return caisson
 
+# ==================== EQUIPMENT TYPES ROUTES ====================
+
+DEFAULT_EQUIPMENT_TYPES = [
+    {"code": "porte", "nom": "Porte", "description": "Portes du caisson"},
+    {"code": "joint", "nom": "Joint", "description": "Joints d'étanchéité"},
+    {"code": "soupape", "nom": "Soupape", "description": "Soupapes de sécurité"},
+    {"code": "compresseur", "nom": "Compresseur", "description": "Compresseurs d'air"},
+    {"code": "capteur", "nom": "Capteur", "description": "Capteurs de pression/température"},
+    {"code": "systeme_securite", "nom": "Système de sécurité", "description": "Systèmes de sécurité"},
+]
+
+@api_router.get("/equipment-types", response_model=List[EquipmentType])
+async def get_equipment_types(current_user: dict = Depends(get_current_user)):
+    types = await db.equipment_types.find({}, {"_id": 0}).to_list(1000)
+    # Si aucun type, initialiser avec les types par défaut
+    if not types:
+        for t in DEFAULT_EQUIPMENT_TYPES:
+            eq_type = EquipmentType(**t)
+            doc = eq_type.model_dump()
+            doc["created_at"] = doc["created_at"].isoformat()
+            await db.equipment_types.insert_one(doc)
+        types = await db.equipment_types.find({}, {"_id": 0}).to_list(1000)
+    return types
+
+@api_router.post("/equipment-types", response_model=EquipmentType)
+async def create_equipment_type(data: EquipmentTypeCreate, current_user: dict = Depends(get_current_user)):
+    # Vérifier que le code n'existe pas déjà
+    existing = await db.equipment_types.find_one({"code": data.code})
+    if existing:
+        raise HTTPException(status_code=400, detail="Un type avec ce code existe déjà")
+    
+    eq_type = EquipmentType(**data.model_dump())
+    doc = eq_type.model_dump()
+    doc["created_at"] = doc["created_at"].isoformat()
+    await db.equipment_types.insert_one(doc)
+    return eq_type
+
+@api_router.put("/equipment-types/{type_id}", response_model=EquipmentType)
+async def update_equipment_type(type_id: str, data: EquipmentTypeCreate, current_user: dict = Depends(get_current_user)):
+    result = await db.equipment_types.update_one({"id": type_id}, {"$set": data.model_dump()})
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Type d'équipement non trouvé")
+    eq_type = await db.equipment_types.find_one({"id": type_id}, {"_id": 0})
+    return eq_type
+
+@api_router.delete("/equipment-types/{type_id}")
+async def delete_equipment_type(type_id: str, current_user: dict = Depends(get_current_user)):
+    # Vérifier qu'aucun équipement n'utilise ce type
+    eq_type = await db.equipment_types.find_one({"id": type_id})
+    if eq_type:
+        count = await db.equipments.count_documents({"type": eq_type["code"]})
+        if count > 0:
+            raise HTTPException(status_code=400, detail=f"Impossible de supprimer: {count} équipement(s) utilisent ce type")
+    
+    result = await db.equipment_types.delete_one({"id": type_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Type d'équipement non trouvé")
+    return {"message": "Type d'équipement supprimé"}
+
 # ==================== EQUIPMENT ROUTES ====================
 
 @api_router.post("/equipments", response_model=Equipment)

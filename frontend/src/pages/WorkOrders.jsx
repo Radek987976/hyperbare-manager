@@ -254,6 +254,65 @@ const WorkOrders = () => {
     return `${getTypeLabel(equipment.type)} - ${equipment.reference}`;
   };
 
+  // File upload handlers
+  const handlePhotoUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file || !selectedWorkOrder) return;
+    
+    setUploading(true);
+    try {
+      await workOrdersAPI.uploadPhoto(selectedWorkOrder.id, file);
+      const res = await workOrdersAPI.getById(selectedWorkOrder.id);
+      setSelectedWorkOrder(res.data);
+      await loadData();
+    } catch (error) {
+      alert('Erreur lors de l\'upload');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleDocUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file || !selectedWorkOrder) return;
+    
+    setUploading(true);
+    try {
+      await workOrdersAPI.uploadDocument(selectedWorkOrder.id, file);
+      const res = await workOrdersAPI.getById(selectedWorkOrder.id);
+      setSelectedWorkOrder(res.data);
+      await loadData();
+    } catch (error) {
+      alert('Erreur lors de l\'upload');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleDeletePhoto = async (photoUrl) => {
+    if (!selectedWorkOrder) return;
+    try {
+      await workOrdersAPI.deletePhoto(selectedWorkOrder.id, photoUrl);
+      const res = await workOrdersAPI.getById(selectedWorkOrder.id);
+      setSelectedWorkOrder(res.data);
+      await loadData();
+    } catch (error) {
+      alert('Erreur lors de la suppression');
+    }
+  };
+
+  const handleDeleteDoc = async (docUrl) => {
+    if (!selectedWorkOrder) return;
+    try {
+      await workOrdersAPI.deleteDocument(selectedWorkOrder.id, docUrl);
+      const res = await workOrdersAPI.getById(selectedWorkOrder.id);
+      setSelectedWorkOrder(res.data);
+      await loadData();
+    } catch (error) {
+      alert('Erreur lors de la suppression');
+    }
+  };
+
   const filteredWorkOrders = workOrders.filter(wo => {
     const matchesSearch = 
       wo.titre.toLowerCase().includes(searchTerm.toLowerCase()) ||

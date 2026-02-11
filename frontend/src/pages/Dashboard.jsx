@@ -520,8 +520,137 @@ const Dashboard = () => {
           </CardContent>
         </Card>
       )}
+
+      {/* Calendrier de Maintenance 52 semaines */}
+      <Card className="dashboard-widget" data-testid="maintenance-calendar">
+        <CardHeader>
+          <CardTitle className="font-['Barlow_Condensed'] uppercase text-lg flex items-center gap-2">
+            <Calendar className="w-5 h-5 text-[#005F73]" />
+            Calendrier de Maintenance (52 semaines)
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="overflow-x-auto">
+            <div className="min-w-[900px]">
+              {/* Légende */}
+              <div className="flex gap-4 mb-4 text-xs">
+                <div className="flex items-center gap-1">
+                  <div className="w-3 h-3 rounded bg-[#0A9396]"></div>
+                  <span>Préventive planifiée</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <div className="w-3 h-3 rounded bg-[#EE9B00]"></div>
+                  <span>Corrective planifiée</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <div className="w-3 h-3 rounded bg-[#94D2BD]"></div>
+                  <span>Terminée</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <div className="w-3 h-3 rounded bg-[#AE2012]"></div>
+                  <span>En retard</span>
+                </div>
+              </div>
+              
+              {/* Grille des semaines */}
+              <div className="grid grid-cols-13 gap-1">
+                {/* En-têtes des mois */}
+                {['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Août', 'Sep', 'Oct', 'Nov', 'Déc', ''].map((month, idx) => (
+                  <div key={idx} className="text-xs text-center text-slate-500 font-medium py-1">
+                    {month}
+                  </div>
+                ))}
+                
+                {/* Semaines */}
+                {Array.from({ length: 52 }, (_, weekIdx) => {
+                  const currentWeek = new Date().getWeek();
+                  const weekNum = ((currentWeek + weekIdx - 1) % 52) + 1;
+                  const isCurrentWeek = weekIdx === 0;
+                  
+                  // Trouver les maintenances de cette semaine
+                  const weekMaintenances = calendar.filter(m => {
+                    const mDate = new Date(m.date_planifiee);
+                    const mWeek = mDate.getWeek();
+                    return mWeek === weekNum;
+                  });
+                  
+                  const hasPreventive = weekMaintenances.some(m => m.type_maintenance === 'preventive' && m.statut !== 'terminee');
+                  const hasCorrective = weekMaintenances.some(m => m.type_maintenance === 'corrective' && m.statut !== 'terminee');
+                  const hasCompleted = weekMaintenances.some(m => m.statut === 'terminee');
+                  const hasOverdue = weekMaintenances.some(m => {
+                    const mDate = new Date(m.date_planifiee);
+                    return mDate < new Date() && m.statut !== 'terminee';
+                  });
+                  
+                  let bgColor = 'bg-slate-100';
+                  if (hasOverdue) bgColor = 'bg-[#AE2012]';
+                  else if (hasCorrective) bgColor = 'bg-[#EE9B00]';
+                  else if (hasPreventive) bgColor = 'bg-[#0A9396]';
+                  else if (hasCompleted) bgColor = 'bg-[#94D2BD]';
+                  
+                  return (
+                    <div
+                      key={weekIdx}
+                      className={`h-6 rounded ${bgColor} ${isCurrentWeek ? 'ring-2 ring-[#005F73]' : ''} 
+                        ${weekMaintenances.length > 0 ? 'cursor-pointer hover:opacity-80' : ''}`}
+                      title={weekMaintenances.length > 0 ? 
+                        `S${weekNum}: ${weekMaintenances.map(m => m.titre).join(', ')}` : 
+                        `S${weekNum}`
+                      }
+                    >
+                      {weekMaintenances.length > 0 && (
+                        <div className="text-[10px] text-white text-center leading-6 font-medium">
+                          {weekMaintenances.length}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+              
+              {/* Détail des maintenances du mois en cours */}
+              {calendar.length > 0 && (
+                <div className="mt-4 pt-4 border-t">
+                  <p className="text-sm font-medium text-slate-700 mb-2">Maintenances à venir (4 prochaines semaines)</p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2">
+                    {calendar
+                      .filter(m => {
+                        const mDate = new Date(m.date_planifiee);
+                        const fourWeeksLater = new Date();
+                        fourWeeksLater.setDate(fourWeeksLater.getDate() + 28);
+                        return mDate >= new Date() && mDate <= fourWeeksLater && m.statut !== 'terminee';
+                      })
+                      .slice(0, 8)
+                      .map(m => (
+                        <div 
+                          key={m.id} 
+                          className={`p-2 rounded text-xs border-l-2 ${
+                            m.type_maintenance === 'preventive' ? 'border-[#0A9396] bg-[#0A9396]/5' : 'border-[#EE9B00] bg-[#EE9B00]/5'
+                          }`}
+                        >
+                          <p className="font-medium truncate">{m.titre}</p>
+                          <p className="text-slate-500">{formatDate(m.date_planifiee)}</p>
+                        </div>
+                      ))
+                    }
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
+};
+
+// Helper pour obtenir le numéro de semaine
+Date.prototype.getWeek = function() {
+  const d = new Date(Date.UTC(this.getFullYear(), this.getMonth(), this.getDate()));
+  const dayNum = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
 };
 
 export default Dashboard;

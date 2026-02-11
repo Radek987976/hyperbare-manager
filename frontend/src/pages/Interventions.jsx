@@ -19,8 +19,7 @@ function Interventions() {
     interventions: [],
     workOrders: [],
     spareParts: [],
-    technicians: [],
-    inspections: []
+    technicians: []
   });
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');

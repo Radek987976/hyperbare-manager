@@ -240,8 +240,8 @@ function Interventions() {
               <Select value={formData.type_intervention} onValueChange={v => setFormData(p => ({ ...p, type_intervention: v, work_order_id: '', maintenance_preventive_id: '' }))}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="curative">Maintenance curative (ordre de travail)</SelectItem>
-                  <SelectItem value="preventive">Maintenance préventive planifiée</SelectItem>
+                  <SelectItem value="curative">Maintenance curative</SelectItem>
+                  <SelectItem value="preventive">Maintenance préventive</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -249,11 +249,15 @@ function Interventions() {
             <div className="grid grid-cols-2 gap-4">
               {formData.type_intervention === 'curative' ? (
                 <div>
-                  <Label>Ordre de travail</Label>
+                  <Label>Maintenance corrective</Label>
                   <Select value={formData.work_order_id} onValueChange={v => setFormData(p => ({ ...p, work_order_id: v }))}>
                     <SelectTrigger><SelectValue placeholder="Sélectionner" /></SelectTrigger>
                     <SelectContent>
-                      {pendingWo.map(wo => <SelectItem key={wo.id} value={wo.id}>{wo.titre}</SelectItem>)}
+                      {curativeWorkOrders.length === 0 ? (
+                        <SelectItem value="none" disabled>Aucune maintenance corrective en attente</SelectItem>
+                      ) : (
+                        curativeWorkOrders.map(wo => <SelectItem key={wo.id} value={wo.id}>{wo.titre}</SelectItem>)
+                      )}
                     </SelectContent>
                   </Select>
                 </div>
@@ -263,10 +267,18 @@ function Interventions() {
                   <Select value={formData.maintenance_preventive_id} onValueChange={v => setFormData(p => ({ ...p, maintenance_preventive_id: v }))}>
                     <SelectTrigger><SelectValue placeholder="Sélectionner" /></SelectTrigger>
                     <SelectContent>
-                      {data.inspections.map(insp => <SelectItem key={insp.id} value={insp.id}>{insp.titre} ({insp.periodicite})</SelectItem>)}
+                      {preventiveWorkOrders.length === 0 ? (
+                        <SelectItem value="none" disabled>Aucune maintenance préventive planifiée</SelectItem>
+                      ) : (
+                        preventiveWorkOrders.map(wo => (
+                          <SelectItem key={wo.id} value={wo.id}>
+                            {wo.titre} {wo.periodicite_heures ? `(${wo.periodicite_heures}h)` : wo.periodicite_jours ? `(${wo.periodicite_jours}j)` : ''}
+                          </SelectItem>
+                        ))
+                      )}
                     </SelectContent>
                   </Select>
-                  <p className="text-xs text-slate-500 mt-1">La prochaine date sera recalculée automatiquement</p>
+                  <p className="text-xs text-slate-500 mt-1">Une nouvelle maintenance sera créée automatiquement</p>
                 </div>
               )}
               <div>

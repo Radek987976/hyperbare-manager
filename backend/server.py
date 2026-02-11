@@ -28,6 +28,8 @@ UPLOADS_DIR.mkdir(exist_ok=True)
 (UPLOADS_DIR / "equipments").mkdir(exist_ok=True)
 (UPLOADS_DIR / "inspections").mkdir(exist_ok=True)
 (UPLOADS_DIR / "subequipments").mkdir(exist_ok=True)
+(UPLOADS_DIR / "spareparts").mkdir(exist_ok=True)
+(UPLOADS_DIR / "workorders").mkdir(exist_ok=True)
 
 # MongoDB connection
 mongo_url = os.environ['MONGO_URL']

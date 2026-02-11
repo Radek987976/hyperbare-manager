@@ -1403,7 +1403,7 @@ async def delete_inspection_procedure(
 @api_router.get("/uploads/{folder}/{filename}")
 async def get_uploaded_file(folder: str, filename: str):
     """Serve uploaded files"""
-    if folder not in ["equipments", "inspections"]:
+    if folder not in ["equipments", "inspections", "subequipments"]:
         raise HTTPException(status_code=404, detail="Dossier non trouvé")
     
     file_path = UPLOADS_DIR / folder / filename

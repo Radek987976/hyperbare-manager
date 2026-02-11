@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { interventionsAPI, workOrdersAPI, sparePartsAPI, usersAPI } from '../lib/api';
+import { interventionsAPI, workOrdersAPI, sparePartsAPI, usersAPI, inspectionsAPI } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
 import { formatDate } from '../lib/utils';
 import { Card, CardContent } from '../components/ui/card';
@@ -12,14 +12,15 @@ import { Skeleton } from '../components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
-import { History, Plus, Search, Eye, Loader2, Clock, User, Package } from 'lucide-react';
+import { History, Plus, Search, Eye, Loader2, Clock, User, Package, Wrench } from 'lucide-react';
 
 function Interventions() {
   const [data, setData] = useState({
     interventions: [],
     workOrders: [],
     spareParts: [],
-    technicians: []
+    technicians: [],
+    inspections: []
   });
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -31,7 +32,9 @@ function Interventions() {
   const [showCustomTechnicien, setShowCustomTechnicien] = useState(false);
   
   const emptyForm = {
+    type_intervention: 'curative',
     work_order_id: '',
+    maintenance_preventive_id: '',
     date_intervention: new Date().toISOString().split('T')[0],
     technicien: '',
     actions_realisees: '',
@@ -47,17 +50,19 @@ function Interventions() {
 
   async function loadData() {
     try {
-      const [r1, r2, r3, r4] = await Promise.all([
+      const [r1, r2, r3, r4, r5] = await Promise.all([
         interventionsAPI.getAll(),
         workOrdersAPI.getAll(),
         sparePartsAPI.getAll(),
-        usersAPI.getTechnicians()
+        usersAPI.getTechnicians(),
+        inspectionsAPI.getAll()
       ]);
       setData({
         interventions: r1.data || [],
         workOrders: r2.data || [],
         spareParts: r3.data || [],
-        technicians: r4.data || []
+        technicians: r4.data || [],
+        inspections: r5.data || []
       });
     } catch (e) {
       console.error(e);

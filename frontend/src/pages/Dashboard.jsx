@@ -118,11 +118,46 @@ const Dashboard = () => {
           <Link to="/ordres-travail">
             <Button className="bg-[#005F73] hover:bg-[#004C5C]" data-testid="new-work-order-btn">
               <ClipboardList className="w-4 h-4 mr-2" />
-              Nouvel ordre
+              Nouvelle maintenance
             </Button>
           </Link>
         </div>
       </div>
+
+      {/* Compresseur Compteur Horaire - En haut */}
+      {stats?.compresseurs && stats.compresseurs.length > 0 && (
+        <Card className="border-l-4 border-l-[#EE9B00] bg-gradient-to-r from-amber-50 to-white" data-testid="compressor-header">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 bg-[#EE9B00]/20 rounded-lg flex items-center justify-center">
+                  <Activity className="w-6 h-6 text-[#EE9B00]" />
+                </div>
+                <div>
+                  <p className="text-sm text-slate-500 font-medium">Compteur Horaire Compresseur</p>
+                  <div className="flex items-baseline gap-3">
+                    {stats.compresseurs.map((comp, idx) => (
+                      <div key={comp.id} className="flex items-baseline gap-1">
+                        {idx > 0 && <span className="text-slate-300 mx-2">|</span>}
+                        <span className="text-3xl font-bold font-['Barlow_Condensed'] text-[#005F73]">
+                          {comp.compteur_horaire?.toLocaleString() || 0}
+                        </span>
+                        <span className="text-sm text-slate-500">h</span>
+                        <span className="text-xs text-slate-400 ml-1">({comp.reference})</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+              <Link to="/equipements">
+                <Button variant="outline" size="sm">
+                  <Settings2 className="w-4 h-4 mr-1" /> Gérer
+                </Button>
+              </Link>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Caisson Status Card */}
       {caisson && (

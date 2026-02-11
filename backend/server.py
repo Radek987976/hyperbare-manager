@@ -1119,6 +1119,98 @@ async def delete_spare_part(spare_part_id: str, current_user: dict = Depends(get
         raise HTTPException(status_code=404, detail="Pièce non trouvée")
     return {"message": "Pièce supprimée"}
 
+# Spare parts file uploads
+@api_router.post("/spare-parts/{spare_part_id}/photos")
+async def upload_spare_part_photo(
+    spare_part_id: str,
+    file: UploadFile = File(...),
+    current_user: dict = Depends(get_current_user)
+):
+    spare_part = await db.spare_parts.find_one({"id": spare_part_id})
+    if not spare_part:
+        raise HTTPException(status_code=404, detail="Pièce non trouvée")
+    
+    ext = Path(file.filename).suffix.lower()
+    if ext not in {".jpg", ".jpeg", ".png", ".gif", ".webp"}:
+        raise HTTPException(status_code=400, detail="Format non supporté")
+    
+    unique_filename = f"{uuid.uuid4()}{ext}"
+    file_path = UPLOADS_DIR / "spareparts" / unique_filename
+    
+    with open(file_path, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+    
+    photo_url = f"/api/uploads/spareparts/{unique_filename}"
+    await db.spare_parts.update_one(
+        {"id": spare_part_id},
+        {"$push": {"photos": photo_url}}
+    )
+    return {"filename": file.filename, "url": photo_url}
+
+@api_router.post("/spare-parts/{spare_part_id}/documents")
+async def upload_spare_part_document(
+    spare_part_id: str,
+    file: UploadFile = File(...),
+    current_user: dict = Depends(get_current_user)
+):
+    spare_part = await db.spare_parts.find_one({"id": spare_part_id})
+    if not spare_part:
+        raise HTTPException(status_code=404, detail="Pièce non trouvée")
+    
+    ext = Path(file.filename).suffix.lower()
+    if ext != ".pdf":
+        raise HTTPException(status_code=400, detail="Seuls les fichiers PDF sont acceptés")
+    
+    unique_filename = f"{uuid.uuid4()}{ext}"
+    file_path = UPLOADS_DIR / "spareparts" / unique_filename
+    
+    with open(file_path, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+    
+    doc_url = f"/api/uploads/spareparts/{unique_filename}"
+    doc_info = {
+        "filename": file.filename,
+        "url": doc_url,
+        "uploaded_at": datetime.now(timezone.utc).isoformat()
+    }
+    await db.spare_parts.update_one(
+        {"id": spare_part_id},
+        {"$push": {"documents": doc_info}}
+    )
+    return doc_info
+
+@api_router.delete("/spare-parts/{spare_part_id}/photos")
+async def delete_spare_part_photo(
+    spare_part_id: str,
+    photo_url: str,
+    current_user: dict = Depends(get_current_user)
+):
+    await db.spare_parts.update_one(
+        {"id": spare_part_id},
+        {"$pull": {"photos": photo_url}}
+    )
+    filename = photo_url.split("/")[-1]
+    file_path = UPLOADS_DIR / "spareparts" / filename
+    if file_path.exists():
+        file_path.unlink()
+    return {"message": "Photo supprimée"}
+
+@api_router.delete("/spare-parts/{spare_part_id}/documents")
+async def delete_spare_part_document(
+    spare_part_id: str,
+    doc_url: str,
+    current_user: dict = Depends(get_current_user)
+):
+    await db.spare_parts.update_one(
+        {"id": spare_part_id},
+        {"$pull": {"documents": {"url": doc_url}}}
+    )
+    filename = doc_url.split("/")[-1]
+    file_path = UPLOADS_DIR / "spareparts" / filename
+    if file_path.exists():
+        file_path.unlink()
+    return {"message": "Document supprimé"}
+
 # ==================== DASHBOARD / ALERTS ROUTES ====================
 
 @api_router.get("/dashboard/stats")

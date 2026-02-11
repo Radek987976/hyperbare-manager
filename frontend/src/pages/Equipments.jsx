@@ -539,7 +539,7 @@ const Equipments = () => {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <p className="text-xs text-slate-500 uppercase">Type</p>
-                  <p className="font-medium">{equipmentTypeLabels[selectedEquipment.type]}</p>
+                  <p className="font-medium">{getTypeLabel(selectedEquipment.type)}</p>
                 </div>
                 <div>
                   <p className="text-xs text-slate-500 uppercase">Référence</p>

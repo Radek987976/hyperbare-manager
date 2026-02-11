@@ -22,9 +22,6 @@ function Interventions() {
     technicians: [],
     equipments: []
   });
-    spareParts: [],
-    technicians: []
-  });
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [showModal, setShowModal] = useState(false);

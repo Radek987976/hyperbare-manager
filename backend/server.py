@@ -175,7 +175,9 @@ class WorkOrder(WorkOrderBase):
 
 # Intervention Model
 class InterventionBase(BaseModel):
-    work_order_id: str
+    work_order_id: Optional[str] = None  # Pour maintenance curative (ordre de travail)
+    maintenance_preventive_id: Optional[str] = None  # Pour maintenance préventive (inspection)
+    type_intervention: str = Field(default="curative", description="curative ou preventive")
     date_intervention: str
     technicien: str
     actions_realisees: str

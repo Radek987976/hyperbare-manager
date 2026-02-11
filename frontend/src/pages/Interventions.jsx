@@ -140,18 +140,17 @@ function Interventions() {
     return wo ? wo.titre : '-';
   }
 
-  function getInspectionTitle(id) {
-    const insp = data.inspections.find(i => i.id === id);
-    return insp ? insp.titre : '-';
+  function getPreventiveTitle(id) {
+    const wo = data.workOrders.find(w => w.id === id);
+    return wo ? wo.titre : '-';
   }
-
-  const pendingWo = data.workOrders.filter(wo => wo.statut === 'planifiee' || wo.statut === 'en_cours');
   
   const filtered = data.interventions.filter(i => {
     const term = searchTerm.toLowerCase();
     return i.technicien.toLowerCase().includes(term) || 
            i.actions_realisees.toLowerCase().includes(term) ||
-           getWoTitle(i.work_order_id).toLowerCase().includes(term);
+           getWoTitle(i.work_order_id).toLowerCase().includes(term) ||
+           getPreventiveTitle(i.maintenance_preventive_id).toLowerCase().includes(term);
   });
 
   if (loading) {

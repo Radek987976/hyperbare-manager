@@ -85,6 +85,39 @@ export const equipmentsAPI = {
   deleteDocument: (id, docUrl) => api.delete(`/equipments/${id}/documents?doc_url=${encodeURIComponent(docUrl)}`),
 };
 
+// Equipment Types
+export const equipmentTypesAPI = {
+  getAll: () => api.get('/equipment-types'),
+  create: (data) => api.post('/equipment-types', data),
+  update: (id, data) => api.put(`/equipment-types/${id}`, data),
+  delete: (id) => api.delete(`/equipment-types/${id}`),
+};
+
+// Sub-Equipments
+export const subEquipmentsAPI = {
+  getAll: (params) => api.get('/subequipments', { params }),
+  getById: (id) => api.get(`/subequipments/${id}`),
+  create: (data) => api.post('/subequipments', data),
+  update: (id, data) => api.put(`/subequipments/${id}`, data),
+  delete: (id) => api.delete(`/subequipments/${id}`),
+  uploadPhoto: (id, file) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return api.post(`/subequipments/${id}/photos`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    });
+  },
+  uploadDocument: (id, file) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return api.post(`/subequipments/${id}/documents`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    });
+  },
+  deletePhoto: (id, photoUrl) => api.delete(`/subequipments/${id}/photos?photo_url=${encodeURIComponent(photoUrl)}`),
+  deleteDocument: (id, docUrl) => api.delete(`/subequipments/${id}/documents?doc_url=${encodeURIComponent(docUrl)}`),
+};
+
 // Work Orders
 export const workOrdersAPI = {
   getAll: (params) => api.get('/work-orders', { params }),

@@ -369,6 +369,7 @@ const Equipments = () => {
                   <TableHead className="font-semibold">N° Série</TableHead>
                   <TableHead className="font-semibold">Criticité</TableHead>
                   <TableHead className="font-semibold">Statut</TableHead>
+                  <TableHead className="font-semibold">Compteur h</TableHead>
                   <TableHead className="font-semibold">Installation</TableHead>
                   <TableHead className="w-16"></TableHead>
                 </TableRow>
@@ -376,7 +377,7 @@ const Equipments = () => {
               <TableBody>
                 {filteredEquipments.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center py-12 text-slate-500">
+                    <TableCell colSpan={8} className="text-center py-12 text-slate-500">
                       <Settings2 className="w-12 h-12 mx-auto mb-3 text-slate-300" />
                       <p>{equipments.length === 0 ? 'Aucun équipement enregistré' : 'Aucun résultat'}</p>
                     </TableCell>

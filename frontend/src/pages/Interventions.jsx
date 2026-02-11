@@ -68,14 +68,6 @@ function Interventions() {
         technicians: r4.data || [],
         equipments: r5.data || []
       });
-        usersAPI.getTechnicians()
-      ]);
-      setData({
-        interventions: r1.data || [],
-        workOrders: r2.data || [],
-        spareParts: r3.data || [],
-        technicians: r4.data || []
-      });
     } catch (e) {
       console.error(e);
     }

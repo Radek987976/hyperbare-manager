@@ -322,10 +322,13 @@ class HyperMaintTester:
                     if updated_insp_response.status_code == 200:
                         updated_inspection = updated_insp_response.json()
                         new_date_validite = updated_inspection.get('date_validite')
-                        if new_date_validite != original_date_validite:
-                            self.log_result("Preventive Intervention Date Update", True, f"Inspection date_validite updated from {original_date_validite} to {new_date_validite}")
+                        new_date_realisation = updated_inspection.get('date_realisation')
+                        
+                        # Check if date_realisation was updated to intervention date
+                        if new_date_realisation == preventive_data["date_intervention"]:
+                            self.log_result("Preventive Intervention Date Update", True, f"Inspection updated: date_realisation={new_date_realisation}, date_validite={new_date_validite}")
                         else:
-                            self.log_result("Preventive Intervention Date Update", False, "Inspection date_validite was not updated")
+                            self.log_result("Preventive Intervention Date Update", False, f"Date realisation not updated. Expected: {preventive_data['date_intervention']}, Got: {new_date_realisation}")
                 else:
                     self.log_result("POST Preventive Intervention", False, f"Status {response.status_code}", response.text)
             except Exception as e:

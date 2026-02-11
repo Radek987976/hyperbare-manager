@@ -75,8 +75,12 @@ const SpareParts = () => {
   const [showModal, setShowModal] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showStockModal, setShowStockModal] = useState(false);
+  const [showDetailModal, setShowDetailModal] = useState(false);
   const [selectedPart, setSelectedPart] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  
+  const backendUrl = process.env.REACT_APP_BACKEND_URL;
   
   const [formData, setFormData] = useState({
     nom: '',

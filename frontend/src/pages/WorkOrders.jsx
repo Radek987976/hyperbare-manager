@@ -133,6 +133,12 @@ const WorkOrders = () => {
     }
   };
 
+  // Helper to get type label from dynamic types
+  const getTypeLabel = (typeCode) => {
+    const type = equipmentTypes.find(t => t.code === typeCode);
+    return type ? type.nom : typeCode;
+  };
+
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };

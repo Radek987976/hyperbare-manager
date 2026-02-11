@@ -351,7 +351,13 @@ function Interventions() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowModal(false)}>Annuler</Button>
-            <Button onClick={handleSave} disabled={saving || !formData.work_order_id || !formData.technicien} className="bg-[#005F73]">
+            <Button 
+              onClick={handleSave} 
+              disabled={saving || !formData.technicien || 
+                (formData.type_intervention === 'curative' && !formData.work_order_id) ||
+                (formData.type_intervention === 'preventive' && !formData.maintenance_preventive_id)} 
+              className="bg-[#005F73]"
+            >
               {saving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}Enregistrer
             </Button>
           </DialogFooter>

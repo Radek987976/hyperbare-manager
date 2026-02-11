@@ -202,7 +202,7 @@ const Equipments = () => {
     const matchesSearch = 
       eq.reference.toLowerCase().includes(searchTerm.toLowerCase()) ||
       eq.numero_serie.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (equipmentTypeLabels[eq.type] || eq.type).toLowerCase().includes(searchTerm.toLowerCase());
+      getTypeLabel(eq.type).toLowerCase().includes(searchTerm.toLowerCase());
     
     const matchesType = filterType === 'all' || eq.type === filterType;
     const matchesStatut = filterStatut === 'all' || eq.statut === filterStatut;

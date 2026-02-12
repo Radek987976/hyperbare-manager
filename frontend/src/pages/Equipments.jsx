@@ -188,7 +188,7 @@ const Equipments = () => {
       await loadData();
       setShowCompteurModal(false);
     } catch (error) {
-      alert(error.response?.data?.detail || 'Erreur lors de la mise à jour');
+      alert(getErrorMessage(error, 'Erreur lors de la mise à jour'));
     } finally {
       setSaving(false);
     }

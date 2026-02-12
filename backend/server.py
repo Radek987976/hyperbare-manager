@@ -617,6 +617,13 @@ async def admin_create_user(user_data: AdminUserCreate, admin: dict = Depends(re
     
     await db.users.insert_one(new_user)
     
+    # Send welcome email with credentials
+    await send_welcome_email(
+        user_data.email, 
+        f"{user_data.prenom} {user_data.nom}", 
+        user_data.password
+    )
+    
     # Return user without password
     del new_user["password_hash"]
     return {"message": "Utilisateur créé avec succès", "user": new_user}

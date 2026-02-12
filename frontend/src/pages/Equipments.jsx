@@ -246,6 +246,65 @@ const Equipments = () => {
     }
   };
 
+  // File upload handlers
+  const handlePhotoUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file || !selectedEquipment) return;
+    
+    setUploading(true);
+    try {
+      await equipmentsAPI.uploadPhoto(selectedEquipment.id, file);
+      const res = await equipmentsAPI.getById(selectedEquipment.id);
+      setSelectedEquipment(res.data);
+      await loadData();
+    } catch (error) {
+      alert('Erreur lors de l\'upload de la photo');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleDocUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file || !selectedEquipment) return;
+    
+    setUploading(true);
+    try {
+      await equipmentsAPI.uploadDocument(selectedEquipment.id, file);
+      const res = await equipmentsAPI.getById(selectedEquipment.id);
+      setSelectedEquipment(res.data);
+      await loadData();
+    } catch (error) {
+      alert('Erreur lors de l\'upload du document');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleDeletePhoto = async (photoUrl) => {
+    if (!selectedEquipment) return;
+    try {
+      await equipmentsAPI.deletePhoto(selectedEquipment.id, photoUrl);
+      const res = await equipmentsAPI.getById(selectedEquipment.id);
+      setSelectedEquipment(res.data);
+      await loadData();
+    } catch (error) {
+      alert('Erreur lors de la suppression de la photo');
+    }
+  };
+
+  const handleDeleteDoc = async (docUrl) => {
+    if (!selectedEquipment) return;
+    try {
+      await equipmentsAPI.deleteDocument(selectedEquipment.id, docUrl);
+      const res = await equipmentsAPI.getById(selectedEquipment.id);
+      setSelectedEquipment(res.data);
+      await loadData();
+    } catch (error) {
+      alert('Erreur lors de la suppression du document');
+    }
+  };
+
   const filteredEquipments = equipments.filter(eq => {
     const matchesSearch = 
       eq.reference.toLowerCase().includes(searchTerm.toLowerCase()) ||

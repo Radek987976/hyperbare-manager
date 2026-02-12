@@ -394,23 +394,66 @@ function Interventions() {
               <Textarea name="observations" value={formData.observations} onChange={handleChange} rows={2} />
             </div>
             <div className="border-t pt-4">
-              <Label className="flex items-center gap-2 mb-2"><Package className="w-4 h-4" />Pièces utilisées</Label>
-              <div className="flex gap-2 mb-2">
-                <Select value={partSelect.part} onValueChange={v => setPartSelect(p => ({ ...p, part: v }))}>
-                  <SelectTrigger className="flex-1"><SelectValue placeholder="Pièce" /></SelectTrigger>
-                  <SelectContent>
-                    {data.spareParts.map(p => <SelectItem key={p.id} value={p.id}>{p.nom}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-                <Input type="number" className="w-20" value={partSelect.qty} onChange={e => setPartSelect(p => ({ ...p, qty: e.target.value }))} />
-                <Button variant="outline" onClick={addPiece}><Plus className="w-4 h-4" /></Button>
-              </div>
-              {formData.pieces_utilisees.map(p => (
-                <div key={p.spare_part_id} className="flex justify-between p-2 bg-slate-50 rounded mb-1">
-                  <span>{p.nom}</span>
-                  <div><Badge variant="outline">x{p.quantite}</Badge> <Button variant="ghost" size="sm" onClick={() => removePiece(p.spare_part_id)}>×</Button></div>
+              <Label className="flex items-center gap-2 mb-3"><Package className="w-4 h-4" />Pièces utilisées</Label>
+              
+              {/* Liste des pièces ajoutées */}
+              {formData.pieces_utilisees.length > 0 && (
+                <div className="mb-3 space-y-2">
+                  {formData.pieces_utilisees.map((p, index) => (
+                    <div key={p.spare_part_id} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg border">
+                      <div className="flex items-center gap-3">
+                        <span className="text-xs text-slate-400 font-medium">#{index + 1}</span>
+                        <span className="font-medium">{p.nom}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Badge variant="secondary" className="bg-[#005F73]/10 text-[#005F73]">Qté: {p.quantite}</Badge>
+                        <Button variant="ghost" size="sm" className="text-red-500 hover:text-red-700 hover:bg-red-50" onClick={() => removePiece(p.spare_part_id)}>×</Button>
+                      </div>
+                    </div>
+                  ))}
                 </div>
-              ))}
+              )}
+              
+              {/* Formulaire d'ajout de pièce */}
+              <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                <p className="text-xs text-blue-600 mb-2 font-medium">Ajouter une pièce :</p>
+                <div className="flex gap-2 items-end">
+                  <div className="flex-1">
+                    <Label className="text-xs text-slate-500">Pièce détachée</Label>
+                    <Select value={partSelect.part} onValueChange={v => setPartSelect(p => ({ ...p, part: v }))}>
+                      <SelectTrigger><SelectValue placeholder="Sélectionner une pièce" /></SelectTrigger>
+                      <SelectContent>
+                        {data.spareParts.map(p => (
+                          <SelectItem key={p.id} value={p.id}>
+                            {p.nom} {p.quantite_stock !== undefined && <span className="text-slate-400">(stock: {p.quantite_stock})</span>}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="w-24">
+                    <Label className="text-xs text-slate-500">Quantité</Label>
+                    <Input 
+                      type="number" 
+                      min="1"
+                      value={partSelect.qty} 
+                      onChange={e => setPartSelect(p => ({ ...p, qty: e.target.value }))} 
+                    />
+                  </div>
+                  <Button 
+                    type="button"
+                    onClick={addPiece}
+                    disabled={!partSelect.part || !partSelect.qty}
+                    className="bg-[#005F73] hover:bg-[#004a5c]"
+                  >
+                    <Plus className="w-4 h-4 mr-1" />
+                    Ajouter
+                  </Button>
+                </div>
+                <p className="text-xs text-slate-500 mt-2">
+                  Vous pouvez ajouter plusieurs types de pièces à cette intervention.
+                </p>
+              </div>
             </div>
           </div>
           <DialogFooter>

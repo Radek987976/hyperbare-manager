@@ -49,6 +49,17 @@ Application web de GMAO (gestion de maintenance assistée par ordinateur) pour u
 
 ### Phase 3 - Admin (Implémenté 12/02/2026)
 - [x] Création d'utilisateurs par l'administrateur (bouton + modal)
+- [x] Upload photos/PDF sur la page Équipements
+
+### Phase 4 - Notifications Email (Implémenté 12/02/2026)
+- [x] Configuration Resend API
+- [x] Email de bienvenue (nouvel utilisateur)
+- [x] Email d'approbation/refus d'accès
+- [x] Email rappel maintenance (30 jours avant)
+- [x] Email maintenance en retard
+- [x] Email stock bas
+- [x] Email compteur horaire atteint
+- [x] Bouton "Envoyer alertes" sur le dashboard (admin)
 
 ## Backlog P0/P1/P2
 

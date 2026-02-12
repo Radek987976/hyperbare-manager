@@ -58,6 +58,169 @@ security = HTTPBearer()
 app = FastAPI(title="HyperMaint GMAO API")
 api_router = APIRouter(prefix="/api")
 
+# ==================== EMAIL SERVICE ====================
+
+async def send_email(to_email: str, subject: str, html_content: str) -> bool:
+    """Send email using Resend API"""
+    if not RESEND_API_KEY:
+        logging.warning("RESEND_API_KEY not configured - email not sent")
+        return False
+    
+    try:
+        params = {
+            "from": SENDER_EMAIL,
+            "to": [to_email],
+            "subject": subject,
+            "html": html_content
+        }
+        await asyncio.to_thread(resend.Emails.send, params)
+        logging.info(f"Email sent to {to_email}: {subject}")
+        return True
+    except Exception as e:
+        logging.error(f"Failed to send email to {to_email}: {str(e)}")
+        return False
+
+def email_template(title: str, content: str, footer: str = "") -> str:
+    """Generate HTML email template"""
+    return f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    </head>
+    <body style="margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #f4f4f4;">
+        <table width="100%" cellpadding="0" cellspacing="0" style="max-width: 600px; margin: 0 auto; background-color: #ffffff;">
+            <tr>
+                <td style="background-color: #005F73; padding: 20px; text-align: center;">
+                    <h1 style="color: #ffffff; margin: 0; font-size: 24px;">HyperMaint GMAO</h1>
+                </td>
+            </tr>
+            <tr>
+                <td style="padding: 30px;">
+                    <h2 style="color: #005F73; margin-top: 0;">{title}</h2>
+                    {content}
+                </td>
+            </tr>
+            <tr>
+                <td style="background-color: #f8f9fa; padding: 20px; text-align: center; color: #6c757d; font-size: 12px;">
+                    {footer if footer else "Cet email a été envoyé automatiquement par HyperMaint GMAO."}
+                </td>
+            </tr>
+        </table>
+    </body>
+    </html>
+    """
+
+async def send_welcome_email(user_email: str, user_name: str, password: str):
+    """Send welcome email to newly created user"""
+    content = f"""
+    <p>Bonjour <strong>{user_name}</strong>,</p>
+    <p>Votre compte HyperMaint GMAO a été créé avec succès.</p>
+    <table style="background-color: #f8f9fa; padding: 15px; border-radius: 5px; width: 100%;">
+        <tr>
+            <td style="padding: 10px;">
+                <strong>Email :</strong> {user_email}<br>
+                <strong>Mot de passe :</strong> {password}
+            </td>
+        </tr>
+    </table>
+    <p style="margin-top: 20px;">Nous vous recommandons de changer votre mot de passe après votre première connexion.</p>
+    <p>Connectez-vous dès maintenant pour commencer à utiliser l'application.</p>
+    """
+    await send_email(user_email, "Bienvenue sur HyperMaint GMAO", email_template("Bienvenue !", content))
+
+async def send_access_approved_email(user_email: str, user_name: str):
+    """Send email when access request is approved"""
+    content = f"""
+    <p>Bonjour <strong>{user_name}</strong>,</p>
+    <p style="color: #28a745;"><strong>Bonne nouvelle !</strong> Votre demande d'accès à HyperMaint GMAO a été approuvée.</p>
+    <p>Vous pouvez maintenant vous connecter avec vos identifiants.</p>
+    """
+    await send_email(user_email, "Accès approuvé - HyperMaint GMAO", email_template("Accès Approuvé ✓", content))
+
+async def send_access_rejected_email(user_email: str, user_name: str):
+    """Send email when access request is rejected"""
+    content = f"""
+    <p>Bonjour <strong>{user_name}</strong>,</p>
+    <p style="color: #dc3545;">Nous avons le regret de vous informer que votre demande d'accès à HyperMaint GMAO a été refusée.</p>
+    <p>Si vous pensez qu'il s'agit d'une erreur, veuillez contacter l'administrateur.</p>
+    """
+    await send_email(user_email, "Demande d'accès refusée - HyperMaint GMAO", email_template("Demande Refusée", content))
+
+async def send_maintenance_reminder_email(to_email: str, maintenance_title: str, equipment_ref: str, date_planifiee: str, days_left: int):
+    """Send maintenance reminder email"""
+    urgency_color = "#dc3545" if days_left <= 7 else "#ffc107" if days_left <= 14 else "#17a2b8"
+    content = f"""
+    <p>Une maintenance préventive est prévue prochainement :</p>
+    <table style="background-color: #f8f9fa; padding: 15px; border-radius: 5px; width: 100%; border-left: 4px solid {urgency_color};">
+        <tr>
+            <td style="padding: 10px;">
+                <strong>Titre :</strong> {maintenance_title}<br>
+                <strong>Équipement :</strong> {equipment_ref}<br>
+                <strong>Date planifiée :</strong> {date_planifiee}<br>
+                <strong style="color: {urgency_color};">Dans {days_left} jour(s)</strong>
+            </td>
+        </tr>
+    </table>
+    <p style="margin-top: 20px;">Pensez à planifier cette intervention.</p>
+    """
+    await send_email(to_email, f"⏰ Rappel maintenance : {maintenance_title}", email_template("Maintenance à Venir", content))
+
+async def send_maintenance_overdue_email(to_email: str, maintenance_title: str, equipment_ref: str, date_planifiee: str, days_overdue: int):
+    """Send overdue maintenance alert email"""
+    content = f"""
+    <p style="color: #dc3545;"><strong>⚠️ ALERTE : Maintenance en retard !</strong></p>
+    <table style="background-color: #fff5f5; padding: 15px; border-radius: 5px; width: 100%; border-left: 4px solid #dc3545;">
+        <tr>
+            <td style="padding: 10px;">
+                <strong>Titre :</strong> {maintenance_title}<br>
+                <strong>Équipement :</strong> {equipment_ref}<br>
+                <strong>Date planifiée :</strong> {date_planifiee}<br>
+                <strong style="color: #dc3545;">En retard de {days_overdue} jour(s)</strong>
+            </td>
+        </tr>
+    </table>
+    <p style="margin-top: 20px;">Veuillez effectuer cette maintenance au plus vite.</p>
+    """
+    await send_email(to_email, f"🚨 URGENT - Maintenance en retard : {maintenance_title}", email_template("Maintenance en Retard", content))
+
+async def send_low_stock_email(to_email: str, part_name: str, part_ref: str, current_stock: int, minimum_stock: int):
+    """Send low stock alert email"""
+    content = f"""
+    <p style="color: #ffc107;"><strong>⚠️ Alerte stock bas</strong></p>
+    <table style="background-color: #fff9e6; padding: 15px; border-radius: 5px; width: 100%; border-left: 4px solid #ffc107;">
+        <tr>
+            <td style="padding: 10px;">
+                <strong>Pièce :</strong> {part_name}<br>
+                <strong>Référence :</strong> {part_ref}<br>
+                <strong>Stock actuel :</strong> <span style="color: #dc3545;">{current_stock}</span><br>
+                <strong>Seuil minimum :</strong> {minimum_stock}
+            </td>
+        </tr>
+    </table>
+    <p style="margin-top: 20px;">Pensez à réapprovisionner cette pièce.</p>
+    """
+    await send_email(to_email, f"📦 Stock bas : {part_name}", email_template("Alerte Stock Bas", content))
+
+async def send_hour_counter_alert_email(to_email: str, equipment_ref: str, current_hours: float, threshold_hours: float, maintenance_title: str):
+    """Send compressor hour counter alert email"""
+    content = f"""
+    <p style="color: #dc3545;"><strong>⚠️ Seuil compteur horaire atteint !</strong></p>
+    <table style="background-color: #fff5f5; padding: 15px; border-radius: 5px; width: 100%; border-left: 4px solid #dc3545;">
+        <tr>
+            <td style="padding: 10px;">
+                <strong>Équipement :</strong> {equipment_ref}<br>
+                <strong>Compteur actuel :</strong> {current_hours:,.0f} h<br>
+                <strong>Seuil de déclenchement :</strong> {threshold_hours:,.0f} h<br>
+                <strong>Maintenance requise :</strong> {maintenance_title}
+            </td>
+        </tr>
+    </table>
+    <p style="margin-top: 20px;">Une maintenance basée sur le compteur horaire doit être effectuée.</p>
+    """
+    await send_email(to_email, f"🔧 Compteur horaire : {equipment_ref} - Maintenance requise", email_template("Alerte Compteur Horaire", content))
+
 # ==================== MODELS ====================
 
 # User Models

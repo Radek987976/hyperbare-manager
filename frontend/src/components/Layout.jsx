@@ -19,7 +19,8 @@ import {
   User,
   Eye,
   Layers,
-  Wrench
+  Wrench,
+  FileText
 } from 'lucide-react';
 
 const Sidebar = ({ isOpen, onClose }) => {

@@ -67,7 +67,7 @@ const Sidebar = ({ isOpen, onClose }) => {
     
     setSaving(true);
     try {
-      await usersAPI.changePassword(user.id, passwordData.currentPassword, passwordData.newPassword);
+      await usersAPI.changeMyPassword(passwordData.currentPassword, passwordData.newPassword);
       alert('Mot de passe modifié avec succès !');
       setShowPasswordModal(false);
       setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });

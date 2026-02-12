@@ -77,21 +77,28 @@ Application web de GMAO (gestion de maintenance assistée par ordinateur) pour u
 - [x] Planning de maintenance (52 semaines)
 - [x] Page "Rapports PDF" avec interface de téléchargement
 
+### Phase 7 - Sécurité Utilisateur (Implémenté 12/02/2026)
+- [x] Changement de mot de passe self-service (via modal dans la sidebar)
+- [x] Endpoint sécurisé `/api/users/me/change-password` avec vérification du mot de passe actuel
+- [x] Validation: minimum 6 caractères, confirmation requise
+- [x] Messages d'erreur clairs en français
+
 ## Backlog P0/P1/P2
 
 ### P0 (Critique)
 - ✅ Toutes les fonctionnalités core implémentées
+- ✅ Changement de mot de passe self-service
 
 ### P1 (Important)
-- [ ] Notifications par email pour alertes critiques
-- [ ] Génération de rapports PDF
-- [ ] Calendrier de maintenance visuel
+- ✅ Notifications par email pour alertes critiques (Resend)
+- ✅ Génération de rapports PDF
+- ✅ Calendrier de maintenance visuel (52 semaines)
 - [ ] Historique complet avec recherche avancée
 
 ### P2 (Nice to have)
 - [ ] Mode multi-caissons (évolution future)
 - [ ] Mode multi-sites
-- [ ] Application mobile (PWA)
+- ✅ Application mobile (PWA)
 - [ ] Intégration API capteurs IoT
 - [ ] Tableau de bord personnalisable
 

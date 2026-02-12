@@ -51,7 +51,6 @@ const EquipmentTypes = () => {
   
   const [formData, setFormData] = useState({
     nom: '',
-    code: '',
     description: ''
   });
 
@@ -77,7 +76,7 @@ const EquipmentTypes = () => {
 
   const openCreateModal = () => {
     setSelectedType(null);
-    setFormData({ nom: '', code: '', description: '' });
+    setFormData({ nom: '', description: '' });
     setError('');
     setShowModal(true);
   };
@@ -86,7 +85,6 @@ const EquipmentTypes = () => {
     setSelectedType(type);
     setFormData({
       nom: type.nom,
-      code: type.code,
       description: type.description || ''
     });
     setError('');
@@ -94,8 +92,8 @@ const EquipmentTypes = () => {
   };
 
   const handleSave = async () => {
-    if (!formData.nom || !formData.code) {
-      setError('Le nom et le code sont obligatoires');
+    if (!formData.nom) {
+      setError('Le nom est obligatoire');
       return;
     }
     
@@ -169,7 +167,6 @@ const EquipmentTypes = () => {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Code</TableHead>
                 <TableHead>Nom</TableHead>
                 <TableHead>Description</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
@@ -178,7 +175,6 @@ const EquipmentTypes = () => {
             <TableBody>
               {types.map((type) => (
                 <TableRow key={type.id}>
-                  <TableCell className="font-mono text-sm">{type.code}</TableCell>
                   <TableCell className="font-medium">{type.nom}</TableCell>
                   <TableCell className="text-slate-500">{type.description || '-'}</TableCell>
                   <TableCell className="text-right">
@@ -211,7 +207,7 @@ const EquipmentTypes = () => {
               ))}
               {types.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={4} className="text-center text-slate-500 py-8">
+                  <TableCell colSpan={3} className="text-center text-slate-500 py-8">
                     Aucun type d'équipement défini
                   </TableCell>
                 </TableRow>
@@ -236,21 +232,6 @@ const EquipmentTypes = () => {
                 {error}
               </div>
             )}
-            
-            <div className="space-y-2">
-              <Label htmlFor="code">Code *</Label>
-              <Input
-                id="code"
-                name="code"
-                value={formData.code}
-                onChange={handleChange}
-                placeholder="Ex: valve, pompe..."
-                disabled={!!selectedType}
-              />
-              {selectedType && (
-                <p className="text-xs text-slate-500">Le code ne peut pas être modifié</p>
-              )}
-            </div>
             
             <div className="space-y-2">
               <Label htmlFor="nom">Nom *</Label>

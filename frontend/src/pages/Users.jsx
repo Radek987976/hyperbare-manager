@@ -92,6 +92,35 @@ const UsersPage = () => {
     role: 'technicien'
   });
 
+  const resetForm = () => {
+    setFormData({
+      email: '',
+      nom: '',
+      prenom: '',
+      password: '',
+      role: 'technicien'
+    });
+  };
+
+  const handleCreateUser = async () => {
+    if (!formData.email || !formData.nom || !formData.prenom || !formData.password) {
+      alert('Veuillez remplir tous les champs obligatoires');
+      return;
+    }
+    setSaving(true);
+    try {
+      await usersAPI.create(formData);
+      await loadData();
+      setShowCreateModal(false);
+      resetForm();
+    } catch (error) {
+      console.error('Erreur création utilisateur:', error);
+      alert(error.response?.data?.detail || 'Erreur lors de la création de l\'utilisateur');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   useEffect(() => {
     loadData();
   }, []);

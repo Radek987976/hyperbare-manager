@@ -116,7 +116,7 @@ const UsersPage = () => {
       resetForm();
     } catch (error) {
       console.error('Erreur création utilisateur:', error);
-      alert(error.response?.data?.detail || 'Erreur lors de la création de l\'utilisateur');
+      alert(getErrorMessage(error, 'Erreur lors de la création de l\'utilisateur'));
     } finally {
       setSaving(false);
     }
@@ -217,7 +217,7 @@ const UsersPage = () => {
       setSelectedUser(null);
     } catch (error) {
       console.error('Erreur suppression:', error);
-      alert(error.response?.data?.detail || 'Erreur lors de la suppression');
+      alert(getErrorMessage(error, 'Erreur lors de la suppression'));
     } finally {
       setActionLoading(null);
     }

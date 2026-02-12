@@ -798,6 +798,8 @@ const UserTable = ({
   handleActivate,
   setSelectedUser,
   setShowDeleteDialog,
+  setShowPasswordModal,
+  setPasswordData,
   actionLoading
 }) => (
   <Card>

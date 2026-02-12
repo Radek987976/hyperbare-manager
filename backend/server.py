@@ -2308,6 +2308,133 @@ async def root():
 async def health():
     return {"status": "healthy"}
 
+# ==================== EMAIL ALERTS ====================
+
+@api_router.post("/alerts/check")
+async def check_and_send_alerts(admin: dict = Depends(require_admin)):
+    """Check for alerts and send email notifications"""
+    alerts_sent = {
+        "maintenance_reminders": 0,
+        "maintenance_overdue": 0,
+        "low_stock": 0,
+        "hour_counter": 0
+    }
+    
+    # Get admin email for notifications
+    admin_email = ADMIN_EMAIL or admin.get("email")
+    if not admin_email:
+        raise HTTPException(status_code=400, detail="Email admin non configuré")
+    
+    today = datetime.now(timezone.utc).date()
+    
+    # 1. Check maintenances coming up (30 days) and overdue
+    maintenances = await db.work_orders.find({
+        "statut": "planifiee",
+        "date_planifiee": {"$ne": None}
+    }, {"_id": 0}).to_list(1000)
+    
+    equipments_map = {}
+    equipments = await db.equipments.find({}, {"_id": 0}).to_list(1000)
+    for eq in equipments:
+        equipments_map[eq["id"]] = eq
+    
+    for wo in maintenances:
+        try:
+            date_planifiee = datetime.fromisoformat(wo["date_planifiee"].replace("Z", "+00:00")).date() if isinstance(wo["date_planifiee"], str) else wo["date_planifiee"]
+            if isinstance(date_planifiee, str):
+                date_planifiee = datetime.strptime(date_planifiee, "%Y-%m-%d").date()
+            
+            days_diff = (date_planifiee - today).days
+            equipment = equipments_map.get(wo.get("equipment_id"), {})
+            equipment_ref = equipment.get("reference", "Caisson entier")
+            
+            if days_diff < 0:
+                # Overdue
+                await send_maintenance_overdue_email(
+                    admin_email,
+                    wo["titre"],
+                    equipment_ref,
+                    wo["date_planifiee"],
+                    abs(days_diff)
+                )
+                alerts_sent["maintenance_overdue"] += 1
+            elif days_diff <= 30:
+                # Coming up in 30 days
+                await send_maintenance_reminder_email(
+                    admin_email,
+                    wo["titre"],
+                    equipment_ref,
+                    wo["date_planifiee"],
+                    days_diff
+                )
+                alerts_sent["maintenance_reminders"] += 1
+        except Exception as e:
+            logging.error(f"Error processing maintenance alert: {e}")
+    
+    # 2. Check low stock
+    spare_parts = await db.spare_parts.find({}, {"_id": 0}).to_list(1000)
+    for part in spare_parts:
+        if part.get("quantite_stock", 0) <= part.get("seuil_minimum", 1):
+            await send_low_stock_email(
+                admin_email,
+                part["nom"],
+                part.get("reference_fabricant", "N/A"),
+                part.get("quantite_stock", 0),
+                part.get("seuil_minimum", 1)
+            )
+            alerts_sent["low_stock"] += 1
+    
+    # 3. Check hour counter alerts for compressors
+    hour_maintenances = await db.work_orders.find({
+        "statut": "planifiee",
+        "periodicite_heures": {"$ne": None},
+        "compteur_declenchement": {"$ne": None}
+    }, {"_id": 0}).to_list(1000)
+    
+    for wo in hour_maintenances:
+        equipment = equipments_map.get(wo.get("equipment_id"), {})
+        if equipment.get("type") == "compresseur":
+            current_hours = equipment.get("compteur_horaire", 0) or 0
+            threshold = wo.get("compteur_declenchement", 0) or 0
+            if current_hours >= threshold:
+                await send_hour_counter_alert_email(
+                    admin_email,
+                    equipment.get("reference", "Compresseur"),
+                    current_hours,
+                    threshold,
+                    wo["titre"]
+                )
+                alerts_sent["hour_counter"] += 1
+    
+    return {
+        "message": "Vérification des alertes terminée",
+        "alerts_sent": alerts_sent,
+        "total": sum(alerts_sent.values())
+    }
+
+@api_router.post("/alerts/test")
+async def test_email(admin: dict = Depends(require_admin)):
+    """Send a test email to verify configuration"""
+    admin_email = ADMIN_EMAIL or admin.get("email")
+    if not admin_email:
+        raise HTTPException(status_code=400, detail="Email admin non configuré")
+    
+    content = """
+    <p>Ceci est un email de test pour vérifier la configuration des notifications.</p>
+    <p>Si vous recevez cet email, la configuration est correcte ! ✅</p>
+    """
+    
+    success = await send_email(
+        admin_email,
+        "🧪 Test notification - HyperMaint GMAO",
+        email_template("Test de Configuration", content)
+    )
+    
+    if success:
+        return {"message": f"Email de test envoyé à {admin_email}"}
+    else:
+        raise HTTPException(status_code=500, detail="Échec de l'envoi de l'email")
+
 # Include router and middleware
 app.include_router(api_router)
 

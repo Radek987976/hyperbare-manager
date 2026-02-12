@@ -214,7 +214,7 @@ const Equipments = () => {
       setShowModal(false);
     } catch (error) {
       console.error('Erreur sauvegarde:', error);
-      alert(error.response?.data?.detail || 'Erreur lors de la sauvegarde');
+      alert(getErrorMessage(error, 'Erreur lors de la sauvegarde'));
     } finally {
       setSaving(false);
     }

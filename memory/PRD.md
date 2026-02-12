@@ -37,6 +37,19 @@ Application web de GMAO (gestion de maintenance assistée par ordinateur) pour u
 - [x] Gestion des utilisateurs (admin only)
 - [x] Interface responsive en français
 
+### Phase 2 - Extensions (Implémenté session précédente)
+- [x] CRUD types d'équipements
+- [x] CRUD sous-équipements
+- [x] Upload fichiers (photos/PDF) pour équipements, sous-équipements, pièces, maintenances
+- [x] Workflow maintenance curative vs préventive
+- [x] Compteur horaire pour équipements (compresseurs)
+- [x] Périodicité horaire pour maintenances
+- [x] Calendrier 52 semaines sur le dashboard
+- [x] Affichage compteur horaire compresseurs sur dashboard
+
+### Phase 3 - Admin (Implémenté 12/02/2026)
+- [x] Création d'utilisateurs par l'administrateur (bouton + modal)
+
 ## Backlog P0/P1/P2
 
 ### P0 (Critique)

@@ -17,6 +17,7 @@ import Inspections from './pages/Inspections';
 import SpareParts from './pages/SpareParts';
 import Users from './pages/Users';
 import Export from './pages/Export';
+import Reports from './pages/Reports';
 import './App.css';
 
 // Protected Route Component

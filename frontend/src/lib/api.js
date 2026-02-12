@@ -223,6 +223,23 @@ export const reportsAPI = {
   },
   getStatistics: () => api.get('/reports/statistics'),
   exportStatisticsCSV: () => api.get('/reports/statistics/csv', { responseType: 'blob' }),
+  
+  // PDF Reports
+  statisticsPDF: () => api.get('/reports/pdf/statistics', { responseType: 'blob' }),
+  maintenancePDF: (startDate, endDate) => {
+    const params = {};
+    if (startDate) params.start_date = startDate;
+    if (endDate) params.end_date = endDate;
+    return api.get('/reports/pdf/maintenance', { params, responseType: 'blob' });
+  },
+  equipmentPDF: (equipmentId) => api.get(`/reports/pdf/equipment/${equipmentId}`, { responseType: 'blob' }),
+  interventionsPDF: (startDate, endDate) => {
+    const params = {};
+    if (startDate) params.start_date = startDate;
+    if (endDate) params.end_date = endDate;
+    return api.get('/reports/pdf/interventions', { params, responseType: 'blob' });
+  },
+  planningPDF: () => api.get('/reports/pdf/planning', { responseType: 'blob' }),
 };
 
 export default api;

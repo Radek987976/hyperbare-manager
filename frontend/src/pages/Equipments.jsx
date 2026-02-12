@@ -708,6 +708,106 @@ const Equipments = () => {
                   <p>{selectedEquipment.description}</p>
                 </div>
               )}
+
+              {/* Photos */}
+              <div className="space-y-3 pt-4 border-t">
+                <div className="flex items-center justify-between">
+                  <h4 className="font-semibold flex items-center gap-2">
+                    <Image className="w-4 h-4" /> Photos
+                  </h4>
+                  {canModify() && (
+                    <label className="cursor-pointer">
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={handlePhotoUpload}
+                        disabled={uploading}
+                      />
+                      <Button variant="outline" size="sm" asChild>
+                        <span>
+                          {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4 mr-1" />}
+                          Ajouter photo
+                        </span>
+                      </Button>
+                    </label>
+                  )}
+                </div>
+                <div className="grid grid-cols-3 gap-2">
+                  {(selectedEquipment.photos || []).map((url, i) => (
+                    <div key={i} className="relative group">
+                      <img
+                        src={`${API_URL}${url}`}
+                        alt=""
+                        className="w-full h-24 object-cover rounded border"
+                      />
+                      {canDelete() && (
+                        <button
+                          onClick={() => handleDeletePhoto(url)}
+                          className="absolute top-1 right-1 bg-red-600 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                  {(!selectedEquipment.photos || selectedEquipment.photos.length === 0) && (
+                    <p className="text-sm text-slate-400 col-span-3">Aucune photo</p>
+                  )}
+                </div>
+              </div>
+
+              {/* Documents PDF */}
+              <div className="space-y-3 pt-4 border-t">
+                <div className="flex items-center justify-between">
+                  <h4 className="font-semibold flex items-center gap-2">
+                    <FileText className="w-4 h-4" /> Documents PDF
+                  </h4>
+                  {canModify() && (
+                    <label className="cursor-pointer">
+                      <input
+                        type="file"
+                        accept=".pdf"
+                        className="hidden"
+                        onChange={handleDocUpload}
+                        disabled={uploading}
+                      />
+                      <Button variant="outline" size="sm" asChild>
+                        <span>
+                          {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4 mr-1" />}
+                          Ajouter PDF
+                        </span>
+                      </Button>
+                    </label>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  {(selectedEquipment.documents || []).map((doc, i) => (
+                    <div key={i} className="flex items-center justify-between p-2 bg-slate-50 rounded">
+                      <a
+                        href={`${API_URL}${doc.url}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-[#005F73] hover:underline flex items-center gap-2"
+                      >
+                        <FileText className="w-4 h-4" />
+                        {doc.filename}
+                      </a>
+                      {canDelete() && (
+                        <button
+                          onClick={() => handleDeleteDoc(doc.url)}
+                          className="text-red-600 hover:text-red-700"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                  {(!selectedEquipment.documents || selectedEquipment.documents.length === 0) && (
+                    <p className="text-sm text-slate-400">Aucun document</p>
+                  )}
+                </div>
+              </div>
             </div>
           )}
         </DialogContent>

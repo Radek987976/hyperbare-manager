@@ -69,6 +69,14 @@ Application web de GMAO (gestion de maintenance assistée par ordinateur) pour u
 - [x] Prompt d'installation PWA
 - [x] Support Apple mobile web app
 
+### Phase 6 - Rapports PDF (Implémenté 12/02/2026)
+- [x] Rapport de statistiques (vue d'ensemble)
+- [x] Rapport de maintenance (historique filtrable par période)
+- [x] Fiche équipement (détails + historique maintenance/interventions)
+- [x] Rapport des interventions (filtrable par période)
+- [x] Planning de maintenance (52 semaines)
+- [x] Page "Rapports PDF" avec interface de téléchargement
+
 ## Backlog P0/P1/P2
 
 ### P0 (Critique)

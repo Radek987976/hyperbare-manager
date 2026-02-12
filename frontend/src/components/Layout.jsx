@@ -2,6 +2,16 @@ import React, { useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Badge } from './ui/badge';
+import { Button } from './ui/button';
+import { Input } from './ui/input';
+import { Label } from './ui/label';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from './ui/dialog';
 import {
   LayoutDashboard,
   Box,
@@ -20,8 +30,11 @@ import {
   Eye,
   Layers,
   Wrench,
-  FileText
+  FileText,
+  Key,
+  Loader2
 } from 'lucide-react';
+import { usersAPI } from '../lib/api';
 
 const Sidebar = ({ isOpen, onClose }) => {
   const { user, logout, isAdmin, canExport, getRoleLabel } = useAuth();

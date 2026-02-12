@@ -504,6 +504,8 @@ const UsersPage = () => {
             handleActivate={handleActivate}
             setSelectedUser={setSelectedUser}
             setShowDeleteDialog={setShowDeleteDialog}
+            setShowPasswordModal={setShowPasswordModal}
+            setPasswordData={setPasswordData}
             actionLoading={actionLoading}
           />
         </TabsContent>
@@ -520,6 +522,8 @@ const UsersPage = () => {
             handleActivate={handleActivate}
             setSelectedUser={setSelectedUser}
             setShowDeleteDialog={setShowDeleteDialog}
+            setShowPasswordModal={setShowPasswordModal}
+            setPasswordData={setPasswordData}
             actionLoading={actionLoading}
           />
         </TabsContent>
@@ -536,6 +540,8 @@ const UsersPage = () => {
             handleActivate={handleActivate}
             setSelectedUser={setSelectedUser}
             setShowDeleteDialog={setShowDeleteDialog}
+            setShowPasswordModal={setShowPasswordModal}
+            setPasswordData={setPasswordData}
             actionLoading={actionLoading}
           />
         </TabsContent>

@@ -226,6 +226,31 @@ const UsersPage = () => {
     }
   };
 
+  const handleChangePassword = async () => {
+    if (passwordData.newPassword !== passwordData.confirmPassword) {
+      alert('Les mots de passe ne correspondent pas');
+      return;
+    }
+    if (passwordData.newPassword.length < 6) {
+      alert('Le mot de passe doit contenir au moins 6 caractères');
+      return;
+    }
+    
+    setSaving(true);
+    try {
+      await usersAPI.changePassword(selectedUser.id, null, passwordData.newPassword);
+      alert('Mot de passe modifié avec succès');
+      setShowPasswordModal(false);
+      setPasswordData({ newPassword: '', confirmPassword: '' });
+      setSelectedUser(null);
+    } catch (error) {
+      console.error('Erreur changement mot de passe:', error);
+      alert(getErrorMessage(error, 'Erreur lors du changement de mot de passe'));
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const handleExportStatistics = async () => {
     setExportLoading('statistics');
     try {

@@ -55,7 +55,7 @@ JWT_EXPIRATION_HOURS = 24
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 security = HTTPBearer()
 
-app = FastAPI(title="HyperMaint GMAO API")
+app = FastAPI(title="HyperbareManager API")
 api_router = APIRouter(prefix="/api")
 
 # ==================== EMAIL SERVICE ====================
@@ -93,7 +93,7 @@ def email_template(title: str, content: str, footer: str = "") -> str:
         <table width="100%" cellpadding="0" cellspacing="0" style="max-width: 600px; margin: 0 auto; background-color: #ffffff;">
             <tr>
                 <td style="background-color: #005F73; padding: 20px; text-align: center;">
-                    <h1 style="color: #ffffff; margin: 0; font-size: 24px;">HyperMaint GMAO</h1>
+                    <h1 style="color: #ffffff; margin: 0; font-size: 24px;">HyperbareManager</h1>
                 </td>
             </tr>
             <tr>
@@ -104,7 +104,7 @@ def email_template(title: str, content: str, footer: str = "") -> str:
             </tr>
             <tr>
                 <td style="background-color: #f8f9fa; padding: 20px; text-align: center; color: #6c757d; font-size: 12px;">
-                    {footer if footer else "Cet email a été envoyé automatiquement par HyperMaint GMAO."}
+                    {footer if footer else "Cet email a été envoyé automatiquement par HyperbareManager."}
                 </td>
             </tr>
         </table>
@@ -116,7 +116,7 @@ async def send_welcome_email(user_email: str, user_name: str, password: str):
     """Send welcome email to newly created user"""
     content = f"""
     <p>Bonjour <strong>{user_name}</strong>,</p>
-    <p>Votre compte HyperMaint GMAO a été créé avec succès.</p>
+    <p>Votre compte HyperbareManager a été créé avec succès.</p>
     <table style="background-color: #f8f9fa; padding: 15px; border-radius: 5px; width: 100%;">
         <tr>
             <td style="padding: 10px;">
@@ -128,25 +128,25 @@ async def send_welcome_email(user_email: str, user_name: str, password: str):
     <p style="margin-top: 20px;">Nous vous recommandons de changer votre mot de passe après votre première connexion.</p>
     <p>Connectez-vous dès maintenant pour commencer à utiliser l'application.</p>
     """
-    await send_email(user_email, "Bienvenue sur HyperMaint GMAO", email_template("Bienvenue !", content))
+    await send_email(user_email, "Bienvenue sur HyperbareManager", email_template("Bienvenue !", content))
 
 async def send_access_approved_email(user_email: str, user_name: str):
     """Send email when access request is approved"""
     content = f"""
     <p>Bonjour <strong>{user_name}</strong>,</p>
-    <p style="color: #28a745;"><strong>Bonne nouvelle !</strong> Votre demande d'accès à HyperMaint GMAO a été approuvée.</p>
+    <p style="color: #28a745;"><strong>Bonne nouvelle !</strong> Votre demande d'accès à HyperbareManager a été approuvée.</p>
     <p>Vous pouvez maintenant vous connecter avec vos identifiants.</p>
     """
-    await send_email(user_email, "Accès approuvé - HyperMaint GMAO", email_template("Accès Approuvé ✓", content))
+    await send_email(user_email, "Accès approuvé - HyperbareManager", email_template("Accès Approuvé ✓", content))
 
 async def send_access_rejected_email(user_email: str, user_name: str):
     """Send email when access request is rejected"""
     content = f"""
     <p>Bonjour <strong>{user_name}</strong>,</p>
-    <p style="color: #dc3545;">Nous avons le regret de vous informer que votre demande d'accès à HyperMaint GMAO a été refusée.</p>
+    <p style="color: #dc3545;">Nous avons le regret de vous informer que votre demande d'accès à HyperbareManager a été refusée.</p>
     <p>Si vous pensez qu'il s'agit d'une erreur, veuillez contacter l'administrateur.</p>
     """
-    await send_email(user_email, "Demande d'accès refusée - HyperMaint GMAO", email_template("Demande Refusée", content))
+    await send_email(user_email, "Demande d'accès refusée - HyperbareManager", email_template("Demande Refusée", content))
 
 async def send_maintenance_reminder_email(to_email: str, maintenance_title: str, equipment_ref: str, date_planifiee: str, days_left: int):
     """Send maintenance reminder email"""

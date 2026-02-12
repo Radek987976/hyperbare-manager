@@ -5,6 +5,32 @@ export function cn(...inputs) {
   return twMerge(clsx(inputs));
 }
 
+// Extract error message from API error response
+export function getErrorMessage(error, defaultMessage = 'Une erreur est survenue') {
+  const detail = error?.response?.data?.detail;
+  if (!detail) return defaultMessage;
+  
+  // If detail is a string, return it directly
+  if (typeof detail === 'string') return detail;
+  
+  // If detail is an array (validation errors), extract messages
+  if (Array.isArray(detail)) {
+    return detail.map(err => {
+      if (typeof err === 'string') return err;
+      if (err.msg) return err.msg;
+      if (err.message) return err.message;
+      return JSON.stringify(err);
+    }).join(', ');
+  }
+  
+  // If detail is an object, try to extract message
+  if (typeof detail === 'object') {
+    return detail.msg || detail.message || JSON.stringify(detail);
+  }
+  
+  return defaultMessage;
+}
+
 // Format date to French locale
 export function formatDate(dateString) {
   if (!dateString) return '-';

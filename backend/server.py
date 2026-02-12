@@ -99,7 +99,6 @@ class Caisson(CaissonBase):
 # Equipment Type Model (Dynamic types)
 class EquipmentTypeBase(BaseModel):
     nom: str
-    code: str
     description: Optional[str] = None
     icon: Optional[str] = None
 

@@ -53,6 +53,32 @@ const Sidebar = ({ isOpen, onClose }) => {
     navigate('/login');
   };
 
+  const handleChangePassword = async () => {
+    setError('');
+    
+    if (passwordData.newPassword !== passwordData.confirmPassword) {
+      setError('Les nouveaux mots de passe ne correspondent pas');
+      return;
+    }
+    if (passwordData.newPassword.length < 6) {
+      setError('Le nouveau mot de passe doit contenir au moins 6 caractères');
+      return;
+    }
+    
+    setSaving(true);
+    try {
+      await usersAPI.changePassword(user.id, passwordData.currentPassword, passwordData.newPassword);
+      alert('Mot de passe modifié avec succès !');
+      setShowPasswordModal(false);
+      setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
+    } catch (err) {
+      const message = err.response?.data?.detail || 'Erreur lors du changement de mot de passe';
+      setError(typeof message === 'string' ? message : 'Erreur lors du changement de mot de passe');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const getRoleIcon = () => {
     switch (user?.role) {
       case 'admin':

@@ -2306,6 +2306,555 @@ async def export_statistics_csv(current_user: dict = Depends(get_current_user)):
         headers={"Content-Disposition": f"attachment; filename={filename}"}
     )
 
+# ==================== PDF REPORTS ====================
+
+def create_pdf_styles():
+    """Create custom PDF styles"""
+    styles = getSampleStyleSheet()
+    
+    # Title style
+    styles.add(ParagraphStyle(
+        name='PDFTitle',
+        parent=styles['Heading1'],
+        fontSize=20,
+        spaceAfter=20,
+        textColor=colors.HexColor('#005F73'),
+        alignment=TA_CENTER
+    ))
+    
+    # Subtitle style
+    styles.add(ParagraphStyle(
+        name='PDFSubtitle',
+        parent=styles['Heading2'],
+        fontSize=14,
+        spaceAfter=10,
+        textColor=colors.HexColor('#005F73')
+    ))
+    
+    # Section header
+    styles.add(ParagraphStyle(
+        name='SectionHeader',
+        parent=styles['Heading3'],
+        fontSize=12,
+        spaceBefore=15,
+        spaceAfter=8,
+        textColor=colors.HexColor('#0A9396'),
+        borderPadding=5
+    ))
+    
+    # Normal text
+    styles.add(ParagraphStyle(
+        name='PDFNormal',
+        parent=styles['Normal'],
+        fontSize=10,
+        spaceAfter=6
+    ))
+    
+    # Small text
+    styles.add(ParagraphStyle(
+        name='PDFSmall',
+        parent=styles['Normal'],
+        fontSize=8,
+        textColor=colors.gray
+    ))
+    
+    return styles
+
+def create_pdf_header(title: str, subtitle: str = None):
+    """Create PDF header elements"""
+    styles = create_pdf_styles()
+    elements = []
+    
+    # Header with logo placeholder
+    header_data = [[
+        Paragraph(f"<b>HyperbareManager</b>", styles['PDFTitle']),
+        Paragraph(f"Généré le {datetime.now().strftime('%d/%m/%Y à %H:%M')}", styles['PDFSmall'])
+    ]]
+    
+    header_table = Table(header_data, colWidths=[12*cm, 6*cm])
+    header_table.setStyle(TableStyle([
+        ('ALIGN', (0, 0), (0, 0), 'LEFT'),
+        ('ALIGN', (1, 0), (1, 0), 'RIGHT'),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 10),
+    ]))
+    elements.append(header_table)
+    elements.append(Spacer(1, 10))
+    
+    # Title
+    elements.append(Paragraph(title, styles['PDFTitle']))
+    
+    if subtitle:
+        elements.append(Paragraph(subtitle, styles['PDFSubtitle']))
+    
+    elements.append(Spacer(1, 20))
+    
+    return elements, styles
+
+def create_table_style():
+    """Create standard table style"""
+    return TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#005F73')),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+        ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, 0), 10),
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 8),
+        ('TOPPADDING', (0, 0), (-1, 0), 8),
+        ('BACKGROUND', (0, 1), (-1, -1), colors.white),
+        ('TEXTCOLOR', (0, 1), (-1, -1), colors.black),
+        ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
+        ('FONTSIZE', (0, 1), (-1, -1), 9),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#E0E0E0')),
+        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#F8F9FA')]),
+        ('TOPPADDING', (0, 1), (-1, -1), 6),
+        ('BOTTOMPADDING', (0, 1), (-1, -1), 6),
+    ])
+
+@api_router.get("/reports/pdf/statistics")
+async def generate_statistics_pdf(current_user: dict = Depends(get_current_user)):
+    """Generate statistics PDF report"""
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=2*cm, leftMargin=2*cm, topMargin=2*cm, bottomMargin=2*cm)
+    
+    elements, styles = create_pdf_header("Rapport de Statistiques", "Vue d'ensemble de l'installation")
+    
+    # Get data
+    caisson = await db.caisson.find_one({}, {"_id": 0})
+    equipments = await db.equipments.find({}, {"_id": 0}).to_list(1000)
+    work_orders = await db.work_orders.find({}, {"_id": 0}).to_list(1000)
+    interventions = await db.interventions.find({}, {"_id": 0}).to_list(1000)
+    spare_parts = await db.spare_parts.find({}, {"_id": 0}).to_list(1000)
+    
+    # Caisson info
+    if caisson:
+        elements.append(Paragraph("Informations du Caisson", styles['SectionHeader']))
+        caisson_data = [
+            ["Nom", caisson.get("nom", "N/A")],
+            ["Modèle", caisson.get("modele", "N/A")],
+            ["Fabricant", caisson.get("fabricant", "N/A")],
+            ["N° Série", caisson.get("numero_serie", "N/A")],
+        ]
+        t = Table(caisson_data, colWidths=[5*cm, 12*cm])
+        t.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (0, -1), colors.HexColor('#F0F0F0')),
+            ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#E0E0E0')),
+            ('PADDING', (0, 0), (-1, -1), 8),
+        ]))
+        elements.append(t)
+        elements.append(Spacer(1, 15))
+    
+    # Equipment stats
+    elements.append(Paragraph("Statistiques des Équipements", styles['SectionHeader']))
+    eq_en_service = len([e for e in equipments if e.get('statut') == 'en_service'])
+    eq_maintenance = len([e for e in equipments if e.get('statut') == 'maintenance'])
+    eq_hors_service = len([e for e in equipments if e.get('statut') == 'hors_service'])
+    
+    eq_data = [
+        ["Statut", "Nombre"],
+        ["En service", str(eq_en_service)],
+        ["En maintenance", str(eq_maintenance)],
+        ["Hors service", str(eq_hors_service)],
+        ["Total", str(len(equipments))],
+    ]
+    t = Table(eq_data, colWidths=[10*cm, 4*cm])
+    t.setStyle(create_table_style())
+    elements.append(t)
+    elements.append(Spacer(1, 15))
+    
+    # Work orders stats
+    elements.append(Paragraph("Statistiques des Maintenances", styles['SectionHeader']))
+    wo_planifiee = len([w for w in work_orders if w.get('statut') == 'planifiee'])
+    wo_en_cours = len([w for w in work_orders if w.get('statut') == 'en_cours'])
+    wo_terminee = len([w for w in work_orders if w.get('statut') == 'terminee'])
+    
+    wo_data = [
+        ["Statut", "Nombre"],
+        ["Planifiées", str(wo_planifiee)],
+        ["En cours", str(wo_en_cours)],
+        ["Terminées", str(wo_terminee)],
+        ["Total", str(len(work_orders))],
+    ]
+    t = Table(wo_data, colWidths=[10*cm, 4*cm])
+    t.setStyle(create_table_style())
+    elements.append(t)
+    elements.append(Spacer(1, 15))
+    
+    # Interventions stats
+    elements.append(Paragraph("Statistiques des Interventions", styles['SectionHeader']))
+    elements.append(Paragraph(f"<b>Total des interventions :</b> {len(interventions)}", styles['PDFNormal']))
+    elements.append(Spacer(1, 15))
+    
+    # Spare parts stats
+    elements.append(Paragraph("Stock de Pièces Détachées", styles['SectionHeader']))
+    low_stock = len([p for p in spare_parts if p.get('quantite_stock', 0) <= p.get('seuil_minimum', 1)])
+    total_value = sum(p.get('quantite_stock', 0) * p.get('prix_unitaire', 0) for p in spare_parts)
+    
+    sp_data = [
+        ["Indicateur", "Valeur"],
+        ["Références en stock", str(len(spare_parts))],
+        ["Alertes stock bas", str(low_stock)],
+        ["Valeur totale du stock", f"{total_value:.2f} €"],
+    ]
+    t = Table(sp_data, colWidths=[10*cm, 4*cm])
+    t.setStyle(create_table_style())
+    elements.append(t)
+    
+    # Build PDF
+    doc.build(elements)
+    buffer.seek(0)
+    
+    filename = f"statistiques_hyperbaremanager_{datetime.now().strftime('%Y%m%d')}.pdf"
+    return StreamingResponse(
+        buffer,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename={filename}"}
+    )
+
+@api_router.get("/reports/pdf/maintenance")
+async def generate_maintenance_pdf(
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+    current_user: dict = Depends(get_current_user)
+):
+    """Generate maintenance history PDF report"""
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=2*cm, leftMargin=2*cm, topMargin=2*cm, bottomMargin=2*cm)
+    
+    period = ""
+    if start_date and end_date:
+        period = f"Du {start_date} au {end_date}"
+    
+    elements, styles = create_pdf_header("Rapport de Maintenance", period)
+    
+    # Get work orders
+    query = {}
+    work_orders = await db.work_orders.find(query, {"_id": 0}).to_list(1000)
+    
+    # Filter by date if provided
+    if start_date:
+        work_orders = [w for w in work_orders if w.get('date_planifiee', '') >= start_date]
+    if end_date:
+        work_orders = [w for w in work_orders if w.get('date_planifiee', '') <= end_date]
+    
+    # Get equipment map
+    equipments = await db.equipments.find({}, {"_id": 0}).to_list(1000)
+    eq_map = {e['id']: e for e in equipments}
+    
+    # Summary
+    elements.append(Paragraph("Résumé", styles['SectionHeader']))
+    summary_data = [
+        ["Type", "Nombre"],
+        ["Maintenances préventives", str(len([w for w in work_orders if w.get('type_maintenance') == 'preventive']))],
+        ["Maintenances curatives", str(len([w for w in work_orders if w.get('type_maintenance') == 'curative']))],
+        ["Total", str(len(work_orders))],
+    ]
+    t = Table(summary_data, colWidths=[10*cm, 4*cm])
+    t.setStyle(create_table_style())
+    elements.append(t)
+    elements.append(Spacer(1, 20))
+    
+    # Detail table
+    elements.append(Paragraph("Détail des Maintenances", styles['SectionHeader']))
+    
+    if work_orders:
+        detail_data = [["Titre", "Équipement", "Type", "Statut", "Date"]]
+        for wo in work_orders[:50]:  # Limit to 50
+            eq = eq_map.get(wo.get('equipment_id'), {})
+            detail_data.append([
+                wo.get('titre', 'N/A')[:30],
+                eq.get('reference', 'Caisson')[:20],
+                'Préventive' if wo.get('type_maintenance') == 'preventive' else 'Curative',
+                wo.get('statut', 'N/A'),
+                wo.get('date_planifiee', 'N/A')[:10] if wo.get('date_planifiee') else 'N/A'
+            ])
+        
+        t = Table(detail_data, colWidths=[5*cm, 4*cm, 2.5*cm, 2.5*cm, 2.5*cm])
+        t.setStyle(create_table_style())
+        elements.append(t)
+    else:
+        elements.append(Paragraph("Aucune maintenance trouvée pour cette période.", styles['PDFNormal']))
+    
+    doc.build(elements)
+    buffer.seek(0)
+    
+    filename = f"rapport_maintenance_{datetime.now().strftime('%Y%m%d')}.pdf"
+    return StreamingResponse(
+        buffer,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename={filename}"}
+    )
+
+@api_router.get("/reports/pdf/equipment/{equipment_id}")
+async def generate_equipment_pdf(equipment_id: str, current_user: dict = Depends(get_current_user)):
+    """Generate equipment detail PDF (fiche équipement)"""
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=2*cm, leftMargin=2*cm, topMargin=2*cm, bottomMargin=2*cm)
+    
+    # Get equipment
+    equipment = await db.equipments.find_one({"id": equipment_id}, {"_id": 0})
+    if not equipment:
+        raise HTTPException(status_code=404, detail="Équipement non trouvé")
+    
+    elements, styles = create_pdf_header("Fiche Équipement", equipment.get('reference', 'N/A'))
+    
+    # Equipment info
+    elements.append(Paragraph("Informations Générales", styles['SectionHeader']))
+    
+    info_data = [
+        ["Type", equipment.get('type', 'N/A')],
+        ["Référence", equipment.get('reference', 'N/A')],
+        ["N° Série", equipment.get('numero_serie', 'N/A')],
+        ["Statut", equipment.get('statut', 'N/A')],
+        ["Criticité", equipment.get('criticite', 'N/A')],
+        ["Date d'installation", equipment.get('date_installation', 'N/A')[:10] if equipment.get('date_installation') else 'N/A'],
+    ]
+    
+    if equipment.get('type') == 'compresseur':
+        info_data.append(["Compteur horaire", f"{equipment.get('compteur_horaire', 0):,.0f} h"])
+    
+    t = Table(info_data, colWidths=[5*cm, 12*cm])
+    t.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (0, -1), colors.HexColor('#F0F0F0')),
+        ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#E0E0E0')),
+        ('PADDING', (0, 0), (-1, -1), 8),
+    ]))
+    elements.append(t)
+    elements.append(Spacer(1, 20))
+    
+    # Description
+    if equipment.get('description'):
+        elements.append(Paragraph("Description", styles['SectionHeader']))
+        elements.append(Paragraph(equipment.get('description'), styles['PDFNormal']))
+        elements.append(Spacer(1, 15))
+    
+    # Get interventions for this equipment
+    work_orders = await db.work_orders.find({"equipment_id": equipment_id}, {"_id": 0}).to_list(100)
+    wo_ids = [w['id'] for w in work_orders]
+    interventions = await db.interventions.find({"work_order_id": {"$in": wo_ids}}, {"_id": 0}).to_list(100)
+    
+    # Maintenance history
+    elements.append(Paragraph("Historique des Maintenances", styles['SectionHeader']))
+    
+    if work_orders:
+        maint_data = [["Titre", "Type", "Statut", "Date"]]
+        for wo in work_orders[:20]:
+            maint_data.append([
+                wo.get('titre', 'N/A')[:35],
+                'Préventive' if wo.get('type_maintenance') == 'preventive' else 'Curative',
+                wo.get('statut', 'N/A'),
+                wo.get('date_planifiee', 'N/A')[:10] if wo.get('date_planifiee') else 'N/A'
+            ])
+        
+        t = Table(maint_data, colWidths=[7*cm, 3*cm, 3*cm, 3*cm])
+        t.setStyle(create_table_style())
+        elements.append(t)
+    else:
+        elements.append(Paragraph("Aucune maintenance enregistrée.", styles['PDFNormal']))
+    
+    elements.append(Spacer(1, 20))
+    
+    # Interventions history
+    elements.append(Paragraph("Historique des Interventions", styles['SectionHeader']))
+    
+    if interventions:
+        int_data = [["Date", "Description", "Technicien"]]
+        users = await db.users.find({}, {"_id": 0}).to_list(100)
+        user_map = {u['id']: f"{u.get('prenom', '')} {u.get('nom', '')}" for u in users}
+        
+        for inter in interventions[:20]:
+            int_data.append([
+                inter.get('date_realisation', 'N/A')[:10] if inter.get('date_realisation') else 'N/A',
+                inter.get('description', 'N/A')[:40],
+                user_map.get(inter.get('technicien_id'), 'N/A')
+            ])
+        
+        t = Table(int_data, colWidths=[3*cm, 9*cm, 4*cm])
+        t.setStyle(create_table_style())
+        elements.append(t)
+    else:
+        elements.append(Paragraph("Aucune intervention enregistrée.", styles['PDFNormal']))
+    
+    doc.build(elements)
+    buffer.seek(0)
+    
+    filename = f"fiche_equipement_{equipment.get('reference', 'unknown')}_{datetime.now().strftime('%Y%m%d')}.pdf"
+    return StreamingResponse(
+        buffer,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename={filename}"}
+    )
+
+@api_router.get("/reports/pdf/interventions")
+async def generate_interventions_pdf(
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+    current_user: dict = Depends(get_current_user)
+):
+    """Generate interventions PDF report"""
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=2*cm, leftMargin=2*cm, topMargin=2*cm, bottomMargin=2*cm)
+    
+    period = ""
+    if start_date and end_date:
+        period = f"Du {start_date} au {end_date}"
+    
+    elements, styles = create_pdf_header("Rapport des Interventions", period)
+    
+    # Get data
+    interventions = await db.interventions.find({}, {"_id": 0}).to_list(1000)
+    
+    # Filter by date
+    if start_date:
+        interventions = [i for i in interventions if i.get('date_realisation', '') >= start_date]
+    if end_date:
+        interventions = [i for i in interventions if i.get('date_realisation', '') <= end_date]
+    
+    # Get maps
+    users = await db.users.find({}, {"_id": 0}).to_list(100)
+    user_map = {u['id']: f"{u.get('prenom', '')} {u.get('nom', '')}" for u in users}
+    
+    work_orders = await db.work_orders.find({}, {"_id": 0}).to_list(1000)
+    wo_map = {w['id']: w for w in work_orders}
+    
+    spare_parts = await db.spare_parts.find({}, {"_id": 0}).to_list(1000)
+    sp_map = {s['id']: s for s in spare_parts}
+    
+    # Summary
+    elements.append(Paragraph("Résumé", styles['SectionHeader']))
+    elements.append(Paragraph(f"<b>Nombre total d'interventions :</b> {len(interventions)}", styles['PDFNormal']))
+    
+    # Count parts used
+    total_parts = sum(len(i.get('pieces_utilisees', [])) for i in interventions)
+    elements.append(Paragraph(f"<b>Pièces utilisées :</b> {total_parts}", styles['PDFNormal']))
+    elements.append(Spacer(1, 20))
+    
+    # Detail table
+    elements.append(Paragraph("Détail des Interventions", styles['SectionHeader']))
+    
+    if interventions:
+        detail_data = [["Date", "Maintenance", "Technicien", "Pièces"]]
+        for inter in interventions[:50]:
+            wo = wo_map.get(inter.get('work_order_id'), {})
+            pieces = inter.get('pieces_utilisees', [])
+            pieces_str = ", ".join([sp_map.get(p.get('spare_part_id'), {}).get('nom', 'N/A')[:15] for p in pieces[:3]])
+            if len(pieces) > 3:
+                pieces_str += "..."
+            
+            detail_data.append([
+                inter.get('date_realisation', 'N/A')[:10] if inter.get('date_realisation') else 'N/A',
+                wo.get('titre', 'N/A')[:25],
+                user_map.get(inter.get('technicien_id'), 'N/A')[:20],
+                pieces_str or 'Aucune'
+            ])
+        
+        t = Table(detail_data, colWidths=[3*cm, 5.5*cm, 4*cm, 4*cm])
+        t.setStyle(create_table_style())
+        elements.append(t)
+    else:
+        elements.append(Paragraph("Aucune intervention trouvée pour cette période.", styles['PDFNormal']))
+    
+    doc.build(elements)
+    buffer.seek(0)
+    
+    filename = f"rapport_interventions_{datetime.now().strftime('%Y%m%d')}.pdf"
+    return StreamingResponse(
+        buffer,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename={filename}"}
+    )
+
+@api_router.get("/reports/pdf/planning")
+async def generate_planning_pdf(current_user: dict = Depends(get_current_user)):
+    """Generate maintenance planning PDF (52 weeks)"""
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=2*cm, leftMargin=2*cm, topMargin=2*cm, bottomMargin=2*cm)
+    
+    elements, styles = create_pdf_header("Planning de Maintenance", "52 prochaines semaines")
+    
+    # Get upcoming maintenances
+    today = datetime.now(timezone.utc)
+    end_date = today + timedelta(weeks=52)
+    
+    work_orders = await db.work_orders.find({
+        "statut": {"$in": ["planifiee", "en_cours"]},
+        "date_planifiee": {"$ne": None}
+    }, {"_id": 0}).to_list(1000)
+    
+    # Filter by date range
+    upcoming = []
+    for wo in work_orders:
+        try:
+            date_str = wo.get('date_planifiee', '')
+            if date_str:
+                date_obj = datetime.fromisoformat(date_str.replace('Z', '+00:00'))
+                if today <= date_obj <= end_date:
+                    wo['date_obj'] = date_obj
+                    upcoming.append(wo)
+        except:
+            pass
+    
+    # Sort by date
+    upcoming.sort(key=lambda x: x.get('date_obj', today))
+    
+    # Get equipment map
+    equipments = await db.equipments.find({}, {"_id": 0}).to_list(1000)
+    eq_map = {e['id']: e for e in equipments}
+    
+    # Summary by month
+    elements.append(Paragraph("Résumé par Mois", styles['SectionHeader']))
+    
+    months = {}
+    for wo in upcoming:
+        month_key = wo['date_obj'].strftime('%Y-%m')
+        month_name = wo['date_obj'].strftime('%B %Y')
+        if month_key not in months:
+            months[month_key] = {'name': month_name, 'count': 0}
+        months[month_key]['count'] += 1
+    
+    if months:
+        month_data = [["Mois", "Maintenances planifiées"]]
+        for key in sorted(months.keys()):
+            month_data.append([months[key]['name'], str(months[key]['count'])])
+        
+        t = Table(month_data, colWidths=[10*cm, 5*cm])
+        t.setStyle(create_table_style())
+        elements.append(t)
+    
+    elements.append(Spacer(1, 20))
+    
+    # Detailed planning
+    elements.append(Paragraph("Planning Détaillé", styles['SectionHeader']))
+    
+    if upcoming:
+        plan_data = [["Date", "Titre", "Équipement", "Priorité"]]
+        for wo in upcoming[:100]:
+            eq = eq_map.get(wo.get('equipment_id'), {})
+            plan_data.append([
+                wo['date_obj'].strftime('%d/%m/%Y'),
+                wo.get('titre', 'N/A')[:30],
+                eq.get('reference', 'Caisson')[:20],
+                wo.get('priorite', 'normale')
+            ])
+        
+        t = Table(plan_data, colWidths=[3*cm, 6*cm, 4.5*cm, 3*cm])
+        t.setStyle(create_table_style())
+        elements.append(t)
+    else:
+        elements.append(Paragraph("Aucune maintenance planifiée pour les 52 prochaines semaines.", styles['PDFNormal']))
+    
+    doc.build(elements)
+    buffer.seek(0)
+    
+    filename = f"planning_maintenance_{datetime.now().strftime('%Y%m%d')}.pdf"
+    return StreamingResponse(
+        buffer,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename={filename}"}
+    )
+
 # ==================== HEALTH CHECK ====================
 
 @api_router.get("/")

@@ -40,7 +40,7 @@ const Login = () => {
             <Gauge className="w-12 h-12 text-white" />
           </div>
           <h1 className="text-4xl font-bold font-['Barlow_Condensed'] uppercase tracking-tight mb-2">
-            HyperMaint
+            HyperbareManager
           </h1>
           <p className="text-[#94e2d5] text-lg">
             Gestion de Maintenance Assistée par Ordinateur

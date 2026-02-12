@@ -96,7 +96,7 @@ const Sidebar = ({ isOpen, onClose }) => {
               </div>
               <div>
                 <h1 className="text-lg font-bold tracking-tight font-['Barlow_Condensed'] uppercase">
-                  HyperMaint
+                  HyperbareManager
                 </h1>
                 <p className="text-xs text-slate-400">GMAO Caisson</p>
               </div>

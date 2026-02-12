@@ -51,6 +51,8 @@ export const usersAPI = {
   activate: (userId) => api.put(`/users/${userId}/activate`),
   delete: (userId) => api.delete(`/users/${userId}`),
   getPermissions: () => api.get('/users/permissions'),
+  changePassword: (userId, currentPassword, newPassword) => 
+    api.put(`/users/${userId}/password`, { current_password: currentPassword, new_password: newPassword }),
 };
 
 // Caisson

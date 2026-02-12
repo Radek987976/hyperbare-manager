@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { dashboardAPI, caissonAPI } from '../lib/api';
+import { dashboardAPI, caissonAPI, alertsAPI } from '../lib/api';
 import { formatDate, daysUntil } from '../lib/utils';
+import { useAuth } from '../context/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
@@ -18,7 +19,10 @@ import {
   XCircle,
   Clock,
   Gauge,
-  Activity
+  Activity,
+  Mail,
+  Loader2,
+  Bell
 } from 'lucide-react';
 import {
   BarChart,

@@ -321,8 +321,18 @@ const UsersPage = () => {
           </p>
         </div>
         
-        {/* Export Buttons */}
+        {/* Action Buttons */}
         <div className="flex gap-2">
+          {currentUser?.role === 'admin' && (
+            <Button
+              onClick={() => setShowCreateModal(true)}
+              className="bg-[#005F73] hover:bg-[#004a5c]"
+              data-testid="add-user-btn"
+            >
+              <UserPlus className="w-4 h-4 mr-2" />
+              Ajouter un utilisateur
+            </Button>
+          )}
           <Button
             variant="outline"
             onClick={handleExportStatistics}

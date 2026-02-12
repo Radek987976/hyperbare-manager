@@ -11,6 +11,8 @@ import io
 import csv
 import json
 import shutil
+import asyncio
+import resend
 from pathlib import Path
 from pydantic import BaseModel, Field, ConfigDict, EmailStr
 from typing import List, Optional
@@ -21,6 +23,14 @@ from passlib.context import CryptContext
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
+
+# Resend Configuration
+RESEND_API_KEY = os.environ.get('RESEND_API_KEY')
+SENDER_EMAIL = os.environ.get('SENDER_EMAIL', 'onboarding@resend.dev')
+ADMIN_EMAIL = os.environ.get('ADMIN_EMAIL', '')
+
+if RESEND_API_KEY:
+    resend.api_key = RESEND_API_KEY
 
 # Create uploads directory
 UPLOADS_DIR = ROOT_DIR / "uploads"

@@ -43,6 +43,7 @@ export const usersAPI = {
   getAll: () => api.get('/users'),
   getPending: () => api.get('/users/pending'),
   getTechnicians: () => api.get('/users/technicians'),
+  create: (userData) => api.post('/users/create', userData),
   updateRole: (userId, role) => api.put(`/users/${userId}/role?role=${role}`),
   approve: (userId) => api.put(`/users/${userId}/approve`),
   reject: (userId) => api.put(`/users/${userId}/reject`),

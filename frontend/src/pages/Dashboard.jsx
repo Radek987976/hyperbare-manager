@@ -40,16 +40,39 @@ import {
 const COLORS = ['#0A9396', '#EE9B00', '#AE2012'];
 
 const Dashboard = () => {
+  const { user } = useAuth();
   const [stats, setStats] = useState(null);
   const [alerts, setAlerts] = useState([]);
   const [upcoming, setUpcoming] = useState([]);
   const [calendar, setCalendar] = useState([]);
   const [caisson, setCaisson] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [sendingAlerts, setSendingAlerts] = useState(false);
+  const [alertResult, setAlertResult] = useState(null);
 
   useEffect(() => {
     loadDashboardData();
   }, []);
+
+  const handleSendAlerts = async () => {
+    setSendingAlerts(true);
+    setAlertResult(null);
+    try {
+      const res = await alertsAPI.checkAndSend();
+      setAlertResult({
+        success: true,
+        message: `${res.data.total} notification(s) envoyée(s)`,
+        details: res.data.alerts_sent
+      });
+    } catch (error) {
+      setAlertResult({
+        success: false,
+        message: error.response?.data?.detail || 'Erreur lors de l\'envoi des notifications'
+      });
+    } finally {
+      setSendingAlerts(false);
+    }
+  };
 
   const loadDashboardData = async () => {
     try {

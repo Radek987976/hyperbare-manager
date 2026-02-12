@@ -66,6 +66,7 @@ const Sidebar = ({ isOpen, onClose }) => {
     { to: '/ordres-travail', icon: ClipboardList, label: 'Maintenance préventive' },
     { to: '/interventions', icon: History, label: 'Interventions' },
     { to: '/stock', icon: Package, label: 'Stock pièces' },
+    { to: '/rapports', icon: FileText, label: 'Rapports PDF' },
   ];
 
   const adminItems = [

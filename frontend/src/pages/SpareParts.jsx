@@ -116,7 +116,7 @@ const SpareParts = () => {
 
   // Helper to get type label from dynamic types
   const getTypeLabel = (typeCode) => {
-    const type = equipmentTypes.find(t => t.code === typeCode);
+    const type = equipmentTypes.find(t => t.nom === typeCode);
     return type ? type.nom : typeCode;
   };
 
@@ -383,7 +383,7 @@ const SpareParts = () => {
               <SelectContent>
                 <SelectItem value="all">Tous les types</SelectItem>
                 {equipmentTypes.map(type => (
-                  <SelectItem key={type.code} value={type.code}>
+                  <SelectItem key={type.id} value={type.nom}>
                     {type.nom}
                   </SelectItem>
                 ))}
@@ -535,7 +535,7 @@ const SpareParts = () => {
                 </SelectTrigger>
                 <SelectContent>
                   {equipmentTypes.map(type => (
-                    <SelectItem key={type.code} value={type.code}>
+                    <SelectItem key={type.id} value={type.nom}>
                       {type.nom}
                     </SelectItem>
                   ))}

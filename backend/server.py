@@ -707,29 +707,41 @@ async def activate_user(user_id: str, admin: dict = Depends(require_admin)):
     return {"message": "Utilisateur réactivé"}
 
 class PasswordChange(BaseModel):
-    current_password: Optional[str] = None  # Required for self-change, not for admin
+    current_password: str  # Always required for self-service
     new_password: str
 
+class AdminPasswordChange(BaseModel):
+    new_password: str
+
+@api_router.put("/users/me/change-password")
+async def change_my_password(data: PasswordChange, current_user: dict = Depends(get_current_user)):
+    """Self-service password change - requires current password verification"""
+    # Get user from database
+    user = await db.users.find_one({"id": current_user["id"]})
+    if not user:
+        raise HTTPException(status_code=404, detail="Utilisateur non trouvé")
+    
+    # Verify current password
+    if not pwd_context.verify(data.current_password, user["password_hash"]):
+        raise HTTPException(status_code=400, detail="Mot de passe actuel incorrect")
+    
+    # Validate new password
+    if len(data.new_password) < 6:
+        raise HTTPException(status_code=400, detail="Le nouveau mot de passe doit contenir au moins 6 caractères")
+    
+    # Update password
+    new_hash = pwd_context.hash(data.new_password)
+    await db.users.update_one({"id": current_user["id"]}, {"$set": {"password_hash": new_hash}})
+    
+    return {"message": "Mot de passe modifié avec succès"}
+
 @api_router.put("/users/{user_id}/password")
-async def change_user_password(user_id: str, data: PasswordChange, current_user: dict = Depends(get_current_user)):
-    """Change user password - admin can change any, user can change their own"""
-    is_admin = current_user.get("role") == "admin"
-    is_self = current_user["id"] == user_id
-    
-    if not is_admin and not is_self:
-        raise HTTPException(status_code=403, detail="Non autorisé")
-    
+async def change_user_password(user_id: str, data: AdminPasswordChange, admin: dict = Depends(require_admin)):
+    """Admin-only: Change any user's password without verification"""
     # Get user
     user = await db.users.find_one({"id": user_id})
     if not user:
         raise HTTPException(status_code=404, detail="Utilisateur non trouvé")
-    
-    # If changing own password (non-admin), verify current password
-    if is_self and not is_admin:
-        if not data.current_password:
-            raise HTTPException(status_code=400, detail="Mot de passe actuel requis")
-        if not pwd_context.verify(data.current_password, user["password_hash"]):
-            raise HTTPException(status_code=400, detail="Mot de passe actuel incorrect")
     
     # Update password
     new_hash = pwd_context.hash(data.new_password)

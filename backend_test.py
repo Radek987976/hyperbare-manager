@@ -11,7 +11,7 @@ from datetime import datetime, timedelta
 import os
 
 # Configuration
-BASE_URL = "https://equipment-tracker-40.preview.emergentagent.com/api"
+BASE_URL = "https://hyperbare-cmms.preview.emergentagent.com/api"
 AUTH_EMAIL = "admin@hypermaint.fr"
 AUTH_PASSWORD = "admin123"
 

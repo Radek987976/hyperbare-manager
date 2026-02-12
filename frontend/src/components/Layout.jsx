@@ -230,6 +230,14 @@ const Sidebar = ({ isOpen, onClose }) => {
             </div>
           </div>
           <button
+            onClick={() => setShowPasswordModal(true)}
+            className="w-full flex items-center gap-3 px-4 py-2 text-slate-400 hover:text-white hover:bg-white/10 rounded-sm transition-colors"
+            data-testid="change-password-btn"
+          >
+            <Key className="w-4 h-4" />
+            <span className="text-sm">Modifier mon mot de passe</span>
+          </button>
+          <button
             onClick={handleLogout}
             className="w-full flex items-center gap-3 px-4 py-2 text-slate-400 hover:text-white hover:bg-white/10 rounded-sm transition-colors"
             data-testid="logout-btn"
@@ -238,6 +246,86 @@ const Sidebar = ({ isOpen, onClose }) => {
             <span className="text-sm">Déconnexion</span>
           </button>
         </div>
+
+        {/* Password Change Modal */}
+        <Dialog open={showPasswordModal} onOpenChange={setShowPasswordModal}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Key className="w-5 h-5 text-[#005F73]" />
+                Modifier mon mot de passe
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              {error && (
+                <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md text-sm">
+                  {error}
+                </div>
+              )}
+              <div className="space-y-2">
+                <Label htmlFor="currentPassword">Mot de passe actuel</Label>
+                <Input
+                  id="currentPassword"
+                  type="password"
+                  value={passwordData.currentPassword}
+                  onChange={(e) => setPasswordData({ ...passwordData, currentPassword: e.target.value })}
+                  placeholder="Entrez votre mot de passe actuel"
+                  data-testid="current-password-input"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="newPassword">Nouveau mot de passe</Label>
+                <Input
+                  id="newPassword"
+                  type="password"
+                  value={passwordData.newPassword}
+                  onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })}
+                  placeholder="Minimum 6 caractères"
+                  data-testid="new-password-input"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="confirmPassword">Confirmer le nouveau mot de passe</Label>
+                <Input
+                  id="confirmPassword"
+                  type="password"
+                  value={passwordData.confirmPassword}
+                  onChange={(e) => setPasswordData({ ...passwordData, confirmPassword: e.target.value })}
+                  placeholder="Confirmez le nouveau mot de passe"
+                  data-testid="confirm-password-input"
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setShowPasswordModal(false);
+                  setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
+                  setError('');
+                }}
+                disabled={saving}
+              >
+                Annuler
+              </Button>
+              <Button
+                onClick={handleChangePassword}
+                disabled={saving || !passwordData.currentPassword || !passwordData.newPassword || !passwordData.confirmPassword}
+                className="bg-[#005F73] hover:bg-[#004855]"
+                data-testid="save-password-btn"
+              >
+                {saving ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Enregistrement...
+                  </>
+                ) : (
+                  'Enregistrer'
+                )}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </aside>
     </>
   );

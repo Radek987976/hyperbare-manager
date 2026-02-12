@@ -66,7 +66,8 @@ import {
   BarChart3,
   Loader2,
   Plus,
-  UserPlus
+  UserPlus,
+  Key
 } from 'lucide-react';
 
 const API_URL = process.env.REACT_APP_BACKEND_URL;
@@ -79,11 +80,13 @@ const UsersPage = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
   const [actionLoading, setActionLoading] = useState(null);
   const [activeTab, setActiveTab] = useState('all');
   const [exportLoading, setExportLoading] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [passwordData, setPasswordData] = useState({ newPassword: '', confirmPassword: '' });
   
   const [formData, setFormData] = useState({
     email: '',

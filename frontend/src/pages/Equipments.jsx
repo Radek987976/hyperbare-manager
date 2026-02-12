@@ -65,9 +65,13 @@ import {
   Loader2,
   X,
   Clock,
-  Activity
+  Activity,
+  Upload,
+  Image,
+  FileText
 } from 'lucide-react';
 
+const API_URL = process.env.REACT_APP_BACKEND_URL;
 const STATUTS = ['en_service', 'maintenance', 'hors_service'];
 const CRITICITES = ['critique', 'haute', 'normale', 'basse'];
 

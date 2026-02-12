@@ -92,6 +92,7 @@ const Equipments = () => {
   const [showCompteurModal, setShowCompteurModal] = useState(false);
   const [selectedEquipment, setSelectedEquipment] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const [compteurValue, setCompteurValue] = useState('');
   
   const [formData, setFormData] = useState({

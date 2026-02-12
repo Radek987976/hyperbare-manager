@@ -190,6 +190,7 @@ function App() {
         <AuthProvider>
           <AppRoutes />
           <Toaster position="top-right" richColors />
+          <PWAInstallPrompt />
         </AuthProvider>
       </BrowserRouter>
     </div>

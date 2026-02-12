@@ -2488,8 +2488,8 @@ async def generate_statistics_pdf(current_user: dict = Depends(get_current_user)
     
     # Spare parts stats
     elements.append(Paragraph("Stock de Pièces Détachées", styles['SectionHeader']))
-    low_stock = len([p for p in spare_parts if p.get('quantite_stock', 0) <= p.get('seuil_minimum', 1)])
-    total_value = sum(p.get('quantite_stock', 0) * p.get('prix_unitaire', 0) for p in spare_parts)
+    low_stock = len([p for p in spare_parts if (p.get('quantite_stock') or 0) <= (p.get('seuil_minimum') or 1)])
+    total_value = sum((p.get('quantite_stock') or 0) * (p.get('prix_unitaire') or 0) for p in spare_parts)
     
     sp_data = [
         ["Indicateur", "Valeur"],

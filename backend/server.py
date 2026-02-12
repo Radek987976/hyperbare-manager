@@ -21,6 +21,14 @@ from datetime import datetime, timezone, timedelta
 import jwt
 from passlib.context import CryptContext
 
+# PDF Generation
+from reportlab.lib import colors
+from reportlab.lib.pagesizes import A4
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.units import cm, mm
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image as RLImage
+from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
+
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 

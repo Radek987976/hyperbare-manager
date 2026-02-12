@@ -1,4 +1,4 @@
-# HyperMaint GMAO - PRD (Product Requirements Document)
+# HyperbareManager - PRD (Product Requirements Document)
 
 ## Énoncé du problème original
 Application web de GMAO (gestion de maintenance assistée par ordinateur) pour un caisson hyperbare unique contenant plusieurs équipements et sous-équipements.
@@ -60,6 +60,14 @@ Application web de GMAO (gestion de maintenance assistée par ordinateur) pour u
 - [x] Email stock bas
 - [x] Email compteur horaire atteint
 - [x] Bouton "Envoyer alertes" sur le dashboard (admin)
+
+### Phase 5 - PWA & Renommage (Implémenté 12/02/2026)
+- [x] Renommage application "HyperMaint GMAO" → "HyperbareManager"
+- [x] Manifest PWA (manifest.json)
+- [x] Service Worker pour cache et offline
+- [x] Icônes PWA (192x192, 512x512)
+- [x] Prompt d'installation PWA
+- [x] Support Apple mobile web app
 
 ## Backlog P0/P1/P2
 

@@ -39,7 +39,7 @@ const Export = () => {
     
     try {
       const response = await exportAPI.sql();
-      downloadBlob(response.data, 'hypermaint_export.sql');
+      downloadBlob(response.data, 'hyperbaremanager_export.sql');
       setSuccess({ ...success, sql: true });
       setTimeout(() => setSuccess({ ...success, sql: false }), 3000);
     } catch (error) {
@@ -56,7 +56,7 @@ const Export = () => {
     
     try {
       const response = await exportAPI.json();
-      downloadBlob(response.data, 'hypermaint_export.json');
+      downloadBlob(response.data, 'hyperbaremanager_export.json');
       setSuccess({ ...success, json: true });
       setTimeout(() => setSuccess({ ...success, json: false }), 3000);
     } catch (error) {

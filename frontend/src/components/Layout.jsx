@@ -217,7 +217,7 @@ const Layout = ({ children }) => {
             <div className="flex items-center gap-2">
               <Gauge className="w-6 h-6 text-[#005F73]" />
               <span className="font-bold font-['Barlow_Condensed'] uppercase text-[#005F73]">
-                HyperMaint
+                HyperbareManager
               </span>
             </div>
             <div className="w-10" />

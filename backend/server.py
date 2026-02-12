@@ -55,7 +55,7 @@ client = AsyncIOMotorClient(mongo_url)
 db = client[os.environ['DB_NAME']]
 
 # JWT Configuration
-JWT_SECRET = os.environ.get('JWT_SECRET', 'hypermaint-secret-key-2024')
+JWT_SECRET = os.environ.get('JWT_SECRET', 'hyperbaremanager-secret-key-2024')
 JWT_ALGORITHM = "HS256"
 JWT_EXPIRATION_HOURS = 24
 
@@ -1808,7 +1808,7 @@ async def export_sql(current_user: dict = Depends(get_current_user)):
     return StreamingResponse(
         iter([output]),
         media_type="application/sql",
-        headers={"Content-Disposition": "attachment; filename=hypermaint_export.sql"}
+        headers={"Content-Disposition": "attachment; filename=hyperbaremanager_export.sql"}
     )
 
 @api_router.get("/export/json")
@@ -1829,7 +1829,7 @@ async def export_json(current_user: dict = Depends(get_current_user)):
     return StreamingResponse(
         iter([output]),
         media_type="application/json",
-        headers={"Content-Disposition": "attachment; filename=hypermaint_export.json"}
+        headers={"Content-Disposition": "attachment; filename=hyperbaremanager_export.json"}
     )
 
 # ==================== FILE UPLOAD ROUTES ====================
@@ -2298,7 +2298,7 @@ async def export_statistics_csv(current_user: dict = Depends(get_current_user)):
     writer.writerow(["Valeur totale stock (€)", stats["spare_parts"]["total_stock_value"]])
     
     output.seek(0)
-    filename = f"statistiques_hypermaint_{datetime.now(timezone.utc).strftime('%Y%m%d')}.csv"
+    filename = f"statistiques_hyperbaremanager_{datetime.now(timezone.utc).strftime('%Y%m%d')}.csv"
     
     return StreamingResponse(
         iter([output.getvalue()]),

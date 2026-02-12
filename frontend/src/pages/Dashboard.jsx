@@ -146,6 +146,22 @@ const Dashboard = () => {
           </p>
         </div>
         <div className="flex gap-3">
+          {user?.role === 'admin' && (
+            <Button 
+              variant="outline"
+              onClick={handleSendAlerts}
+              disabled={sendingAlerts}
+              className="border-[#005F73] text-[#005F73] hover:bg-[#005F73]/5"
+              data-testid="send-alerts-btn"
+            >
+              {sendingAlerts ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <Bell className="w-4 h-4 mr-2" />
+              )}
+              Envoyer alertes
+            </Button>
+          )}
           <Link to="/ordres-travail">
             <Button className="bg-[#005F73] hover:bg-[#004C5C]" data-testid="new-work-order-btn">
               <ClipboardList className="w-4 h-4 mr-2" />
@@ -154,6 +170,37 @@ const Dashboard = () => {
           </Link>
         </div>
       </div>
+
+      {/* Alert Result Notification */}
+      {alertResult && (
+        <div className={`p-4 rounded-lg flex items-center justify-between ${
+          alertResult.success ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'
+        }`}>
+          <div className="flex items-center gap-3">
+            {alertResult.success ? (
+              <CheckCircle2 className="w-5 h-5 text-green-600" />
+            ) : (
+              <XCircle className="w-5 h-5 text-red-600" />
+            )}
+            <div>
+              <p className={alertResult.success ? 'text-green-800' : 'text-red-800'}>
+                {alertResult.message}
+              </p>
+              {alertResult.details && (
+                <p className="text-sm text-green-600 mt-1">
+                  Rappels: {alertResult.details.maintenance_reminders} | 
+                  Retards: {alertResult.details.maintenance_overdue} | 
+                  Stock bas: {alertResult.details.low_stock} | 
+                  Compteur: {alertResult.details.hour_counter}
+                </p>
+              )}
+            </div>
+          </div>
+          <button onClick={() => setAlertResult(null)} className="text-slate-400 hover:text-slate-600">
+            <XCircle className="w-5 h-5" />
+          </button>
+        </div>
+      )}
 
       {/* Compresseur Compteur Horaire - En haut */}
       {stats?.compresseurs && stats.compresseurs.length > 0 && (

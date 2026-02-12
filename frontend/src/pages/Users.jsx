@@ -544,6 +544,121 @@ const UsersPage = () => {
         </CardContent>
       </Card>
 
+      {/* Create User Modal */}
+      <Dialog open={showCreateModal} onOpenChange={setShowCreateModal}>
+        <DialogContent className="sm:max-w-md" data-testid="create-user-modal">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <UserPlus className="w-5 h-5 text-[#005F73]" />
+              Ajouter un utilisateur
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="prenom">Prénom *</Label>
+                <Input
+                  id="prenom"
+                  value={formData.prenom}
+                  onChange={(e) => setFormData({ ...formData, prenom: e.target.value })}
+                  placeholder="Jean"
+                  data-testid="input-prenom"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="nom">Nom *</Label>
+                <Input
+                  id="nom"
+                  value={formData.nom}
+                  onChange={(e) => setFormData({ ...formData, nom: e.target.value })}
+                  placeholder="Dupont"
+                  data-testid="input-nom"
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="email">Email *</Label>
+              <Input
+                id="email"
+                type="email"
+                value={formData.email}
+                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                placeholder="jean.dupont@example.com"
+                data-testid="input-email"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="password">Mot de passe *</Label>
+              <Input
+                id="password"
+                type="password"
+                value={formData.password}
+                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                placeholder="••••••••"
+                data-testid="input-password"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="role">Rôle</Label>
+              <Select
+                value={formData.role}
+                onValueChange={(v) => setFormData({ ...formData, role: v })}
+              >
+                <SelectTrigger data-testid="select-role">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="admin">
+                    <div className="flex items-center">
+                      <Shield className="w-3 h-3 mr-2" />
+                      Administrateur
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="technicien">
+                    <div className="flex items-center">
+                      <User className="w-3 h-3 mr-2" />
+                      Technicien
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="invite">
+                    <div className="flex items-center">
+                      <Eye className="w-3 h-3 mr-2" />
+                      Invité
+                    </div>
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowCreateModal(false);
+                resetForm();
+              }}
+            >
+              Annuler
+            </Button>
+            <Button
+              onClick={handleCreateUser}
+              disabled={saving || !formData.email || !formData.nom || !formData.prenom || !formData.password}
+              className="bg-[#005F73] hover:bg-[#004a5c]"
+              data-testid="save-user-btn"
+            >
+              {saving ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Création...
+                </>
+              ) : (
+                'Créer l\'utilisateur'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Delete Confirmation */}
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <AlertDialogContent>

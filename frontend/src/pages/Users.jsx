@@ -77,10 +77,20 @@ const UsersPage = () => {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [showCreateModal, setShowCreateModal] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
   const [actionLoading, setActionLoading] = useState(null);
   const [activeTab, setActiveTab] = useState('all');
   const [exportLoading, setExportLoading] = useState(null);
+  const [saving, setSaving] = useState(false);
+  
+  const [formData, setFormData] = useState({
+    email: '',
+    nom: '',
+    prenom: '',
+    password: '',
+    role: 'technicien'
+  });
 
   useEffect(() => {
     loadData();

@@ -710,6 +710,78 @@ const UsersPage = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Password Change Modal */}
+      <Dialog open={showPasswordModal} onOpenChange={setShowPasswordModal}>
+        <DialogContent className="sm:max-w-md" data-testid="password-modal">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Key className="w-5 h-5 text-[#005F73]" />
+              Modifier le mot de passe
+            </DialogTitle>
+          </DialogHeader>
+          {selectedUser && (
+            <div className="space-y-4 py-4">
+              <div className="p-3 bg-slate-50 rounded-lg">
+                <p className="text-sm text-slate-500">Utilisateur :</p>
+                <p className="font-medium">{selectedUser.prenom} {selectedUser.nom}</p>
+                <p className="text-sm text-slate-400">{selectedUser.email}</p>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="new-password">Nouveau mot de passe</Label>
+                <Input
+                  id="new-password"
+                  type="password"
+                  value={passwordData.newPassword}
+                  onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })}
+                  placeholder="••••••••"
+                  data-testid="input-new-password"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="confirm-password">Confirmer le mot de passe</Label>
+                <Input
+                  id="confirm-password"
+                  type="password"
+                  value={passwordData.confirmPassword}
+                  onChange={(e) => setPasswordData({ ...passwordData, confirmPassword: e.target.value })}
+                  placeholder="••••••••"
+                  data-testid="input-confirm-password"
+                />
+              </div>
+              {passwordData.newPassword && passwordData.confirmPassword && passwordData.newPassword !== passwordData.confirmPassword && (
+                <p className="text-sm text-red-500">Les mots de passe ne correspondent pas</p>
+              )}
+            </div>
+          )}
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowPasswordModal(false);
+                setPasswordData({ newPassword: '', confirmPassword: '' });
+              }}
+            >
+              Annuler
+            </Button>
+            <Button
+              onClick={handleChangePassword}
+              disabled={saving || !passwordData.newPassword || !passwordData.confirmPassword || passwordData.newPassword !== passwordData.confirmPassword}
+              className="bg-[#005F73] hover:bg-[#004a5c]"
+              data-testid="save-password-btn"
+            >
+              {saving ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Modification...
+                </>
+              ) : (
+                'Modifier le mot de passe'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

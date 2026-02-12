@@ -654,7 +654,7 @@ const Equipments = () => {
 
       {/* Detail Modal */}
       <Dialog open={showDetailModal} onOpenChange={setShowDetailModal}>
-        <DialogContent>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="font-['Barlow_Condensed'] uppercase text-xl">
               Détails de l'équipement

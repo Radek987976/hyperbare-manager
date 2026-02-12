@@ -39,6 +39,14 @@ import { usersAPI } from '../lib/api';
 const Sidebar = ({ isOpen, onClose }) => {
   const { user, logout, isAdmin, canExport, getRoleLabel } = useAuth();
   const navigate = useNavigate();
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [passwordData, setPasswordData] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: ''
+  });
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
 
   const handleLogout = () => {
     logout();

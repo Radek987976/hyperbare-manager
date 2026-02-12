@@ -194,6 +194,12 @@ export const dashboardAPI = {
   getCalendar: () => api.get('/dashboard/calendar'),
 };
 
+// Alerts / Notifications
+export const alertsAPI = {
+  checkAndSend: () => api.post('/alerts/check'),
+  testEmail: () => api.post('/alerts/test'),
+};
+
 // Export
 export const exportAPI = {
   csv: (collection) => api.get(`/export/csv/${collection}`, { responseType: 'blob' }),

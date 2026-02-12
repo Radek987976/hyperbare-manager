@@ -1775,7 +1775,7 @@ async def export_sql(current_user: dict = Depends(get_current_user)):
     collections = ["caisson", "equipments", "work_orders", "interventions", "inspections", "spare_parts", "users"]
     
     sql_output = []
-    sql_output.append("-- HyperMaint GMAO Database Export")
+    sql_output.append("-- HyperbareManager Database Export")
     sql_output.append(f"-- Generated: {datetime.now(timezone.utc).isoformat()}")
     sql_output.append("")
     
@@ -2250,7 +2250,7 @@ async def export_statistics_csv(current_user: dict = Depends(get_current_user)):
     writer = csv.writer(output, delimiter=';')
     
     # Write statistics
-    writer.writerow(["Rapport de statistiques HyperMaint"])
+    writer.writerow(["Rapport de statistiques HyperbareManager"])
     writer.writerow(["Généré le", stats["generated_at"]])
     writer.writerow([])
     
@@ -2302,7 +2302,7 @@ async def export_statistics_csv(current_user: dict = Depends(get_current_user)):
 
 @api_router.get("/")
 async def root():
-    return {"message": "HyperMaint GMAO API", "version": "1.0.0"}
+    return {"message": "HyperbareManager API", "version": "1.0.0"}
 
 @api_router.get("/health")
 async def health():
@@ -2426,7 +2426,7 @@ async def test_email(admin: dict = Depends(require_admin)):
     
     success = await send_email(
         admin_email,
-        "🧪 Test notification - HyperMaint GMAO",
+        "🧪 Test notification - HyperbareManager",
         email_template("Test de Configuration", content)
     )
     

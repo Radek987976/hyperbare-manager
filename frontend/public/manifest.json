@@ -1,0 +1,27 @@
+{
+  "short_name": "HyperbareManager",
+  "name": "HyperbareManager - GMAO Caissons Hyperbares",
+  "description": "Gestion de maintenance assistée par ordinateur pour caissons hyperbares",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "type": "image/png",
+      "sizes": "192x192",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icon-512.png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "any maskable"
+    }
+  ],
+  "start_url": "/",
+  "display": "standalone",
+  "theme_color": "#005F73",
+  "background_color": "#ffffff",
+  "orientation": "portrait-primary",
+  "scope": "/",
+  "lang": "fr-FR",
+  "categories": ["business", "productivity", "utilities"]
+}

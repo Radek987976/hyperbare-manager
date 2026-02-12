@@ -202,7 +202,14 @@ const Equipments = () => {
 
     setSaving(true);
     try {
-      const data = { ...formData, caisson_id: caisson.id };
+      // Clean data - convert empty strings to null for optional fields
+      const data = { 
+        ...formData, 
+        caisson_id: caisson.id,
+        compteur_horaire: formData.compteur_horaire ? parseFloat(formData.compteur_horaire) : null,
+        date_installation: formData.date_installation || null,
+        description: formData.description || null
+      };
       
       if (selectedEquipment) {
         await equipmentsAPI.update(selectedEquipment.id, data);

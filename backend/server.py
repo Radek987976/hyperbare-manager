@@ -411,6 +411,44 @@ async def get_technicians(current_user: dict = Depends(get_current_user)):
     users = await db.users.find({"is_active": True, "is_approved": True}, {"_id": 0, "password_hash": 0}).to_list(1000)
     return users
 
+# Admin create user
+class AdminUserCreate(BaseModel):
+    email: str
+    nom: str
+    prenom: str
+    password: str
+    role: str = "technicien"
+
+@api_router.post("/users/create")
+async def admin_create_user(user_data: AdminUserCreate, admin: dict = Depends(require_admin)):
+    """Admin creates a new user directly (pre-approved)"""
+    # Check if email already exists
+    existing = await db.users.find_one({"email": user_data.email})
+    if existing:
+        raise HTTPException(status_code=400, detail="Cet email est déjà utilisé")
+    
+    if user_data.role not in ROLES:
+        raise HTTPException(status_code=400, detail=f"Rôle invalide. Choix: {', '.join(ROLES)}")
+    
+    # Create user (pre-approved)
+    new_user = {
+        "id": str(uuid.uuid4()),
+        "email": user_data.email,
+        "nom": user_data.nom,
+        "prenom": user_data.prenom,
+        "password_hash": pwd_context.hash(user_data.password),
+        "role": user_data.role,
+        "is_active": True,
+        "is_approved": True,
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    
+    await db.users.insert_one(new_user)
+    
+    # Return user without password
+    del new_user["password_hash"]
+    return {"message": "Utilisateur créé avec succès", "user": new_user}
+
 @api_router.put("/users/{user_id}/role")
 async def update_user_role(user_id: str, role: str, admin: dict = Depends(require_admin)):
     if role not in ROLES:

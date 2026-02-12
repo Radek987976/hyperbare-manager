@@ -640,20 +640,42 @@ async def update_user_role(user_id: str, role: str, admin: dict = Depends(requir
 @api_router.put("/users/{user_id}/approve")
 async def approve_user(user_id: str, admin: dict = Depends(require_admin)):
     """Approve a pending user"""
+    # Get user info before update for email
+    user = await db.users.find_one({"id": user_id}, {"_id": 0})
+    
     result = await db.users.update_one(
         {"id": user_id}, 
         {"$set": {"is_approved": True, "is_active": True}}
     )
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Utilisateur non trouvé")
+    
+    # Send approval email
+    if user:
+        await send_access_approved_email(
+            user["email"], 
+            f"{user.get('prenom', '')} {user.get('nom', '')}"
+        )
+    
     return {"message": "Utilisateur approuvé"}
 
 @api_router.put("/users/{user_id}/reject")
 async def reject_user(user_id: str, admin: dict = Depends(require_admin)):
     """Reject a pending user (delete them)"""
+    # Get user info before delete for email
+    user = await db.users.find_one({"id": user_id, "is_approved": False}, {"_id": 0})
+    
     result = await db.users.delete_one({"id": user_id, "is_approved": False})
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Utilisateur non trouvé ou déjà approuvé")
+    
+    # Send rejection email
+    if user:
+        await send_access_rejected_email(
+            user["email"], 
+            f"{user.get('prenom', '')} {user.get('nom', '')}"
+        )
+    
     return {"message": "Demande refusée"}
 
 @api_router.put("/users/{user_id}/suspend")

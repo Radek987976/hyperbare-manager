@@ -121,6 +121,18 @@ spare_parts: {id, nom, reference_fabricant, equipment_type, quantite_stock, seui
 - POST /api/auth/login
 - GET /api/auth/me
 
+### Users
+- GET /api/users
+- POST /api/users/create
+- PUT /api/users/{id}/role
+- PUT /api/users/{id}/approve
+- PUT /api/users/{id}/reject
+- PUT /api/users/{id}/suspend
+- PUT /api/users/{id}/activate
+- DELETE /api/users/{id}
+- PUT /api/users/me/change-password (self-service password change)
+- PUT /api/users/{id}/password (admin only)
+
 ### Resources
 - GET/POST/PUT /api/caisson
 - GET/POST/PUT/DELETE /api/equipments

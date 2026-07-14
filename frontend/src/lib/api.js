@@ -178,6 +178,14 @@ export const inspectionsAPI = {
   create: (data) => api.post('/inspections', data),
   update: (id, data) => api.put(`/inspections/${id}`, data),
   delete: (id) => api.delete(`/inspections/${id}`),
+  uploadProcedure: (id, file) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return api.post(`/inspections/${id}/procedures`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    });
+  },
+  deleteProcedure: (id, docUrl) => api.delete(`/inspections/${id}/procedures?doc_url=${encodeURIComponent(docUrl)}`),
 };
 
 // Spare Parts

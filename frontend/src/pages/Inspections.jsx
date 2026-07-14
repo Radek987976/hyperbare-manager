@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import { inspectionsAPI, caissonAPI, equipmentsAPI } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
+import { toast } from 'sonner';
 import { formatDate, daysUntil, equipmentTypeLabels, periodiciteLabels, getErrorMessage } from '../lib/utils';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
@@ -60,7 +61,9 @@ import {
   AlertTriangle,
   CheckCircle2,
   XCircle,
-  Calendar
+  Calendar,
+  FileText,
+  Upload
 } from 'lucide-react';
 
 const PERIODICITES = ['hebdomadaire', 'mensuel', 'trimestriel', 'semestriel', 'annuel', 'biannuel', 'triennal', 'quinquennal', 'decennal'];
@@ -80,6 +83,39 @@ const Inspections = () => {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [selectedInspection, setSelectedInspection] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [uploadingPdf, setUploadingPdf] = useState(false);
+  const pdfInputRef = useRef(null);
+
+  const handleUploadPdf = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file || !selectedInspection) return;
+    setUploadingPdf(true);
+    try {
+      await inspectionsAPI.uploadProcedure(selectedInspection.id, file);
+      const res = await inspectionsAPI.getById(selectedInspection.id);
+      setSelectedInspection(res.data);
+      loadData();
+      toast.success('PDF ajouté au contrôle');
+    } catch (err) {
+      toast.error(getErrorMessage(err) || "Échec de l'ajout du PDF");
+    } finally {
+      setUploadingPdf(false);
+      if (pdfInputRef.current) pdfInputRef.current.value = '';
+    }
+  };
+
+  const handleDeletePdf = async (url) => {
+    if (!selectedInspection) return;
+    try {
+      await inspectionsAPI.deleteProcedure(selectedInspection.id, url);
+      const res = await inspectionsAPI.getById(selectedInspection.id);
+      setSelectedInspection(res.data);
+      loadData();
+      toast.success('PDF supprimé');
+    } catch (err) {
+      toast.error('Échec de la suppression');
+    }
+  };
   
   const [formData, setFormData] = useState({
     titre: '',
@@ -542,7 +578,7 @@ const Inspections = () => {
 
       {/* Detail Modal */}
       <Dialog open={showDetailModal} onOpenChange={setShowDetailModal}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="font-['Barlow_Condensed'] uppercase text-xl">
               Détails du contrôle
@@ -592,6 +628,64 @@ const Inspections = () => {
                   <p className="text-slate-700 mt-1">{selectedInspection.observations}</p>
                 </div>
               )}
+
+              {/* Documents PDF (procédures / PV signés) */}
+              <div className="pt-4 border-t" data-testid="pdf-section">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-xs text-slate-500 uppercase flex items-center gap-2">
+                    <FileText className="w-4 h-4" /> Documents PDF (PV / procédures)
+                  </p>
+                  {canModify() && (
+                    <>
+                      <input
+                        ref={pdfInputRef}
+                        type="file"
+                        accept="application/pdf,.pdf"
+                        className="hidden"
+                        onChange={handleUploadPdf}
+                        data-testid="pdf-file-input"
+                      />
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={uploadingPdf}
+                        onClick={() => pdfInputRef.current?.click()}
+                        data-testid="upload-pdf-btn"
+                      >
+                        {uploadingPdf ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Upload className="w-4 h-4 mr-1" />}
+                        Ajouter un PDF
+                      </Button>
+                    </>
+                  )}
+                </div>
+                {(selectedInspection.procedure_documents || []).length === 0 ? (
+                  <p className="text-sm text-slate-400">Aucun document</p>
+                ) : (
+                  <div className="space-y-2">
+                    {selectedInspection.procedure_documents.map((doc, i) => (
+                      <div key={i} className="flex items-center justify-between p-2 rounded border border-slate-200" data-testid="pdf-doc-item">
+                        <a
+                          href={`${process.env.REACT_APP_BACKEND_URL}${doc.url}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="flex items-center gap-2 text-[#005F73] hover:underline text-sm truncate"
+                        >
+                          <FileText className="w-4 h-4 shrink-0" /> {doc.filename}
+                        </a>
+                        {canModify() && (
+                          <button
+                            onClick={() => handleDeletePdf(doc.url)}
+                            className="text-slate-400 hover:text-red-600 shrink-0"
+                            data-testid="delete-pdf-btn"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           )}
         </DialogContent>

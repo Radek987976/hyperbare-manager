@@ -154,8 +154,8 @@ export const workOrdersAPI = {
 
 // Planning / Calendrier
 export const planningAPI = {
-  getEvents: (start, end) => api.get('/planning/events', { params: { start, end } }),
-  getSummary: (year) => api.get('/planning/summary', { params: { year } }),
+  getEvents: (start, end, equipmentId) => api.get('/planning/events', { params: { start, end, ...(equipmentId ? { equipment_id: equipmentId } : {}) } }),
+  getSummary: (year, equipmentId) => api.get('/planning/summary', { params: { year, ...(equipmentId ? { equipment_id: equipmentId } : {}) } }),
   reschedule: (data) => api.post('/planning/reschedule', data),
 };
 

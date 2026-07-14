@@ -2314,7 +2314,7 @@ async def reschedule_maintenance(data: RescheduleRequest, current_user: dict = D
 
 
 @api_router.get("/planning/events")
-async def get_planning_events(start: str, end: str, current_user: dict = Depends(get_current_user)):
+async def get_planning_events(start: str, end: str, equipment_id: Optional[str] = None, current_user: dict = Depends(get_current_user)):
     """Retourne toutes les maintenances (ordres de travail + contrôles réglementaires) sur une plage de dates."""
     try:
         start_date = datetime.strptime(start, "%Y-%m-%d").date()
@@ -2324,9 +2324,10 @@ async def get_planning_events(start: str, end: str, current_user: dict = Depends
 
     today = datetime.now(timezone.utc).date()
     events = []
+    wo_filter = {"equipment_id": equipment_id} if equipment_id else {}
 
     # Ordres de travail (maintenance préventive/corrective)
-    work_orders = await db.work_orders.find({}, {"_id": 0}).to_list(3000)
+    work_orders = await db.work_orders.find(wo_filter, {"_id": 0}).to_list(3000)
     for wo in work_orders:
         dp = wo.get("date_planifiee")
         if not dp:
@@ -2351,7 +2352,8 @@ async def get_planning_events(start: str, end: str, current_user: dict = Depends
         })
 
     # Contrôles réglementaires (inspections) via date_validite
-    inspections = await db.inspections.find({}, {"_id": 0}).to_list(3000)
+    insp_filter = {"equipment_id": equipment_id} if equipment_id else {}
+    inspections = await db.inspections.find(insp_filter, {"_id": 0}).to_list(3000)
     for insp in inspections:
         dv = insp.get("date_validite")
         if not dv:
@@ -2380,15 +2382,16 @@ async def get_planning_events(start: str, end: str, current_user: dict = Depends
 
 
 @api_router.get("/planning/summary")
-async def get_planning_summary(year: int, current_user: dict = Depends(get_current_user)):
+async def get_planning_summary(year: int, equipment_id: Optional[str] = None, current_user: dict = Depends(get_current_user)):
     """Compte des maintenances par mois pour une année (vue annuelle)."""
     start_date = datetime(year, 1, 1).date()
     end_date = datetime(year, 12, 31).date()
     today = datetime.now(timezone.utc).date()
 
     months = {m: {"preventive": 0, "reglementaire": 0, "overdue": 0} for m in range(1, 13)}
+    ent_filter = {"equipment_id": equipment_id} if equipment_id else {}
 
-    work_orders = await db.work_orders.find({}, {"_id": 0}).to_list(3000)
+    work_orders = await db.work_orders.find(ent_filter, {"_id": 0}).to_list(3000)
     for wo in work_orders:
         dp = wo.get("date_planifiee")
         if not dp:
@@ -2402,7 +2405,7 @@ async def get_planning_summary(year: int, current_user: dict = Depends(get_curre
             if d < today and wo.get("statut") != "terminee":
                 months[d.month]["overdue"] += 1
 
-    inspections = await db.inspections.find({}, {"_id": 0}).to_list(3000)
+    inspections = await db.inspections.find(ent_filter, {"_id": 0}).to_list(3000)
     for insp in inspections:
         dv = insp.get("date_validite")
         if not dv:

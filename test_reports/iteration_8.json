@@ -1,0 +1,28 @@
+{
+  "summary": "Iteration 8 - Validated all 4 tasks (Extincteurs/ARI equipments + 100% work_orders linked, PDF documents on equipment, Planning filter by equipment, Equipment PDF export). Backend pytest 9/9 pass. Frontend e2e all steps pass with 0 runtime errors.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iteration8.py",
+    "/app/test_reports/pytest/iter8.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Multiple 'ARI' equipments exist (ARI C1, ARI C2, ARI (parc)) — filtering by substring 'ari' can match the wrong record. UI/API filters use IDs so this is not a runtime bug, only a test-writing pitfall.",
+    "Equipments still store display name in `reference` while `nom` is None for many rows — inherited inconsistency flagged in iteration 7 still present (non-blocking)."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iteration8.py"
+  ],
+  "success_rate": {"backend": "100% (9/9)", "frontend": "100% (all 7 steps pass, 0 pageerror/console-error)"},
+  "test_credentials": "admin@hypermaint.fr / admin123 (working). Note: /app/memory/test_credentials.md is missing — main agent may want to create it.",
+  "seed_data_creation": "Uploaded 1 TEST_ PDF to equipments[0] and deleted it within the same test. No orphan data.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Backend /api/planning/events and /api/planning/summary accept optional equipment_id query param. /api/reports/pdf/equipment/{id} returns application/pdf (%PDF header, ~4-5KB). /api/equipments/{id}/documents supports POST (multipart file field 'file') and DELETE (query param doc_url). Frontend: planning filter data-testid='planning-equipment-filter' (shadcn Select — click to open, then click option); year view toggled via data-testid='view-year-btn'. Equipment detail modal opened via data-testid='equipment-actions-{id}' dropdown then menu item 'Voir détails'; modal contains 'Documents PDF' section and data-testid='download-equipment-pdf-btn'. Equipments count is exactly 16, all 250 work_orders in 2026-2027 have equipment_id (0 nulls).",
+  "rca of the issue": "N/A - no issues."
+}

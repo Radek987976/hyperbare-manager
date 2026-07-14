@@ -7,12 +7,16 @@ import { fr } from 'date-fns/locale';
 import { ChevronLeft, ChevronRight, CalendarDays, Wrench, ShieldCheck, AlertTriangle, CheckCircle2, RotateCw } from 'lucide-react';
 import { toast } from 'sonner';
 import { planningAPI, workOrdersAPI } from '../lib/api';
+import { equipmentsAPI } from '../lib/api';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Textarea } from '../components/ui/textarea';
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue
+} from '../components/ui/select';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription
 } from '../components/ui/dialog';
@@ -41,6 +45,8 @@ export default function Planning() {
   const [events, setEvents] = useState([]);
   const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [equipments, setEquipments] = useState([]);
+  const [equipmentFilter, setEquipmentFilter] = useState('all');
   const [dragId, setDragId] = useState(null);
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [completeOpen, setCompleteOpen] = useState(false);
@@ -56,26 +62,32 @@ export default function Planning() {
     try {
       const start = format(gridStart, 'yyyy-MM-dd');
       const end = format(gridEnd, 'yyyy-MM-dd');
-      const res = await planningAPI.getEvents(start, end);
+      const eq = equipmentFilter === 'all' ? undefined : equipmentFilter;
+      const res = await planningAPI.getEvents(start, end, eq);
       setEvents(res.data || []);
     } catch (e) {
       toast.error('Erreur chargement du planning');
     } finally {
       setLoading(false);
     }
-  }, [gridStart, gridEnd]);
+  }, [gridStart, gridEnd, equipmentFilter]);
 
   const loadYear = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await planningAPI.getSummary(current.getFullYear());
+      const eq = equipmentFilter === 'all' ? undefined : equipmentFilter;
+      const res = await planningAPI.getSummary(current.getFullYear(), eq);
       setSummary(res.data);
     } catch (e) {
       toast.error('Erreur chargement de la vue annuelle');
     } finally {
       setLoading(false);
     }
-  }, [current]);
+  }, [current, equipmentFilter]);
+
+  useEffect(() => {
+    equipmentsAPI.getAll().then(res => setEquipments(res.data || [])).catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (view === 'month') loadMonth();
@@ -144,7 +156,18 @@ export default function Planning() {
           </h1>
           <p className="text-slate-500 mt-1">Calendrier automatique basé sur les périodicités réglementaires</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          <Select value={equipmentFilter} onValueChange={setEquipmentFilter}>
+            <SelectTrigger className="w-[220px]" data-testid="planning-equipment-filter">
+              <SelectValue placeholder="Tous les équipements" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Tous les équipements</SelectItem>
+              {equipments.map(eq => (
+                <SelectItem key={eq.id} value={eq.id}>{eq.reference || eq.type}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <div className="flex rounded-lg border border-slate-200 overflow-hidden" data-testid="view-toggle">
             <button
               onClick={() => setView('month')}

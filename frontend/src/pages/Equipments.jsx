@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
-import { equipmentsAPI, caissonAPI, equipmentTypesAPI } from '../lib/api';
+import { equipmentsAPI, caissonAPI, equipmentTypesAPI, reportsAPI } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
 import { 
   formatDate, 
@@ -70,6 +70,7 @@ import { Settings2,
   Image,
   FileText
 } from 'lucide-react';
+import { Download } from 'lucide-react';
 import { MaintenanceHistory } from '../components/MaintenanceHistory';
 
 const API_URL = process.env.REACT_APP_BACKEND_URL;
@@ -122,6 +123,27 @@ const Equipments = () => {
       if (eq) { setSelectedEquipment(eq); setShowDetailModal(true); }
     }
   }, [equipments, location.state]);
+
+  const [downloadingPdf, setDownloadingPdf] = useState(false);
+  const handleDownloadPDF = async () => {
+    if (!selectedEquipment) return;
+    setDownloadingPdf(true);
+    try {
+      const res = await reportsAPI.equipmentPDF(selectedEquipment.id);
+      const url = window.URL.createObjectURL(new Blob([res.data], { type: 'application/pdf' }));
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `fiche_${(selectedEquipment.reference || selectedEquipment.id).replace(/\s+/g, '_')}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (e) {
+      console.error('PDF download failed', e);
+    } finally {
+      setDownloadingPdf(false);
+    }
+  };
 
   const loadData = async () => {
     try {
@@ -669,9 +691,22 @@ const Equipments = () => {
       <Dialog open={showDetailModal} onOpenChange={setShowDetailModal}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="font-['Barlow_Condensed'] uppercase text-xl">
-              Détails de l'équipement
-            </DialogTitle>
+            <div className="flex items-center justify-between gap-4">
+              <DialogTitle className="font-['Barlow_Condensed'] uppercase text-xl">
+                Détails de l'équipement
+              </DialogTitle>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={handleDownloadPDF}
+                disabled={downloadingPdf}
+                data-testid="download-equipment-pdf-btn"
+                className="mr-6"
+              >
+                {downloadingPdf ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Download className="w-4 h-4 mr-1" />}
+                Fiche PDF
+              </Button>
+            </div>
           </DialogHeader>
           {selectedEquipment && (
             <div className="space-y-4">

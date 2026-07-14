@@ -156,3 +156,30 @@ spare_parts: {id, nom, reference_fabricant, equipment_type, quantite_stock, seui
 2. Planifier des maintenances préventives périodiques
 3. Configurer les contrôles réglementaires avec dates de validité
 4. Former les techniciens à l'utilisation de l'application
+
+---
+
+## Journal des modifications
+
+### 2026-07-14 — Import des données réelles client (P0 — TERMINÉ)
+- **Script**: `/app/backend/import_real_data.py` (idempotent, champ `source` par lot)
+- **Sources** (artefacts client): `maintenance.xlsx`, `suivi_controle.xlsx`, `budget.xlsx` (téléchargés dans `/tmp/imports`)
+- **Données importées** dans `hyperbaremanager_prod`:
+  - 1 Caisson (CH-01, CMC Mahieu, 5 bars)
+  - 8 équipements (3 compresseurs BAUER 01/02 + LUCHARD, 3 cuves incendie, 2 ARI)
+  - 357 contrôles/inspections (248 depuis feuilles maintenance + 109 depuis suivi contrôle)
+  - 98 lignes budget 2026 (total 5 792 438 XPF ≈ 48 540 €)
+  - 132 bouteilles de gaz (41 O2, 73 Air médical, 7 Héliox, 11 Nitrox)
+  - 133 pièces détachées (INVENTAIRE)
+  - Nettoyage préalable des données de test (TEST-*, "Test ...")
+- **Corrections associées**:
+  - `dashboard/alerts` renvoyait 500 (date_validite None → strptime TypeError). Corrigé + garde None.
+  - `dashboard/upcoming-maintenance` & `dashboard/calendar` enrichis pour inclure les inspections (via `date_validite`).
+  - Comparaisons `type == "compresseur"` rendues insensibles à la casse (backend server.py + frontend Equipments.jsx) → compteurs horaires compresseurs visibles.
+  - Budget.jsx: année par défaut = année courante (2026) au lieu de +1.
+- **Vérifié**: dashboard (8 équip., 178 alertes, 77/133 stock bas, 3 compresseurs), pages Bouteilles, Contrôles réglementaires, Budget 2026 affichent bien les données.
+
+## Backlog / Tâches à venir
+- **P1** Planning mensuel automatique / calendrier interactif (drag & drop) basé sur périodicité réglementaire.
+- **P1** Upload/attachement de fichiers PDF aux PV de contrôle (`ControlReports`).
+- **P2** Notifications email/push pour les alertes.

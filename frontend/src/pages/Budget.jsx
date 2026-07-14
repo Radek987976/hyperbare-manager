@@ -102,7 +102,7 @@ const Budget = () => {
   const [items, setItems] = useState([]);
   const [contractors, setContractors] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear() + 1);
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [filterCategory, setFilterCategory] = useState('all');
   const [showInEur, setShowInEur] = useState(false);
   

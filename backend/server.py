@@ -1108,7 +1108,7 @@ async def update_compteur_horaire(
     if not equipment:
         raise HTTPException(status_code=404, detail="Équipement non trouvé")
     
-    if equipment.get("type") != "compresseur":
+    if (equipment.get("type") or "").lower() != "compresseur":
         raise HTTPException(status_code=400, detail="Le compteur horaire n'est disponible que pour les compresseurs")
     
     # Ajouter à l'historique
@@ -1799,7 +1799,7 @@ async def get_dashboard_stats(current_user: dict = Depends(get_current_user)):
     low_stock_parts = [p for p in spare_parts if p["quantite_stock"] <= p["seuil_minimum"]]
     
     # Compresseurs avec compteur horaire
-    compresseurs = [e for e in equipments if e.get("type") == "compresseur"]
+    compresseurs = [e for e in equipments if (e.get("type") or "").lower() == "compresseur"]
     compresseurs_stats = []
     for comp in compresseurs:
         compresseurs_stats.append({
@@ -1837,8 +1837,10 @@ async def get_alerts(current_user: dict = Depends(get_current_user)):
             })
     
     # Inspection expiration alerts (30 days before)
-    inspections = await db.inspections.find({}, {"_id": 0}).to_list(1000)
+    inspections = await db.inspections.find({}, {"_id": 0}).to_list(2000)
     for inspection in inspections:
+        if not inspection.get("date_validite"):
+            continue
         try:
             expiry_date = datetime.strptime(inspection["date_validite"], "%Y-%m-%d").date()
             days_until_expiry = (expiry_date - today).days
@@ -1861,7 +1863,7 @@ async def get_alerts(current_user: dict = Depends(get_current_user)):
                     "item_id": inspection["id"],
                     "item_type": "inspection"
                 })
-        except (ValueError, KeyError):
+        except (ValueError, KeyError, TypeError):
             pass
     
     # Overdue work orders
@@ -1998,10 +2000,35 @@ async def get_upcoming_maintenance(current_user: dict = Depends(get_current_user
             days_diff = (planned_date - today).days
             wo["days_until"] = days_diff
             wo["is_overdue"] = days_diff < 0
+            wo["origine"] = "ordre_travail"
             upcoming.append(wo)
-        except (ValueError, KeyError):
+        except (ValueError, KeyError, TypeError):
             pass
-    
+
+    # Inclure les contrôles réglementaires / maintenances préventives (prochaine échéance)
+    inspections = await db.inspections.find({}, {"_id": 0}).to_list(3000)
+    for insp in inspections:
+        dv = insp.get("date_validite")
+        if not dv:
+            continue
+        try:
+            planned_date = datetime.strptime(dv, "%Y-%m-%d").date()
+        except (ValueError, TypeError):
+            continue
+        days_diff = (planned_date - today).days
+        upcoming.append({
+            "id": insp["id"],
+            "titre": insp.get("titre"),
+            "date_planifiee": dv,
+            "type_maintenance": "preventive",
+            "statut": "planifiee",
+            "equipment_id": insp.get("equipment_id"),
+            "periodicite": insp.get("periodicite"),
+            "days_until": days_diff,
+            "is_overdue": days_diff < 0,
+            "origine": "controle_reglementaire",
+        })
+
     # Sort by date
     upcoming.sort(key=lambda x: x.get("days_until", 999))
     
@@ -2042,9 +2069,34 @@ async def get_maintenance_calendar(current_user: dict = Depends(get_current_user
                     "periodicite_jours": wo.get("periodicite_jours"),
                     "periodicite_heures": wo.get("periodicite_heures")
                 })
-        except (ValueError, KeyError):
+        except (ValueError, KeyError, TypeError):
             pass
-    
+
+    # Inclure les contrôles réglementaires (prochaine échéance)
+    inspections = await db.inspections.find({}, {"_id": 0}).to_list(3000)
+    for insp in inspections:
+        dv = insp.get("date_validite")
+        if not dv:
+            continue
+        try:
+            planned_date = datetime.strptime(dv, "%Y-%m-%d").date()
+        except (ValueError, TypeError):
+            continue
+        if today - timedelta(weeks=4) <= planned_date <= end_date:
+            calendar_data.append({
+                "id": insp["id"],
+                "titre": insp.get("titre"),
+                "type_maintenance": "preventive",
+                "date_planifiee": dv,
+                "statut": "planifiee",
+                "equipment_id": insp.get("equipment_id"),
+                "priorite": "normale",
+                "week_number": planned_date.isocalendar()[1],
+                "year": planned_date.year,
+                "periodicite_jours": None,
+                "periodicite_heures": None,
+            })
+
     # Trier par date
     calendar_data.sort(key=lambda x: x["date_planifiee"])
     
@@ -3000,7 +3052,7 @@ async def generate_equipment_pdf(equipment_id: str, current_user: dict = Depends
         ["Date d'installation", equipment.get('date_installation', 'N/A')[:10] if equipment.get('date_installation') else 'N/A'],
     ]
     
-    if equipment.get('type') == 'compresseur':
+    if (equipment.get('type') or '').lower() == 'compresseur':
         info_data.append(["Compteur horaire", f"{equipment.get('compteur_horaire', 0):,.0f} h"])
     
     t = Table(info_data, colWidths=[5*cm, 12*cm])
@@ -3339,7 +3391,7 @@ async def check_and_send_alerts(admin: dict = Depends(require_admin)):
     
     for wo in hour_maintenances:
         equipment = equipments_map.get(wo.get("equipment_id"), {})
-        if equipment.get("type") == "compresseur":
+        if (equipment.get("type") or "").lower() == "compresseur":
             current_hours = equipment.get("compteur_horaire", 0) or 0
             threshold = wo.get("compteur_declenchement", 0) or 0
             if current_hours >= threshold:

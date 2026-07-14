@@ -473,12 +473,12 @@ const Equipments = () => {
                         </Badge>
                       </TableCell>
                       <TableCell>
-                        {equipment.type === 'compresseur' && equipment.compteur_horaire != null ? (
+                        {equipment.type?.toLowerCase() === 'compresseur' && equipment.compteur_horaire != null ? (
                           <div className="flex items-center gap-1">
                             <Clock className="w-3 h-3 text-[#005F73]" />
                             <span className="font-mono text-sm">{equipment.compteur_horaire.toLocaleString()} h</span>
                           </div>
-                        ) : equipment.type === 'compresseur' ? (
+                        ) : equipment.type?.toLowerCase() === 'compresseur' ? (
                           <span className="text-slate-400 text-sm">Non renseigné</span>
                         ) : (
                           <span className="text-slate-300">-</span>
@@ -500,7 +500,7 @@ const Equipments = () => {
                               <Eye className="w-4 h-4 mr-2" />
                               Voir détails
                             </DropdownMenuItem>
-                            {equipment.type === 'compresseur' && canModify() && (
+                            {equipment.type?.toLowerCase() === 'compresseur' && canModify() && (
                               <DropdownMenuItem onClick={() => openCompteurModal(equipment)}>
                                 <Activity className="w-4 h-4 mr-2" />
                                 Mettre à jour compteur
@@ -691,7 +691,7 @@ const Equipments = () => {
                   <p className="text-xs text-slate-500 uppercase">Installation</p>
                   <p className="font-medium">{formatDate(selectedEquipment.date_installation)}</p>
                 </div>
-                {selectedEquipment.type === 'compresseur' && (
+                {selectedEquipment.type?.toLowerCase() === 'compresseur' && (
                   <div className="col-span-2 p-3 bg-[#005F73]/5 rounded-lg">
                     <p className="text-xs text-slate-500 uppercase flex items-center gap-1">
                       <Clock className="w-3 h-3" /> Compteur horaire

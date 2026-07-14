@@ -191,6 +191,11 @@ spare_parts: {id, nom, reference_fabricant, equipment_type, quantite_stock, seui
 - **Filtre Planning**: `/api/planning/events` & `/api/planning/summary` acceptent `equipment_id`; Select `planning-equipment-filter` sur la page Planning.
 - **Fiche PDF équipement**: bouton « Fiche PDF » (`download-equipment-pdf-btn`) dans le modal → `/api/reports/pdf/equipment/{id}` (infos + historique). PDF sur fiche équipement (documents) déjà existant, confirmé fonctionnel.
 
+### 2026-07-14 (suite) — État équipement « Réformé » (VÉRIFIÉ testing_agent 100%)
+- Nouvel état `reforme` : équipement conservé dans l'historique mais exclu des maintenances futures et en retard.
+- Backend: helper `_reformed_equipment_ids()`; exclusion dans `get_alerts`, `get_upcoming_maintenance`, `get_maintenance_calendar`, `get_planning_events`, `get_planning_summary`, `_build_maintenance_history` (futures=[] si réformé, historique conservé).
+- Frontend: `reforme` dans STATUTS (Equipments.jsx) + `statusLabels.reforme` (« Réformé ») + `getStatusClass` (badge gris).
+
 ## Backlog / Tâches à venir
 - **P1** ~~PDF attaché à chaque contrôle réglementaire~~ ✅ FAIT (2026-07-14)
 - **P1** ~~Équipements chambres (Chronique/SAS/Urgence) + reliaison maintenances~~ ✅ FAIT (2026-07-14)

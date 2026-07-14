@@ -20,6 +20,13 @@ import {
 const MONTHS_FR = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'];
 const WEEKDAYS = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
 
+const safeFormat = (value, pattern) => {
+  if (!value) return '—';
+  const d = value instanceof Date ? value : new Date(value);
+  if (isNaN(d.getTime())) return '—';
+  return format(d, pattern, { locale: fr });
+};
+
 const eventStyle = (ev) => {
   if (ev.statut === 'terminee') return 'bg-[#0A9396]/15 text-[#0A9396] border-[#0A9396]/30 line-through';
   if (ev.is_overdue) return 'bg-[#AE2012]/10 text-[#AE2012] border-[#AE2012]/30';
@@ -90,7 +97,7 @@ export default function Planning() {
     try {
       await planningAPI.reschedule({ item_type: ev.item_type, item_id: ev.id, new_date: newDate });
       setEvents(prev => prev.map(e => e.id === ev.id ? { ...e, date: newDate } : e));
-      toast.success(`Replanifié au ${format(day, 'dd MMMM yyyy', { locale: fr })}`);
+      toast.success(`Replanifié au ${safeFormat(day, 'dd MMMM yyyy')}`);
     } catch (e) {
       toast.error('Échec de la replanification');
     }
@@ -108,7 +115,7 @@ export default function Planning() {
       const res = await workOrdersAPI.complete(selectedEvent.id, completeData);
       const next = res.data?.next_work_order;
       toast.success(next
-        ? `Maintenance réalisée. Prochaine occurrence générée au ${format(new Date(next.date_planifiee), 'dd MMMM yyyy', { locale: fr })}`
+        ? `Maintenance réalisée. Prochaine occurrence générée au ${safeFormat(next.date_planifiee, 'dd MMMM yyyy')}`
         : 'Maintenance marquée comme réalisée');
       setCompleteOpen(false);
       setSelectedEvent(null);
@@ -292,7 +299,7 @@ export default function Planning() {
               </DialogHeader>
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between"><span className="text-slate-500">Date planifiée</span>
-                  <span className="font-medium">{format(new Date(selectedEvent.date), 'dd MMMM yyyy', { locale: fr })}</span></div>
+                  <span className="font-medium">{safeFormat(selectedEvent.date, 'dd MMMM yyyy')}</span></div>
                 <div className="flex justify-between"><span className="text-slate-500">Statut</span>
                   <Badge variant="outline" className={eventStyle(selectedEvent).replace('line-through', '')}>
                     {selectedEvent.is_overdue ? 'En retard' : (selectedEvent.statut === 'terminee' ? 'Réalisé' : 'Planifié')}

@@ -179,9 +179,11 @@ spare_parts: {id, nom, reference_fabricant, equipment_type, quantite_stock, seui
   - Budget.jsx: année par défaut = année courante (2026) au lieu de +1.
 - **Vérifié**: dashboard (8 équip., 178 alertes, 77/133 stock bas, 3 compresseurs), pages Bouteilles, Contrôles réglementaires, Budget 2026 affichent bien les données.
 
+### 2026-07-14 (suite) — Recherche globale sur le Tableau de bord (VÉRIFIÉ testing_agent 100%)
+- **Backend**: `GET /api/search?q=` sur équipements, sous-équipements, ordres de travail, interventions, contrôles → `{results, count}`.
+- **Frontend**: composant `GlobalSearch.jsx` (debounce, dropdown groupé, navigation clavier) dans le header Dashboard. Navigation directe: clic équipement/sous-équipement → ouvre la fiche détail (`state.openId`); maintenance/intervention/contrôle → page filtrée (`state.q`).
+
 ## Backlog / Tâches à venir
-- **P1** ~~Planning mensuel automatique / calendrier interactif~~ ✅ FAIT (2026-07-14)
-- **P1** ~~Historique + maintenances futures par équipement/sous-équipement~~ ✅ FAIT (2026-07-14)
 - **P1** Upload/attachement de fichiers PDF aux PV de contrôle (`ControlReports`).
 - **P2** Notifications email/push pour les alertes.
 

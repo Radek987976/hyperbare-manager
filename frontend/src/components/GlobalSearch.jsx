@@ -75,7 +75,12 @@ export const GlobalSearch = () => {
         <Input
           data-testid="global-search-input"
           value={query}
-          onChange={(e) => { setQuery(e.target.value); setActiveIndex(-1); }}
+          onChange={(e) => {
+            const v = e.target.value;
+            setQuery(v);
+            setActiveIndex(-1);
+            if (v.trim().length < 2) { setResults([]); setOpen(false); }
+          }}
           onFocus={() => { if (results.length) setOpen(true); }}
           onKeyDown={handleKeyDown}
           placeholder="Rechercher un équipement, sous-équipement, maintenance, intervention, type, référence…"

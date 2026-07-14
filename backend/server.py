@@ -315,6 +315,7 @@ class EquipmentBase(BaseModel):
     date_installation: Optional[str] = None
     date_reforme: Optional[str] = None  # Date de réforme (si statut = reforme)
     motif_reforme: Optional[str] = None  # Motif de réforme
+    gas_cylinder_id: Optional[str] = None  # Bouteille de gaz associée (ex: extincteur, ARI)
     photos: List[str] = []  # Liste des URLs des photos
     documents: List[dict] = []  # Liste des documents PDF [{filename, url, uploaded_at}]
     compteur_horaire: Optional[float] = None  # Compteur horaire pour les compresseurs (en heures)
@@ -327,6 +328,7 @@ class Equipment(EquipmentBase):
     model_config = ConfigDict(extra="ignore")
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    historique_statut: List[dict] = []  # Journal des changements de statut [{date, ancien, nouveau, motif, utilisateur}]
 
 # Sub-Equipment Model (Sous-équipement)
 class SubEquipmentBase(BaseModel):
@@ -1081,9 +1083,21 @@ async def get_equipment(equipment_id: str, current_user: dict = Depends(get_curr
 
 @api_router.put("/equipments/{equipment_id}", response_model=Equipment)
 async def update_equipment(equipment_id: str, data: EquipmentCreate, current_user: dict = Depends(get_current_user)):
-    result = await db.equipments.update_one({"id": equipment_id}, {"$set": data.model_dump()})
-    if result.matched_count == 0:
+    existing = await db.equipments.find_one({"id": equipment_id}, {"_id": 0})
+    if not existing:
         raise HTTPException(status_code=404, detail="Équipement non trouvé")
+    update_ops = {"$set": data.model_dump()}
+    # Journaliser un changement de statut (qui, quand, pourquoi)
+    if data.statut != existing.get("statut"):
+        entry = {
+            "date": datetime.now(timezone.utc).isoformat(),
+            "ancien_statut": existing.get("statut"),
+            "nouveau_statut": data.statut,
+            "motif": data.motif_reforme if data.statut == "reforme" else None,
+            "utilisateur": current_user.get("email") or current_user.get("nom") or "inconnu",
+        }
+        update_ops["$push"] = {"historique_statut": entry}
+    await db.equipments.update_one({"id": equipment_id}, update_ops)
     equipment = await db.equipments.find_one({"id": equipment_id}, {"_id": 0})
     return equipment
 

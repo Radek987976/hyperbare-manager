@@ -209,6 +209,7 @@ export const exportAPI = {
   csv: (collection) => api.get(`/export/csv/${collection}`, { responseType: 'blob' }),
   sql: () => api.get('/export/sql', { responseType: 'blob' }),
   json: () => api.get('/export/json', { responseType: 'blob' }),
+  excel: () => api.get('/export/excel', { responseType: 'blob' }),
 };
 
 // Reports

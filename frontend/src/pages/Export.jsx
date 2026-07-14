@@ -9,7 +9,8 @@ import {
   Database,
   FileJson,
   Loader2,
-  CheckCircle2
+  CheckCircle2,
+  FileSpreadsheet
 } from 'lucide-react';
 
 const Export = () => {
@@ -64,6 +65,24 @@ const Export = () => {
       alert('Erreur lors de l\'export JSON');
     } finally {
       setExporting({ ...exporting, json: false });
+    }
+  };
+
+  const handleExportExcel = async () => {
+    setExporting({ ...exporting, excel: true });
+    setSuccess({ ...success, excel: false });
+    
+    try {
+      const response = await exportAPI.excel();
+      const filename = `hyperbaremanager_audit_${new Date().toISOString().split('T')[0]}.xlsx`;
+      downloadBlob(response.data, filename);
+      setSuccess({ ...success, excel: true });
+      setTimeout(() => setSuccess({ ...success, excel: false }), 3000);
+    } catch (error) {
+      console.error('Erreur export Excel:', error);
+      alert('Erreur lors de l\'export Excel');
+    } finally {
+      setExporting({ ...exporting, excel: false });
     }
   };
 
@@ -130,7 +149,46 @@ const Export = () => {
       </Card>
 
       {/* Full Exports */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {/* Excel Export - NEW */}
+        <Card className="border-2 border-green-200 bg-green-50">
+          <CardHeader>
+            <CardTitle className="font-['Barlow_Condensed'] uppercase flex items-center gap-2">
+              <FileSpreadsheet className="w-5 h-5 text-green-600" />
+              Export Excel (Audit)
+            </CardTitle>
+            <CardDescription>
+              Export complet multi-feuilles pour audit et rapport direction.
+              Inclut toutes les données.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button 
+              onClick={handleExportExcel}
+              disabled={exporting.excel}
+              className="w-full bg-green-600 hover:bg-green-700"
+              data-testid="export-excel"
+            >
+              {exporting.excel ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Export en cours...
+                </>
+              ) : success.excel ? (
+                <>
+                  <CheckCircle2 className="w-4 h-4 mr-2" />
+                  Téléchargé !
+                </>
+              ) : (
+                <>
+                  <Download className="w-4 h-4 mr-2" />
+                  Télécharger Excel complet
+                </>
+              )}
+            </Button>
+          </CardContent>
+        </Card>
+
         {/* SQL Export */}
         <Card>
           <CardHeader>

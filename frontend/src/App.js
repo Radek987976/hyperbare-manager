@@ -25,6 +25,7 @@ import Budget from './pages/Budget';
 import Import from './pages/Import';
 import Contracts from './pages/Contracts';
 import Documents from './pages/Documents';
+import ControlReports from './pages/ControlReports';
 import './App.css';
 
 // Protected Route Component
@@ -239,6 +240,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <Documents />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/pv-controle"
+        element={
+          <ProtectedRoute>
+            <ControlReports />
           </ProtectedRoute>
         }
       />

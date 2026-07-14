@@ -2137,6 +2137,90 @@ async def export_json(current_user: dict = Depends(get_current_user)):
         headers={"Content-Disposition": "attachment; filename=hyperbaremanager_export.json"}
     )
 
+@api_router.get("/export/excel")
+async def export_excel(current_user: dict = Depends(get_current_user)):
+    """Export all data to Excel for audit purposes"""
+    if not can_export(current_user):
+        raise HTTPException(status_code=403, detail="Accès réservé aux administrateurs et techniciens")
+    
+    # Create Excel file in memory
+    output = io.BytesIO()
+    
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+        # Equipments
+        equipments = await db.equipments.find({}, {"_id": 0}).to_list(10000)
+        if equipments:
+            df = pd.DataFrame(equipments)
+            df.to_excel(writer, sheet_name='Equipements', index=False)
+        
+        # Work Orders
+        work_orders = await db.work_orders.find({}, {"_id": 0}).to_list(10000)
+        if work_orders:
+            df = pd.DataFrame(work_orders)
+            df.to_excel(writer, sheet_name='Ordres_Travail', index=False)
+        
+        # Interventions
+        interventions = await db.interventions.find({}, {"_id": 0}).to_list(10000)
+        if interventions:
+            df = pd.DataFrame(interventions)
+            df.to_excel(writer, sheet_name='Interventions', index=False)
+        
+        # Inspections
+        inspections = await db.inspections.find({}, {"_id": 0}).to_list(10000)
+        if inspections:
+            df = pd.DataFrame(inspections)
+            df.to_excel(writer, sheet_name='Inspections', index=False)
+        
+        # Spare Parts
+        spare_parts = await db.spare_parts.find({}, {"_id": 0}).to_list(10000)
+        if spare_parts:
+            df = pd.DataFrame(spare_parts)
+            df.to_excel(writer, sheet_name='Pieces_Detachees', index=False)
+        
+        # Gas Cylinders
+        gas_cylinders = await db.gas_cylinders.find({}, {"_id": 0}).to_list(10000)
+        if gas_cylinders:
+            df = pd.DataFrame(gas_cylinders)
+            df.to_excel(writer, sheet_name='Bouteilles_Gaz', index=False)
+        
+        # Contractors
+        contractors = await db.contractors.find({}, {"_id": 0}).to_list(10000)
+        if contractors:
+            df = pd.DataFrame(contractors)
+            df.to_excel(writer, sheet_name='Prestataires', index=False)
+        
+        # Contracts
+        contracts = await db.contracts.find({}, {"_id": 0}).to_list(10000)
+        if contracts:
+            df = pd.DataFrame(contracts)
+            df.to_excel(writer, sheet_name='Contrats', index=False)
+        
+        # Budget
+        budget = await db.budget.find({}, {"_id": 0}).to_list(10000)
+        if budget:
+            df = pd.DataFrame(budget)
+            df.to_excel(writer, sheet_name='Budget', index=False)
+        
+        # Control Reports
+        control_reports = await db.control_reports.find({}, {"_id": 0}).to_list(10000)
+        if control_reports:
+            df = pd.DataFrame(control_reports)
+            df.to_excel(writer, sheet_name='PV_Controle', index=False)
+        
+        # Documents
+        documents = await db.documents.find({}, {"_id": 0}).to_list(10000)
+        if documents:
+            df = pd.DataFrame(documents)
+            df.to_excel(writer, sheet_name='Documents', index=False)
+    
+    output.seek(0)
+    
+    return StreamingResponse(
+        output,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f"attachment; filename=hyperbaremanager_audit_{datetime.now().strftime('%Y%m%d')}.xlsx"}
+    )
+
 # ==================== FILE UPLOAD ROUTES ====================
 
 ALLOWED_IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".gif", ".webp"}

@@ -180,10 +180,11 @@ spare_parts: {id, nom, reference_fabricant, equipment_type, quantite_stock, seui
 - **Vérifié**: dashboard (8 équip., 178 alertes, 77/133 stock bas, 3 compresseurs), pages Bouteilles, Contrôles réglementaires, Budget 2026 affichent bien les données.
 
 ## Backlog / Tâches à venir
-- **P1** Planning mensuel automatique / calendrier interactif (drag & drop) basé sur périodicité réglementaire.
+- **P1** ~~Planning mensuel automatique / calendrier interactif~~ ✅ FAIT (2026-07-14)
 - **P1** Upload/attachement de fichiers PDF aux PV de contrôle (`ControlReports`).
 - **P2** Notifications email/push pour les alertes.
 
-### 2026-07-14 (suite) — Correctif « Maintenance préventive vide » (VÉRIFIÉ testing_agent 100%)
-- Cause: le menu « Maintenance préventive » pointe vers `/ordres-travail` (collection `work_orders`, vide). Les 248 tâches Excel étaient dans `inspections`.
-- Fix: `import_real_data.py` réimporte les feuilles maintenance → `work_orders` (preventive/planifiée), et suivi_controle → `inspections`. Résultat: work_orders=248, inspections=109.
+### 2026-07-14 (suite) — Planning mensuel automatique (VÉRIFIÉ testing_agent 100%)
+- **Backend** (`server.py`): `POST /work-orders/{id}/complete` (clôture + génère la prochaine occurrence à J+periodicite_jours + crée intervention + maj compteur compresseur), `POST /planning/reschedule` (glisser-déposer), `GET /planning/events?start&end` (fusion work_orders+inspections, champ `origine`, `is_overdue`), `GET /planning/summary?year` (compteurs par mois).
+- **Frontend**: page `Planning.jsx` (route `/planning`, menu « Planning ») — vue Mois (grille custom, événements colorés, drag&drop) + vue Année (12 cartes mois), légende couleur, dialog détail + « Marquer réalisé & planifier la suite ». `planningAPI` + `workOrdersAPI.complete` dans api.js.
+- Couleurs: préventif=teal, réglementaire=indigo, correctif=ambre, en retard=rouge, réalisé=vert.

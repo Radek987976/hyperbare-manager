@@ -246,4 +246,98 @@ export const reportsAPI = {
   planningPDF: () => api.get('/reports/pdf/planning', { responseType: 'blob' }),
 };
 
+// ==================== NEW APIs ====================
+
+// Contractors (Prestataires)
+export const contractorsAPI = {
+  getAll: () => api.get('/contractors'),
+  getById: (id) => api.get(`/contractors/${id}`),
+  create: (data) => api.post('/contractors', data),
+  update: (id, data) => api.put(`/contractors/${id}`, data),
+  delete: (id) => api.delete(`/contractors/${id}`),
+};
+
+// Gas Cylinders (Bouteilles de gaz)
+export const gasCylindersAPI = {
+  getAll: (params) => api.get('/gas-cylinders', { params }),
+  getById: (id) => api.get(`/gas-cylinders/${id}`),
+  getAlerts: () => api.get('/gas-cylinders/alerts'),
+  create: (data) => api.post('/gas-cylinders', data),
+  update: (id, data) => api.put(`/gas-cylinders/${id}`, data),
+  refill: (id, data) => {
+    const formData = new FormData();
+    Object.keys(data).forEach(key => {
+      if (data[key] !== null && data[key] !== undefined) {
+        formData.append(key, data[key]);
+      }
+    });
+    return api.post(`/gas-cylinders/${id}/refill`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    });
+  },
+  delete: (id) => api.delete(`/gas-cylinders/${id}`),
+};
+
+// Maintenance Contracts (Contrats)
+export const contractsAPI = {
+  getAll: () => api.get('/contracts'),
+  getById: (id) => api.get(`/contracts/${id}`),
+  create: (data) => api.post('/contracts', data),
+  update: (id, data) => api.put(`/contracts/${id}`, data),
+  delete: (id) => api.delete(`/contracts/${id}`),
+};
+
+// Documents (Gestion documentaire)
+export const documentsAPI = {
+  getAll: (params) => api.get('/documents', { params }),
+  create: (data) => api.post('/documents', data),
+  upload: (file, data) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    Object.keys(data).forEach(key => {
+      if (data[key] !== null && data[key] !== undefined) {
+        formData.append(key, data[key]);
+      }
+    });
+    return api.post('/documents/upload', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    });
+  },
+  delete: (id) => api.delete(`/documents/${id}`),
+};
+
+// Budget
+export const budgetAPI = {
+  getAll: (params) => api.get('/budget', { params }),
+  getSummary: (annee) => api.get(`/budget/summary/${annee}`),
+  create: (data) => api.post('/budget', data),
+  update: (id, data) => api.put(`/budget/${id}`, data),
+  delete: (id) => api.delete(`/budget/${id}`),
+};
+
+// Report Templates (Modèles de PV)
+export const reportTemplatesAPI = {
+  getAll: () => api.get('/report-templates'),
+  create: (data) => api.post('/report-templates', data),
+};
+
+// Control Reports (PV de contrôle)
+export const controlReportsAPI = {
+  getAll: (params) => api.get('/control-reports', { params }),
+  create: (data) => api.post('/control-reports', data),
+};
+
+// Import Excel
+export const importAPI = {
+  excel: (file, importType) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('import_type', importType);
+    return api.post('/import/excel', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    });
+  },
+  initDefaultData: () => api.post('/init/default-data'),
+};
+
 export default api;

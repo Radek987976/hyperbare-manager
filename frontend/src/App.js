@@ -18,6 +18,11 @@ import SpareParts from './pages/SpareParts';
 import Users from './pages/Users';
 import Export from './pages/Export';
 import Reports from './pages/Reports';
+// New pages
+import Contractors from './pages/Contractors';
+import GasCylinders from './pages/GasCylinders';
+import Budget from './pages/Budget';
+import Import from './pages/Import';
 import './App.css';
 
 // Protected Route Component
@@ -182,6 +187,40 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <Reports />
+          </ProtectedRoute>
+        }
+      />
+
+      {/* New Routes */}
+      <Route
+        path="/prestataires"
+        element={
+          <ProtectedRoute>
+            <Contractors />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/bouteilles-gaz"
+        element={
+          <ProtectedRoute>
+            <GasCylinders />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/budget"
+        element={
+          <ProtectedRoute>
+            <Budget />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/import"
+        element={
+          <ProtectedRoute adminOnly>
+            <Import />
           </ProtectedRoute>
         }
       />

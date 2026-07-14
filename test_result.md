@@ -205,6 +205,111 @@ backend:
         agent: "testing"
         comment: "✅ TESTED: Work order deletion working correctly. DELETE /api/work-orders/{id} returns 200, work order is properly removed from database (verified with 404 on subsequent GET)."
 
+  - task: "API Prestataires (CRUD)"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "CRUD complet pour prestataires/fournisseurs/organismes de contrôle. GET/POST/PUT/DELETE /api/contractors. Initialisation avec 12 prestataires par défaut."
+      - working: true
+        agent: "testing"
+        comment: "✅ TESTED: All CRUD operations working correctly. GET returns 12+ contractors, POST creates new contractors, PUT updates existing contractors, DELETE works (admin only). Fixed ObjectId serialization issue by removing _id from response."
+
+  - task: "API Bouteilles de gaz"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "CRUD bouteilles O2/Air Médical/Héliox/Nitrox. Alertes expiration gaz et épreuves. Enregistrement des remplissages."
+      - working: true
+        agent: "testing"
+        comment: "✅ TESTED: All gas cylinder operations working. Tested all 4 gas types (O2, air_medicale, heliox, nitrox). GET alerts returns proper structure with gaz_expire, epreuve_expire, gaz_expire_30j, epreuve_expire_90j. POST refill updates cylinder status to 'pleine' and records refill history. Filtering by type_gaz works correctly."
+
+  - task: "API Contrats de maintenance"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "medium"
+    needs_retesting: false
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "CRUD contrats avec lien prestataire. GET/POST/PUT/DELETE /api/contracts."
+      - working: true
+        agent: "testing"
+        comment: "✅ TESTED: All contract CRUD operations working. POST creates contracts with contractor_id link, GET retrieves contracts, PUT updates contracts, DELETE works (admin only). Contract fields include numero_contrat, titre, type_contrat, dates, montant_annuel, prestations_incluses."
+
+  - task: "API Budget prévisionnel"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "CRUD budget avec catégories (maintenance, contrôles, pièces, etc.). Conversion XPF/EUR automatique. Summary par année."
+      - working: true
+        agent: "testing"
+        comment: "✅ TESTED: Budget API fully functional. XPF to EUR conversion working correctly (1 XPF = 0.00838 EUR). POST creates budget items with auto-calculated EUR amounts. GET /api/budget/summary/2026 returns complete summary with total_prevu_xpf, total_prevu_eur, total_realise_xpf, total_realise_eur, par_categorie breakdown. Filtering by year and category works."
+
+  - task: "API Modèles de PV et PV de contrôle"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Templates de PV (analyse air, contrôle annuel, étalonnage). 4 modèles par défaut créés."
+      - working: true
+        agent: "testing"
+        comment: "✅ TESTED: Report templates API working. GET returns 4+ default templates including 'Analyse de l'air respirable', 'Contrôle annuel du caisson', 'Étalonnage manomètre', 'Contrôle soupape de sûreté'. POST creates new templates with champs, normes_reference, criteres_conformite fields."
+
+  - task: "API Import Excel"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Import Excel pour prestataires, bouteilles, budget, maintenance, contrôles. POST /api/import/excel."
+      - working: true
+        agent: "testing"
+        comment: "✅ TESTED: Import API working. POST /api/init/default-data successfully initializes default contractors and report templates. Returns count of created items. Excel import endpoint available for prestataires, bouteilles, budget, maintenance, controles types."
+
+  - task: "API Documents (gestion documentaire)"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "medium"
+    needs_retesting: false
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Upload et gestion de documents (notices, rapports, certificats, plans, procédures)."
+      - working: true
+        agent: "testing"
+        comment: "✅ TESTED: Documents API fully functional. POST /api/documents creates document records. POST /api/documents/upload handles file uploads and returns fichier_url. GET with filters (type_document, equipment_id) works correctly. DELETE removes documents and associated files."
+
 frontend:
   - task: "Page Types d'équipement"
     implemented: true
@@ -254,22 +359,71 @@ frontend:
         agent: "main"
         comment: "Section compteurs ajoutée au dashboard"
 
+  - task: "Page Prestataires"
+    implemented: true
+    working: "NA"
+    file: "/app/frontend/src/pages/Contractors.jsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Nouvelle page CRUD prestataires/fournisseurs avec filtres et stats"
+
+  - task: "Page Bouteilles de gaz"
+    implemented: true
+    working: "NA"
+    file: "/app/frontend/src/pages/GasCylinders.jsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Page suivi bouteilles O2/Air/Héliox/Nitrox avec alertes expiration"
+
+  - task: "Page Budget prévisionnel"
+    implemented: true
+    working: "NA"
+    file: "/app/frontend/src/pages/Budget.jsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Page budget avec répartition par catégorie, conversion XPF/EUR, export CSV"
+
+  - task: "Page Import données Excel"
+    implemented: true
+    working: "NA"
+    file: "/app/frontend/src/pages/Import.jsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Page import Excel avec initialisation des données par défaut"
+
 metadata:
   created_by: "main_agent"
   version: "1.0"
-  test_sequence: 2
+  test_sequence: 3
   run_ui: false
 
 test_plan:
-  current_focus: "Backend API testing completed successfully"
+  current_focus: "Backend testing complete - Frontend testing pending"
   next_steps:
-    - "All backend features tested and working"
-    - "Ready for frontend testing if needed"
+    - "Test new frontend pages"
   auth_info:
     email: "admin@hypermaint.fr"
     password: "admin123"
-  notes: "Comprehensive backend testing completed - all 26 tests passed"
+  notes: "Phase 1 backend fully tested and working - 7 new APIs validated with 100% test success rate"
 
 agent_communication:
+  - agent: "main"
+    message: "Phase 1 implémentée: APIs prestataires, bouteilles de gaz, budget prévisionnel, import Excel, modèles de PV. 4 nouvelles pages frontend créées. Prêt pour tests backend."
   - agent: "testing"
-    message: "✅ BACKEND TESTING COMPLETE: All 6 backend tasks tested successfully with 100% pass rate (26/26 tests). Equipment types CRUD, sub-equipments with parent linking, curative/preventive interventions with automatic date updates, dashboard stats with compressor counters, all export formats (CSV/JSON/SQL), and work order deletion all working correctly. Authentication working with admin@hypermaint.fr. No critical issues found. Backend API is fully functional and ready for production use."
+    message: "Backend testing complete - 56/56 tests passed (100% success rate). All 7 new APIs working correctly: Contractors, Gas Cylinders, Contracts, Budget, Report Templates, Documents, Import. Fixed ObjectId serialization issue in POST endpoints. Fixed equipment type uniqueness check. All CRUD operations validated. XPF to EUR conversion working correctly. Ready for frontend testing."

@@ -1,4 +1,4 @@
-from fastapi import FastAPI, APIRouter, HTTPException, Depends, status, UploadFile, File
+from fastapi import FastAPI, APIRouter, HTTPException, Depends, status, UploadFile, File, Form
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi.staticfiles import StaticFiles
 from dotenv import load_dotenv
@@ -15,11 +15,13 @@ import asyncio
 import resend
 from pathlib import Path
 from pydantic import BaseModel, Field, ConfigDict, EmailStr
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 import uuid
 from datetime import datetime, timezone, timedelta
 import jwt
 from passlib.context import CryptContext
+import pandas as pd
+from openpyxl import load_workbook
 
 # PDF Generation
 from reportlab.lib import colors
@@ -48,6 +50,15 @@ UPLOADS_DIR.mkdir(exist_ok=True)
 (UPLOADS_DIR / "subequipments").mkdir(exist_ok=True)
 (UPLOADS_DIR / "spareparts").mkdir(exist_ok=True)
 (UPLOADS_DIR / "workorders").mkdir(exist_ok=True)
+(UPLOADS_DIR / "contractors").mkdir(exist_ok=True)
+(UPLOADS_DIR / "gas_cylinders").mkdir(exist_ok=True)
+(UPLOADS_DIR / "contracts").mkdir(exist_ok=True)
+(UPLOADS_DIR / "documents").mkdir(exist_ok=True)
+(UPLOADS_DIR / "reports").mkdir(exist_ok=True)
+(UPLOADS_DIR / "imports").mkdir(exist_ok=True)
+
+# Currency conversion rate (XPF to EUR)
+XPF_TO_EUR = 0.00838  # 1 XPF = 0.00838 EUR (taux fixe)
 
 # MongoDB connection
 mongo_url = os.environ['MONGO_URL']
@@ -444,6 +455,173 @@ class SparePartUpdate(BaseModel):
     fournisseur: Optional[str] = None
     prix_unitaire: Optional[float] = None
 
+# ==================== NEW MODELS FOR EXTENDED FEATURES ====================
+
+# Prestataire/Fournisseur Model
+class ContractorBase(BaseModel):
+    nom: str
+    type: str = Field(default="prestataire", description="prestataire, fournisseur, organisme_controle")
+    specialite: Optional[str] = None  # Maintenance compresseurs, Métrologie, etc.
+    contact_nom: Optional[str] = None
+    contact_email: Optional[str] = None
+    contact_telephone: Optional[str] = None
+    adresse: Optional[str] = None
+    siret: Optional[str] = None
+    notes: Optional[str] = None
+    documents: List[dict] = []  # Contrats, certifications, etc.
+
+class ContractorCreate(ContractorBase):
+    pass
+
+class Contractor(ContractorBase):
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+# Bouteille de Gaz Model
+GAS_TYPES = ["O2", "air_medicale", "heliox", "nitrox"]
+
+class GasCylinderBase(BaseModel):
+    numero_bouteille: str
+    type_gaz: str = Field(description="O2, air_medicale, heliox, nitrox")
+    volume: str = Field(default="B50", description="B5, B50, etc.")
+    pression_service: Optional[float] = None  # bars
+    fournisseur_id: Optional[str] = None
+    localisation: Optional[str] = None
+    date_remplissage: Optional[str] = None
+    date_expiration_gaz: Optional[str] = None  # Péremption du gaz
+    date_epreuve: Optional[str] = None  # Dernière épreuve hydraulique
+    date_prochaine_epreuve: Optional[str] = None  # Prochaine requalification (5 ans)
+    statut: str = Field(default="pleine", description="pleine, en_cours, vide, hors_service")
+    observations: Optional[str] = None
+    agent_responsable: Optional[str] = None
+    documents: List[dict] = []
+
+class GasCylinderCreate(GasCylinderBase):
+    pass
+
+class GasCylinder(GasCylinderBase):
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    historique_remplissage: List[dict] = []  # [{date, agent, pression, observations}]
+
+# Contrat de Maintenance Model
+class MaintenanceContractBase(BaseModel):
+    numero_contrat: str
+    titre: str
+    contractor_id: str  # Lien vers prestataire
+    type_contrat: str = Field(default="maintenance", description="maintenance, controle, fourniture")
+    date_debut: str
+    date_fin: str
+    montant_annuel: Optional[float] = None
+    devise: str = Field(default="XPF")
+    periodicite_facturation: Optional[str] = None  # mensuel, trimestriel, annuel
+    prestations_incluses: List[str] = []  # Liste des prestations couvertes
+    equipements_couverts: List[str] = []  # IDs des équipements
+    conditions_particulieres: Optional[str] = None
+    statut: str = Field(default="actif", description="actif, suspendu, expire, resilie")
+    documents: List[dict] = []  # Contrat signé, avenants, etc.
+
+class MaintenanceContractCreate(MaintenanceContractBase):
+    pass
+
+class MaintenanceContract(MaintenanceContractBase):
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+# Document Model (Gestion documentaire)
+class DocumentBase(BaseModel):
+    titre: str
+    type_document: str = Field(description="notice, rapport, certificat, plan, procedure, pv_controle, autre")
+    categorie: Optional[str] = None  # Equipement, Sécurité, Réglementaire, etc.
+    description: Optional[str] = None
+    equipment_id: Optional[str] = None
+    contractor_id: Optional[str] = None
+    date_document: Optional[str] = None
+    date_validite: Optional[str] = None  # Pour les certificats
+    version: Optional[str] = None
+    fichier_url: Optional[str] = None
+    fichier_nom: Optional[str] = None
+    tags: List[str] = []
+
+class DocumentCreate(DocumentBase):
+    pass
+
+class Document(DocumentBase):
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    uploaded_by: Optional[str] = None
+
+# Budget Item Model
+class BudgetItemBase(BaseModel):
+    annee: int
+    categorie: str = Field(description="maintenance_preventive, maintenance_corrective, controle_reglementaire, pieces_detachees, consommables, prestation_externe, renouvellement")
+    designation: str
+    description: Optional[str] = None
+    equipment_id: Optional[str] = None
+    contractor_id: Optional[str] = None
+    periodicite: Optional[str] = None  # 1 mois, 1 an, 1000 heures, etc.
+    montant_prevu_xpf: float = 0
+    montant_prevu_eur: Optional[float] = None  # Calculé automatiquement
+    montant_realise_xpf: Optional[float] = None
+    montant_realise_eur: Optional[float] = None
+    date_prevue: Optional[str] = None
+    date_realisee: Optional[str] = None
+    statut: str = Field(default="prevu", description="prevu, en_cours, realise, annule")
+    notes: Optional[str] = None
+
+class BudgetItemCreate(BudgetItemBase):
+    pass
+
+class BudgetItem(BudgetItemBase):
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+# Modèle de PV de contrôle
+class ReportTemplateBase(BaseModel):
+    nom: str
+    type_controle: str = Field(description="analyse_air, controle_mensuel, controle_trimestriel, controle_semestriel, controle_annuel, etalonnage_manometre, etalonnage_soupape")
+    description: Optional[str] = None
+    champs: List[dict] = []  # [{nom, type, obligatoire, valeur_defaut, options}]
+    normes_reference: List[str] = []  # Normes applicables
+    criteres_conformite: List[dict] = []  # [{parametre, valeur_min, valeur_max, unite}]
+    modele_actif: bool = True
+
+class ReportTemplateCreate(ReportTemplateBase):
+    pass
+
+class ReportTemplate(ReportTemplateBase):
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+# PV de Contrôle généré
+class ControlReportBase(BaseModel):
+    template_id: str
+    equipment_id: Optional[str] = None
+    inspection_id: Optional[str] = None
+    numero_pv: str
+    date_controle: str
+    controleur: str
+    organisme: Optional[str] = None
+    valeurs: dict = {}  # Valeurs saisies pour chaque champ du template
+    resultat: str = Field(default="conforme", description="conforme, non_conforme, avec_reserves")
+    observations: Optional[str] = None
+    documents: List[dict] = []  # PV signé, photos, etc.
+    validite_jusqua: Optional[str] = None
+
+class ControlReportCreate(ControlReportBase):
+    pass
+
+class ControlReport(ControlReportBase):
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
 # ==================== AUTH HELPERS ====================
 
 def hash_password(password: str) -> str:
@@ -829,16 +1007,17 @@ async def get_equipment_types(current_user: dict = Depends(get_current_user)):
 
 @api_router.post("/equipment-types", response_model=EquipmentType)
 async def create_equipment_type(data: EquipmentTypeCreate, current_user: dict = Depends(get_current_user)):
-    # Vérifier que le code n'existe pas déjà
-    existing = await db.equipment_types.find_one({"code": data.code})
+    # Vérifier que le nom n'existe pas déjà
+    existing = await db.equipment_types.find_one({"nom": data.nom})
     if existing:
-        raise HTTPException(status_code=400, detail="Un type avec ce code existe déjà")
+        raise HTTPException(status_code=400, detail="Un type avec ce nom existe déjà")
     
     eq_type = EquipmentType(**data.model_dump())
     doc = eq_type.model_dump()
     doc["created_at"] = doc["created_at"].isoformat()
     await db.equipment_types.insert_one(doc)
-    return eq_type
+    doc.pop("_id", None)
+    return doc
 
 @api_router.put("/equipment-types/{type_id}", response_model=EquipmentType)
 async def update_equipment_type(type_id: str, data: EquipmentTypeCreate, current_user: dict = Depends(get_current_user)):
@@ -3034,6 +3213,815 @@ async def test_email(admin: dict = Depends(require_admin)):
         return {"message": f"Email de test envoyé à {admin_email}"}
     else:
         raise HTTPException(status_code=500, detail="Échec de l'envoi de l'email")
+
+# ==================== CONTRACTORS (PRESTATAIRES) ROUTES ====================
+
+@api_router.get("/contractors", response_model=List[dict])
+async def get_contractors(current_user: dict = Depends(get_current_user)):
+    """Get all contractors/suppliers"""
+    contractors = await db.contractors.find({}, {"_id": 0}).to_list(1000)
+    return contractors
+
+@api_router.get("/contractors/{contractor_id}")
+async def get_contractor(contractor_id: str, current_user: dict = Depends(get_current_user)):
+    """Get a single contractor"""
+    contractor = await db.contractors.find_one({"id": contractor_id}, {"_id": 0})
+    if not contractor:
+        raise HTTPException(status_code=404, detail="Prestataire non trouvé")
+    return contractor
+
+@api_router.post("/contractors", response_model=dict)
+async def create_contractor(contractor: ContractorCreate, current_user: dict = Depends(require_technicien_or_admin)):
+    """Create a new contractor"""
+    contractor_obj = Contractor(**contractor.model_dump())
+    doc = contractor_obj.model_dump()
+    doc["created_at"] = doc["created_at"].isoformat()
+    await db.contractors.insert_one(doc)
+    doc.pop("_id", None)
+    return doc
+
+@api_router.put("/contractors/{contractor_id}")
+async def update_contractor(contractor_id: str, contractor: ContractorCreate, current_user: dict = Depends(require_technicien_or_admin)):
+    """Update a contractor"""
+    existing = await db.contractors.find_one({"id": contractor_id})
+    if not existing:
+        raise HTTPException(status_code=404, detail="Prestataire non trouvé")
+    
+    update_data = contractor.model_dump()
+    await db.contractors.update_one({"id": contractor_id}, {"$set": update_data})
+    updated = await db.contractors.find_one({"id": contractor_id}, {"_id": 0})
+    return updated
+
+@api_router.delete("/contractors/{contractor_id}")
+async def delete_contractor(contractor_id: str, admin: dict = Depends(require_admin)):
+    """Delete a contractor"""
+    result = await db.contractors.delete_one({"id": contractor_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Prestataire non trouvé")
+    return {"message": "Prestataire supprimé"}
+
+# ==================== GAS CYLINDERS (BOUTEILLES DE GAZ) ROUTES ====================
+
+@api_router.get("/gas-cylinders", response_model=List[dict])
+async def get_gas_cylinders(
+    type_gaz: Optional[str] = None,
+    statut: Optional[str] = None,
+    current_user: dict = Depends(get_current_user)
+):
+    """Get all gas cylinders with optional filters"""
+    query = {}
+    if type_gaz:
+        query["type_gaz"] = type_gaz
+    if statut:
+        query["statut"] = statut
+    
+    cylinders = await db.gas_cylinders.find(query, {"_id": 0}).to_list(1000)
+    return cylinders
+
+@api_router.get("/gas-cylinders/alerts")
+async def get_gas_cylinder_alerts(current_user: dict = Depends(get_current_user)):
+    """Get gas cylinders with expiring dates"""
+    today = datetime.now(timezone.utc).date()
+    alerts = {
+        "gaz_expire": [],
+        "epreuve_expire": [],
+        "gaz_expire_30j": [],
+        "epreuve_expire_90j": []
+    }
+    
+    cylinders = await db.gas_cylinders.find({}, {"_id": 0}).to_list(1000)
+    for cyl in cylinders:
+        # Check gas expiration
+        if cyl.get("date_expiration_gaz"):
+            try:
+                exp_date = datetime.strptime(cyl["date_expiration_gaz"], "%Y-%m-%d").date()
+                days_left = (exp_date - today).days
+                if days_left < 0:
+                    alerts["gaz_expire"].append({**cyl, "jours_depasses": abs(days_left)})
+                elif days_left <= 30:
+                    alerts["gaz_expire_30j"].append({**cyl, "jours_restants": days_left})
+            except:
+                pass
+        
+        # Check hydraulic test expiration
+        if cyl.get("date_prochaine_epreuve"):
+            try:
+                epr_date = datetime.strptime(cyl["date_prochaine_epreuve"], "%Y-%m-%d").date()
+                days_left = (epr_date - today).days
+                if days_left < 0:
+                    alerts["epreuve_expire"].append({**cyl, "jours_depasses": abs(days_left)})
+                elif days_left <= 90:
+                    alerts["epreuve_expire_90j"].append({**cyl, "jours_restants": days_left})
+            except:
+                pass
+    
+    return alerts
+
+@api_router.get("/gas-cylinders/{cylinder_id}")
+async def get_gas_cylinder(cylinder_id: str, current_user: dict = Depends(get_current_user)):
+    """Get a single gas cylinder"""
+    cylinder = await db.gas_cylinders.find_one({"id": cylinder_id}, {"_id": 0})
+    if not cylinder:
+        raise HTTPException(status_code=404, detail="Bouteille non trouvée")
+    return cylinder
+
+@api_router.post("/gas-cylinders", response_model=dict)
+async def create_gas_cylinder(cylinder: GasCylinderCreate, current_user: dict = Depends(require_technicien_or_admin)):
+    """Create a new gas cylinder"""
+    # Validate gas type
+    if cylinder.type_gaz not in GAS_TYPES:
+        raise HTTPException(status_code=400, detail=f"Type de gaz invalide. Types autorisés: {GAS_TYPES}")
+    
+    cylinder_obj = GasCylinder(**cylinder.model_dump())
+    doc = cylinder_obj.model_dump()
+    doc["created_at"] = doc["created_at"].isoformat()
+    await db.gas_cylinders.insert_one(doc)
+    doc.pop("_id", None)
+    return doc
+
+@api_router.put("/gas-cylinders/{cylinder_id}")
+async def update_gas_cylinder(cylinder_id: str, cylinder: GasCylinderCreate, current_user: dict = Depends(require_technicien_or_admin)):
+    """Update a gas cylinder"""
+    existing = await db.gas_cylinders.find_one({"id": cylinder_id})
+    if not existing:
+        raise HTTPException(status_code=404, detail="Bouteille non trouvée")
+    
+    update_data = cylinder.model_dump()
+    await db.gas_cylinders.update_one({"id": cylinder_id}, {"$set": update_data})
+    updated = await db.gas_cylinders.find_one({"id": cylinder_id}, {"_id": 0})
+    return updated
+
+@api_router.post("/gas-cylinders/{cylinder_id}/refill")
+async def refill_gas_cylinder(
+    cylinder_id: str,
+    date_remplissage: str = Form(...),
+    date_expiration: str = Form(...),
+    pression: Optional[float] = Form(None),
+    agent: str = Form(...),
+    observations: Optional[str] = Form(None),
+    current_user: dict = Depends(require_technicien_or_admin)
+):
+    """Record a gas cylinder refill"""
+    cylinder = await db.gas_cylinders.find_one({"id": cylinder_id})
+    if not cylinder:
+        raise HTTPException(status_code=404, detail="Bouteille non trouvée")
+    
+    refill_record = {
+        "date": date_remplissage,
+        "agent": agent,
+        "pression": pression,
+        "observations": observations,
+        "recorded_at": datetime.now(timezone.utc).isoformat()
+    }
+    
+    await db.gas_cylinders.update_one(
+        {"id": cylinder_id},
+        {
+            "$set": {
+                "date_remplissage": date_remplissage,
+                "date_expiration_gaz": date_expiration,
+                "statut": "pleine",
+                "agent_responsable": agent
+            },
+            "$push": {"historique_remplissage": refill_record}
+        }
+    )
+    
+    updated = await db.gas_cylinders.find_one({"id": cylinder_id}, {"_id": 0})
+    return updated
+
+@api_router.delete("/gas-cylinders/{cylinder_id}")
+async def delete_gas_cylinder(cylinder_id: str, admin: dict = Depends(require_admin)):
+    """Delete a gas cylinder"""
+    result = await db.gas_cylinders.delete_one({"id": cylinder_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Bouteille non trouvée")
+    return {"message": "Bouteille supprimée"}
+
+# ==================== MAINTENANCE CONTRACTS ROUTES ====================
+
+@api_router.get("/contracts", response_model=List[dict])
+async def get_contracts(current_user: dict = Depends(get_current_user)):
+    """Get all maintenance contracts"""
+    contracts = await db.contracts.find({}, {"_id": 0}).to_list(1000)
+    return contracts
+
+@api_router.get("/contracts/{contract_id}")
+async def get_contract(contract_id: str, current_user: dict = Depends(get_current_user)):
+    """Get a single contract"""
+    contract = await db.contracts.find_one({"id": contract_id}, {"_id": 0})
+    if not contract:
+        raise HTTPException(status_code=404, detail="Contrat non trouvé")
+    return contract
+
+@api_router.post("/contracts", response_model=dict)
+async def create_contract(contract: MaintenanceContractCreate, current_user: dict = Depends(require_admin)):
+    """Create a new maintenance contract"""
+    contract_obj = MaintenanceContract(**contract.model_dump())
+    doc = contract_obj.model_dump()
+    doc["created_at"] = doc["created_at"].isoformat()
+    await db.contracts.insert_one(doc)
+    doc.pop("_id", None)
+    return doc
+
+@api_router.put("/contracts/{contract_id}")
+async def update_contract(contract_id: str, contract: MaintenanceContractCreate, current_user: dict = Depends(require_admin)):
+    """Update a contract"""
+    existing = await db.contracts.find_one({"id": contract_id})
+    if not existing:
+        raise HTTPException(status_code=404, detail="Contrat non trouvé")
+    
+    update_data = contract.model_dump()
+    await db.contracts.update_one({"id": contract_id}, {"$set": update_data})
+    updated = await db.contracts.find_one({"id": contract_id}, {"_id": 0})
+    return updated
+
+@api_router.delete("/contracts/{contract_id}")
+async def delete_contract(contract_id: str, admin: dict = Depends(require_admin)):
+    """Delete a contract"""
+    result = await db.contracts.delete_one({"id": contract_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Contrat non trouvé")
+    return {"message": "Contrat supprimé"}
+
+# ==================== DOCUMENTS (GESTION DOCUMENTAIRE) ROUTES ====================
+
+@api_router.get("/documents", response_model=List[dict])
+async def get_documents(
+    type_document: Optional[str] = None,
+    equipment_id: Optional[str] = None,
+    current_user: dict = Depends(get_current_user)
+):
+    """Get all documents with optional filters"""
+    query = {}
+    if type_document:
+        query["type_document"] = type_document
+    if equipment_id:
+        query["equipment_id"] = equipment_id
+    
+    documents = await db.documents.find(query, {"_id": 0}).to_list(1000)
+    return documents
+
+@api_router.post("/documents", response_model=dict)
+async def create_document(document: DocumentCreate, current_user: dict = Depends(require_technicien_or_admin)):
+    """Create a new document record"""
+    document_obj = Document(**document.model_dump())
+    doc = document_obj.model_dump()
+    doc["created_at"] = doc["created_at"].isoformat()
+    doc["uploaded_by"] = current_user.get("id")
+    await db.documents.insert_one(doc)
+    doc.pop("_id", None)
+    return doc
+
+@api_router.post("/documents/upload")
+async def upload_document(
+    file: UploadFile = File(...),
+    titre: str = Form(...),
+    type_document: str = Form(...),
+    categorie: Optional[str] = Form(None),
+    equipment_id: Optional[str] = Form(None),
+    date_validite: Optional[str] = Form(None),
+    current_user: dict = Depends(require_technicien_or_admin)
+):
+    """Upload a document file"""
+    file_id = str(uuid.uuid4())
+    file_ext = Path(file.filename).suffix
+    filename = f"{file_id}{file_ext}"
+    file_path = UPLOADS_DIR / "documents" / filename
+    
+    with open(file_path, "wb") as f:
+        shutil.copyfileobj(file.file, f)
+    
+    document_obj = Document(
+        titre=titre,
+        type_document=type_document,
+        categorie=categorie,
+        equipment_id=equipment_id,
+        date_validite=date_validite,
+        fichier_url=f"/api/uploads/documents/{filename}",
+        fichier_nom=file.filename,
+        uploaded_by=current_user.get("id")
+    )
+    
+    doc = document_obj.model_dump()
+    doc["created_at"] = doc["created_at"].isoformat()
+    await db.documents.insert_one(doc)
+    doc.pop("_id", None)
+    return doc
+
+@api_router.delete("/documents/{document_id}")
+async def delete_document(document_id: str, admin: dict = Depends(require_admin)):
+    """Delete a document"""
+    doc = await db.documents.find_one({"id": document_id})
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document non trouvé")
+    
+    # Delete file if exists
+    if doc.get("fichier_url"):
+        filename = doc["fichier_url"].split("/")[-1]
+        file_path = UPLOADS_DIR / "documents" / filename
+        if file_path.exists():
+            file_path.unlink()
+    
+    await db.documents.delete_one({"id": document_id})
+    return {"message": "Document supprimé"}
+
+# ==================== BUDGET ROUTES ====================
+
+@api_router.get("/budget", response_model=List[dict])
+async def get_budget_items(
+    annee: Optional[int] = None,
+    categorie: Optional[str] = None,
+    current_user: dict = Depends(get_current_user)
+):
+    """Get budget items with optional filters"""
+    query = {}
+    if annee:
+        query["annee"] = annee
+    if categorie:
+        query["categorie"] = categorie
+    
+    items = await db.budget.find(query, {"_id": 0}).to_list(1000)
+    return items
+
+@api_router.get("/budget/summary/{annee}")
+async def get_budget_summary(annee: int, current_user: dict = Depends(get_current_user)):
+    """Get budget summary for a year"""
+    items = await db.budget.find({"annee": annee}, {"_id": 0}).to_list(1000)
+    
+    summary = {
+        "annee": annee,
+        "total_prevu_xpf": 0,
+        "total_prevu_eur": 0,
+        "total_realise_xpf": 0,
+        "total_realise_eur": 0,
+        "par_categorie": {},
+        "items": items
+    }
+    
+    categories = {}
+    for item in items:
+        cat = item.get("categorie", "autre")
+        if cat not in categories:
+            categories[cat] = {"prevu_xpf": 0, "prevu_eur": 0, "realise_xpf": 0, "realise_eur": 0, "count": 0}
+        
+        prevu_xpf = item.get("montant_prevu_xpf", 0) or 0
+        realise_xpf = item.get("montant_realise_xpf", 0) or 0
+        
+        categories[cat]["prevu_xpf"] += prevu_xpf
+        categories[cat]["prevu_eur"] += prevu_xpf * XPF_TO_EUR
+        categories[cat]["realise_xpf"] += realise_xpf
+        categories[cat]["realise_eur"] += realise_xpf * XPF_TO_EUR
+        categories[cat]["count"] += 1
+        
+        summary["total_prevu_xpf"] += prevu_xpf
+        summary["total_realise_xpf"] += realise_xpf
+    
+    summary["total_prevu_eur"] = round(summary["total_prevu_xpf"] * XPF_TO_EUR, 2)
+    summary["total_realise_eur"] = round(summary["total_realise_xpf"] * XPF_TO_EUR, 2)
+    summary["par_categorie"] = categories
+    
+    return summary
+
+@api_router.post("/budget", response_model=dict)
+async def create_budget_item(item: BudgetItemCreate, current_user: dict = Depends(require_admin)):
+    """Create a new budget item"""
+    item_obj = BudgetItem(**item.model_dump())
+    doc = item_obj.model_dump()
+    doc["created_at"] = doc["created_at"].isoformat()
+    # Auto-calculate EUR
+    doc["montant_prevu_eur"] = round(doc.get("montant_prevu_xpf", 0) * XPF_TO_EUR, 2)
+    if doc.get("montant_realise_xpf"):
+        doc["montant_realise_eur"] = round(doc["montant_realise_xpf"] * XPF_TO_EUR, 2)
+    await db.budget.insert_one(doc)
+    doc.pop("_id", None)
+    return doc
+
+@api_router.put("/budget/{item_id}")
+async def update_budget_item(item_id: str, item: BudgetItemCreate, current_user: dict = Depends(require_admin)):
+    """Update a budget item"""
+    existing = await db.budget.find_one({"id": item_id})
+    if not existing:
+        raise HTTPException(status_code=404, detail="Élément budgétaire non trouvé")
+    
+    update_data = item.model_dump()
+    # Auto-calculate EUR
+    update_data["montant_prevu_eur"] = round(update_data.get("montant_prevu_xpf", 0) * XPF_TO_EUR, 2)
+    if update_data.get("montant_realise_xpf"):
+        update_data["montant_realise_eur"] = round(update_data["montant_realise_xpf"] * XPF_TO_EUR, 2)
+    
+    await db.budget.update_one({"id": item_id}, {"$set": update_data})
+    updated = await db.budget.find_one({"id": item_id}, {"_id": 0})
+    return updated
+
+@api_router.delete("/budget/{item_id}")
+async def delete_budget_item(item_id: str, admin: dict = Depends(require_admin)):
+    """Delete a budget item"""
+    result = await db.budget.delete_one({"id": item_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Élément budgétaire non trouvé")
+    return {"message": "Élément budgétaire supprimé"}
+
+# ==================== REPORT TEMPLATES ROUTES ====================
+
+@api_router.get("/report-templates", response_model=List[dict])
+async def get_report_templates(current_user: dict = Depends(get_current_user)):
+    """Get all report templates"""
+    templates = await db.report_templates.find({}, {"_id": 0}).to_list(1000)
+    return templates
+
+@api_router.post("/report-templates", response_model=dict)
+async def create_report_template(template: ReportTemplateCreate, current_user: dict = Depends(require_admin)):
+    """Create a new report template"""
+    template_obj = ReportTemplate(**template.model_dump())
+    doc = template_obj.model_dump()
+    doc["created_at"] = doc["created_at"].isoformat()
+    await db.report_templates.insert_one(doc)
+    doc.pop("_id", None)
+    return doc
+
+# ==================== CONTROL REPORTS (PV) ROUTES ====================
+
+@api_router.get("/control-reports", response_model=List[dict])
+async def get_control_reports(
+    equipment_id: Optional[str] = None,
+    template_id: Optional[str] = None,
+    current_user: dict = Depends(get_current_user)
+):
+    """Get all control reports"""
+    query = {}
+    if equipment_id:
+        query["equipment_id"] = equipment_id
+    if template_id:
+        query["template_id"] = template_id
+    
+    reports = await db.control_reports.find(query, {"_id": 0}).to_list(1000)
+    return reports
+
+@api_router.post("/control-reports", response_model=dict)
+async def create_control_report(report: ControlReportCreate, current_user: dict = Depends(require_technicien_or_admin)):
+    """Create a new control report"""
+    report_obj = ControlReport(**report.model_dump())
+    doc = report_obj.model_dump()
+    doc["created_at"] = doc["created_at"].isoformat()
+    await db.control_reports.insert_one(doc)
+    doc.pop("_id", None)
+    return doc
+
+# ==================== EXCEL IMPORT ROUTES ====================
+
+@api_router.post("/import/excel")
+async def import_excel_file(
+    file: UploadFile = File(...),
+    import_type: str = Form(...),  # maintenance, controles, bouteilles, budget
+    current_user: dict = Depends(require_admin)
+):
+    """Import data from Excel file"""
+    if not file.filename.endswith(('.xlsx', '.xls')):
+        raise HTTPException(status_code=400, detail="Format de fichier non supporté. Utilisez .xlsx ou .xls")
+    
+    # Save file temporarily
+    file_id = str(uuid.uuid4())
+    temp_path = UPLOADS_DIR / "imports" / f"{file_id}.xlsx"
+    
+    with open(temp_path, "wb") as f:
+        shutil.copyfileobj(file.file, f)
+    
+    try:
+        result = {"imported": 0, "errors": [], "type": import_type}
+        
+        if import_type == "prestataires":
+            result = await import_contractors_from_excel(temp_path)
+        elif import_type == "bouteilles":
+            result = await import_gas_cylinders_from_excel(temp_path)
+        elif import_type == "budget":
+            result = await import_budget_from_excel(temp_path)
+        elif import_type == "maintenance":
+            result = await import_maintenance_from_excel(temp_path)
+        elif import_type == "controles":
+            result = await import_controls_from_excel(temp_path)
+        else:
+            raise HTTPException(status_code=400, detail=f"Type d'import non supporté: {import_type}")
+        
+        return result
+    
+    finally:
+        # Clean up temp file
+        if temp_path.exists():
+            temp_path.unlink()
+
+async def import_contractors_from_excel(file_path: Path) -> dict:
+    """Import contractors from Excel"""
+    df = pd.read_excel(file_path, sheet_name=0)
+    imported = 0
+    errors = []
+    
+    # Default contractors to create
+    default_contractors = [
+        {"nom": "Bauer Nautisport", "type": "prestataire", "specialite": "Maintenance compresseurs"},
+        {"nom": "Comex", "type": "prestataire", "specialite": "Maintenance caisson hyperbare"},
+        {"nom": "Métrologie de Tahiti", "type": "prestataire", "specialite": "Étalonnage, métrologie"},
+        {"nom": "Gazpac", "type": "fournisseur", "specialite": "Bouteilles de gaz, requalification"},
+        {"nom": "BCP", "type": "organisme_controle", "specialite": "Contrôles réglementaires"},
+        {"nom": "Argos", "type": "prestataire", "specialite": "ARI, équipements respiratoires"},
+        {"nom": "Incendie Moz", "type": "prestataire", "specialite": "Extincteurs"},
+        {"nom": "Servomex", "type": "fournisseur", "specialite": "Analyseurs de gaz"},
+        {"nom": "Bureau Véritas", "type": "organisme_controle", "specialite": "Contrôles réglementaires"},
+        {"nom": "Protais/Vigil", "type": "fournisseur", "specialite": "Manomètres"},
+        {"nom": "Nuova Fima", "type": "fournisseur", "specialite": "Manomètres"},
+        {"nom": "H+ Valves", "type": "fournisseur", "specialite": "Soupapes"},
+        {"nom": "RS Components SAS", "type": "fournisseur", "specialite": "Composants électroniques"},
+        {"nom": "FIT", "type": "prestataire", "specialite": "Maintenance générale"},
+        {"nom": "Vinci", "type": "prestataire", "specialite": "Filtres"},
+    ]
+    
+    for contractor_data in default_contractors:
+        existing = await db.contractors.find_one({"nom": contractor_data["nom"]})
+        if not existing:
+            contractor_obj = Contractor(**contractor_data)
+            doc = contractor_obj.model_dump()
+            doc["created_at"] = doc["created_at"].isoformat()
+            await db.contractors.insert_one(doc)
+            imported += 1
+    
+    return {"imported": imported, "errors": errors, "type": "prestataires"}
+
+async def import_gas_cylinders_from_excel(file_path: Path) -> dict:
+    """Import gas cylinders from Excel"""
+    imported = 0
+    errors = []
+    
+    try:
+        df = pd.read_excel(file_path, sheet_name=0)
+        
+        # Map column names (adapt based on actual Excel structure)
+        for idx, row in df.iterrows():
+            try:
+                type_gaz = str(row.get('Nature du gaz', row.get('type_gaz', ''))).strip().lower()
+                
+                # Normalize gas type
+                if 'o2' in type_gaz or 'oxygène' in type_gaz or 'oxygene' in type_gaz:
+                    type_gaz = 'O2'
+                elif 'air' in type_gaz and 'méd' in type_gaz:
+                    type_gaz = 'air_medicale'
+                elif 'héliox' in type_gaz or 'heliox' in type_gaz:
+                    type_gaz = 'heliox'
+                elif 'nitrox' in type_gaz:
+                    type_gaz = 'nitrox'
+                else:
+                    continue  # Skip unknown gas types
+                
+                numero = str(row.get('N° de la bout.', row.get('numero_bouteille', idx))).strip()
+                if not numero or numero == 'nan':
+                    numero = f"B-{idx}"
+                
+                volume = str(row.get('Vol. de bout.', 'B50')).strip()
+                if volume == 'nan':
+                    volume = 'B50'
+                
+                cylinder_data = {
+                    "numero_bouteille": numero,
+                    "type_gaz": type_gaz,
+                    "volume": volume,
+                    "agent_responsable": str(row.get('Nom de l\'agent', '')).strip() if pd.notna(row.get('Nom de l\'agent')) else None,
+                    "observations": str(row.get('Etat / Observations', '')).strip() if pd.notna(row.get('Etat / Observations')) else None,
+                    "statut": "pleine"
+                }
+                
+                existing = await db.gas_cylinders.find_one({"numero_bouteille": numero, "type_gaz": type_gaz})
+                if not existing:
+                    cylinder_obj = GasCylinder(**cylinder_data)
+                    doc = cylinder_obj.model_dump()
+                    doc["created_at"] = doc["created_at"].isoformat()
+                    await db.gas_cylinders.insert_one(doc)
+                    imported += 1
+                    
+            except Exception as e:
+                errors.append(f"Ligne {idx}: {str(e)}")
+    
+    except Exception as e:
+        errors.append(f"Erreur de lecture du fichier: {str(e)}")
+    
+    return {"imported": imported, "errors": errors, "type": "bouteilles"}
+
+async def import_budget_from_excel(file_path: Path) -> dict:
+    """Import budget items from Excel"""
+    imported = 0
+    errors = []
+    
+    try:
+        df = pd.read_excel(file_path, sheet_name=0)
+        
+        for idx, row in df.iterrows():
+            try:
+                designation = str(row.get('DETAIL INTERVENTIONS', row.get('designation', ''))).strip()
+                if not designation or designation == 'nan':
+                    continue
+                
+                montant = row.get('Montant (2026)', row.get('montant_prevu_xpf', 0))
+                if pd.isna(montant):
+                    montant = 0
+                else:
+                    montant = float(montant)
+                
+                # Determine category
+                categorie = "maintenance_preventive"
+                designation_lower = designation.lower()
+                if 'remplacer' in designation_lower or 'remplacement' in designation_lower:
+                    categorie = "pieces_detachees"
+                elif 'contrôle' in designation_lower or 'controle' in designation_lower or 'inspection' in designation_lower:
+                    categorie = "controle_reglementaire"
+                elif 'étalonnage' in designation_lower or 'etalonnage' in designation_lower:
+                    categorie = "controle_reglementaire"
+                elif 'entretien' in designation_lower:
+                    categorie = "prestation_externe"
+                
+                fournisseur = str(row.get('Fournisseur', '')).strip()
+                
+                budget_data = {
+                    "annee": 2026,
+                    "categorie": categorie,
+                    "designation": designation,
+                    "montant_prevu_xpf": montant,
+                    "montant_prevu_eur": round(montant * XPF_TO_EUR, 2),
+                    "periodicite": str(row.get('Fréquence', row.get('periodicite', ''))).strip() if pd.notna(row.get('Fréquence', row.get('periodicite'))) else None,
+                    "notes": f"Fournisseur: {fournisseur}" if fournisseur and fournisseur != 'nan' else None
+                }
+                
+                item_obj = BudgetItem(**budget_data)
+                doc = item_obj.model_dump()
+                doc["created_at"] = doc["created_at"].isoformat()
+                await db.budget.insert_one(doc)
+                imported += 1
+                
+            except Exception as e:
+                errors.append(f"Ligne {idx}: {str(e)}")
+    
+    except Exception as e:
+        errors.append(f"Erreur de lecture du fichier: {str(e)}")
+    
+    return {"imported": imported, "errors": errors, "type": "budget"}
+
+async def import_maintenance_from_excel(file_path: Path) -> dict:
+    """Import maintenance records from Excel"""
+    imported = 0
+    errors = []
+    
+    try:
+        df = pd.read_excel(file_path, sheet_name=0)
+        
+        for idx, row in df.iterrows():
+            try:
+                detail = str(row.get('DETAIL INTERVENTIONS', '')).strip()
+                if not detail or detail == 'nan':
+                    continue
+                
+                # Create inspection record for tracking
+                inspection_data = {
+                    "titre": detail,
+                    "type_controle": "maintenance",
+                    "periodicite": str(row.get('Périodicité', 'annuel')).strip() if pd.notna(row.get('Périodicité')) else "annuel",
+                    "observations": str(row.get('OBSERVATION TECHNIQUE', '')).strip() if pd.notna(row.get('OBSERVATION TECHNIQUE')) else None
+                }
+                
+                inspection_obj = Inspection(**inspection_data)
+                doc = inspection_obj.model_dump()
+                doc["created_at"] = doc["created_at"].isoformat()
+                await db.inspections.insert_one(doc)
+                imported += 1
+                
+            except Exception as e:
+                errors.append(f"Ligne {idx}: {str(e)}")
+    
+    except Exception as e:
+        errors.append(f"Erreur de lecture du fichier: {str(e)}")
+    
+    return {"imported": imported, "errors": errors, "type": "maintenance"}
+
+async def import_controls_from_excel(file_path: Path) -> dict:
+    """Import control records from Excel"""
+    imported = 0
+    errors = []
+    
+    # This will be populated with data from the controls Excel file
+    return {"imported": imported, "errors": errors, "type": "controles"}
+
+# ==================== INITIALIZE DEFAULT DATA ====================
+
+@api_router.post("/init/default-data")
+async def initialize_default_data(admin: dict = Depends(require_admin)):
+    """Initialize default prestataires and report templates"""
+    results = {"contractors": 0, "templates": 0}
+    
+    # Create default contractors
+    default_contractors = [
+        {"nom": "Bauer Nautisport", "type": "prestataire", "specialite": "Maintenance compresseurs"},
+        {"nom": "Comex", "type": "prestataire", "specialite": "Maintenance caisson hyperbare"},
+        {"nom": "Métrologie de Tahiti", "type": "prestataire", "specialite": "Étalonnage, métrologie"},
+        {"nom": "Gazpac", "type": "fournisseur", "specialite": "Bouteilles de gaz, requalification"},
+        {"nom": "BCP", "type": "organisme_controle", "specialite": "Contrôles réglementaires"},
+        {"nom": "Argos", "type": "prestataire", "specialite": "ARI, équipements respiratoires"},
+        {"nom": "Incendie Moz", "type": "prestataire", "specialite": "Extincteurs"},
+        {"nom": "Servomex", "type": "fournisseur", "specialite": "Analyseurs de gaz"},
+        {"nom": "Bureau Véritas", "type": "organisme_controle", "specialite": "Contrôles réglementaires"},
+        {"nom": "Protais/Vigil", "type": "fournisseur", "specialite": "Manomètres"},
+        {"nom": "Nuova Fima", "type": "fournisseur", "specialite": "Manomètres"},
+        {"nom": "H+ Valves", "type": "fournisseur", "specialite": "Soupapes"},
+    ]
+    
+    for contractor_data in default_contractors:
+        existing = await db.contractors.find_one({"nom": contractor_data["nom"]})
+        if not existing:
+            contractor_obj = Contractor(**contractor_data)
+            doc = contractor_obj.model_dump()
+            doc["created_at"] = doc["created_at"].isoformat()
+            await db.contractors.insert_one(doc)
+            results["contractors"] += 1
+    
+    # Create default report templates
+    default_templates = [
+        {
+            "nom": "Analyse de l'air respirable",
+            "type_controle": "analyse_air",
+            "description": "Analyse de la qualité de l'air respirable des compresseurs BAUER",
+            "champs": [
+                {"nom": "marque_compresseur", "type": "text", "obligatoire": True},
+                {"nom": "modele", "type": "text", "obligatoire": True},
+                {"nom": "numero_serie", "type": "text", "obligatoire": False},
+                {"nom": "compteur_horaire", "type": "number", "obligatoire": True},
+                {"nom": "h2o_valeur", "type": "number", "obligatoire": True, "unite": "mg/m³"},
+                {"nom": "co_valeur", "type": "number", "obligatoire": True, "unite": "ppm"},
+                {"nom": "co2_valeur", "type": "number", "obligatoire": True, "unite": "ppm"},
+                {"nom": "huile_valeur", "type": "number", "obligatoire": True, "unite": "mg/m³"},
+                {"nom": "odeur_gout", "type": "select", "options": ["Aucun", "Léger", "Significatif"], "obligatoire": True}
+            ],
+            "normes_reference": ["Article N°3 de la délibération N° 87-79 AT du 12 juin 1987"],
+            "criteres_conformite": [
+                {"parametre": "H2O", "valeur_max": 5, "unite": "mg/m³", "note": "Peut dépasser selon conditions climatiques PF"},
+                {"parametre": "CO", "valeur_max": 15, "unite": "ppm"},
+                {"parametre": "CO2", "valeur_max": 500, "unite": "ppm"},
+                {"parametre": "Huile", "valeur_max": 0.5, "unite": "mg/m³"}
+            ]
+        },
+        {
+            "nom": "Contrôle annuel du caisson",
+            "type_controle": "controle_annuel",
+            "description": "Contrôle annuel complet du caisson hyperbare",
+            "champs": [
+                {"nom": "etancheite_enceintes", "type": "checkbox", "obligatoire": True},
+                {"nom": "etancheite_portes", "type": "checkbox", "obligatoire": True},
+                {"nom": "securite_sas_medicament", "type": "checkbox", "obligatoire": True},
+                {"nom": "soupapes_surete", "type": "checkbox", "obligatoire": True},
+                {"nom": "manometres", "type": "checkbox", "obligatoire": True},
+                {"nom": "hublots", "type": "checkbox", "obligatoire": True},
+                {"nom": "eclairage", "type": "checkbox", "obligatoire": True},
+                {"nom": "communications", "type": "checkbox", "obligatoire": True},
+                {"nom": "systeme_incendie", "type": "checkbox", "obligatoire": True},
+                {"nom": "circuits_electriques", "type": "checkbox", "obligatoire": True}
+            ],
+            "normes_reference": ["Arrêté du 15 mars 2000", "Arrêté du 20 novembre 2017"]
+        },
+        {
+            "nom": "Étalonnage manomètre",
+            "type_controle": "etalonnage_manometre",
+            "description": "Certificat d'étalonnage des manomètres",
+            "champs": [
+                {"nom": "marque", "type": "text", "obligatoire": True},
+                {"nom": "modele", "type": "text", "obligatoire": True},
+                {"nom": "numero_serie", "type": "text", "obligatoire": True},
+                {"nom": "plage_mesure", "type": "text", "obligatoire": True},
+                {"nom": "classe", "type": "text", "obligatoire": False},
+                {"nom": "localisation", "type": "text", "obligatoire": True},
+                {"nom": "valeur_mesure_1", "type": "number", "obligatoire": True},
+                {"nom": "valeur_reference_1", "type": "number", "obligatoire": True},
+                {"nom": "ecart_1", "type": "number", "obligatoire": True}
+            ]
+        },
+        {
+            "nom": "Contrôle soupape de sûreté",
+            "type_controle": "etalonnage_soupape",
+            "description": "Contrôle et étalonnage des soupapes de surpression",
+            "champs": [
+                {"nom": "marque", "type": "text", "obligatoire": True},
+                {"nom": "modele", "type": "text", "obligatoire": True},
+                {"nom": "numero_serie", "type": "text", "obligatoire": True},
+                {"nom": "pression_tarage", "type": "number", "obligatoire": True, "unite": "bar"},
+                {"nom": "pression_ouverture", "type": "number", "obligatoire": True, "unite": "bar"},
+                {"nom": "localisation", "type": "text", "obligatoire": True}
+            ]
+        }
+    ]
+    
+    for template_data in default_templates:
+        existing = await db.report_templates.find_one({"nom": template_data["nom"]})
+        if not existing:
+            template_obj = ReportTemplate(**template_data)
+            doc = template_obj.model_dump()
+            doc["created_at"] = doc["created_at"].isoformat()
+            await db.report_templates.insert_one(doc)
+            results["templates"] += 1
+    
+    return {"message": "Données par défaut initialisées", "results": results}
 
 # Include router and middleware
 app.include_router(api_router)

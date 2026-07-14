@@ -32,7 +32,11 @@ import {
   Wrench,
   FileText,
   Key,
-  Loader2
+  Loader2,
+  Building2,
+  Cylinder,
+  Calculator,
+  Upload
 } from 'lucide-react';
 import { usersAPI } from '../lib/api';
 
@@ -112,13 +116,17 @@ const Sidebar = ({ isOpen, onClose }) => {
     { to: '/sous-equipements', icon: Layers, label: 'Sous-équipements' },
     { to: '/ordres-travail', icon: ClipboardList, label: 'Maintenance préventive' },
     { to: '/interventions', icon: History, label: 'Interventions' },
+    { to: '/bouteilles-gaz', icon: Cylinder, label: 'Bouteilles de gaz' },
     { to: '/stock', icon: Package, label: 'Stock pièces' },
+    { to: '/prestataires', icon: Building2, label: 'Prestataires' },
+    { to: '/budget', icon: Calculator, label: 'Budget prévisionnel' },
     { to: '/rapports', icon: FileText, label: 'Rapports PDF' },
   ];
 
   const adminItems = [
     { to: '/types-equipement', icon: Settings2, label: 'Types équipement', adminOnly: true },
     { to: '/utilisateurs', icon: Users, label: 'Utilisateurs', adminOnly: true },
+    { to: '/import', icon: Upload, label: 'Import données', adminOnly: true },
     { to: '/export', icon: Download, label: 'Export données', requireExport: true },
   ];
 

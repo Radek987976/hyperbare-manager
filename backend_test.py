@@ -26,7 +26,13 @@ class HyperMaintTester:
             'subequipments': [],
             'work_orders': [],
             'interventions': [],
-            'inspections': []
+            'inspections': [],
+            'contractors': [],
+            'gas_cylinders': [],
+            'contracts': [],
+            'budget_items': [],
+            'report_templates': [],
+            'documents': []
         }
         
     def log_result(self, test_name, success, message, details=None):
@@ -83,7 +89,6 @@ class HyperMaintTester:
         try:
             new_type_data = {
                 "nom": "Test Equipment Type",
-                "code": "test_equipment_type",
                 "description": "Test description for equipment type"
             }
             response = self.session.post(f"{BASE_URL}/equipment-types", json=new_type_data)
@@ -103,7 +108,6 @@ class HyperMaintTester:
                 type_id = self.created_resources['equipment_types'][0]
                 update_data = {
                     "nom": "Updated Test Equipment Type",
-                    "code": "test_equipment_type",
                     "description": "Updated description"
                 }
                 response = self.session.put(f"{BASE_URL}/equipment-types/{type_id}", json=update_data)
@@ -453,9 +457,583 @@ class HyperMaintTester:
         except Exception as e:
             self.log_result("Work Order Delete Test", False, f"Exception: {str(e)}")
     
+    def test_contractors_crud(self):
+        """Test Contractors API CRUD operations"""
+        print("\n=== Testing Contractors API ===")
+        
+        # 1. GET all contractors (should return 12 default prestataires)
+        try:
+            response = self.session.get(f"{BASE_URL}/contractors")
+            if response.status_code == 200:
+                contractors = response.json()
+                self.log_result("GET Contractors", True, f"Retrieved {len(contractors)} contractors")
+            else:
+                self.log_result("GET Contractors", False, f"Status {response.status_code}", response.text)
+        except Exception as e:
+            self.log_result("GET Contractors", False, f"Exception: {str(e)}")
+        
+        # 2. POST create new contractor
+        try:
+            contractor_data = {
+                "nom": "Test Contractor Ltd",
+                "type": "prestataire",
+                "specialite": "Test Maintenance Services",
+                "contact_nom": "John Doe",
+                "contact_email": "john@testcontractor.com",
+                "contact_telephone": "+689 87 12 34 56",
+                "adresse": "123 Test Street, Papeete"
+            }
+            response = self.session.post(f"{BASE_URL}/contractors", json=contractor_data)
+            if response.status_code == 200:
+                contractor = response.json()
+                contractor_id = contractor.get('id')
+                self.created_resources['contractors'].append(contractor_id)
+                self.log_result("POST Contractor", True, f"Created contractor with ID: {contractor_id}")
+            else:
+                self.log_result("POST Contractor", False, f"Status {response.status_code}", response.text)
+        except Exception as e:
+            self.log_result("POST Contractor", False, f"Exception: {str(e)}")
+        
+        # 3. PUT update contractor
+        if self.created_resources['contractors']:
+            try:
+                contractor_id = self.created_resources['contractors'][0]
+                update_data = {
+                    "nom": "Updated Test Contractor Ltd",
+                    "type": "fournisseur",
+                    "specialite": "Updated Services",
+                    "contact_nom": "Jane Doe"
+                }
+                response = self.session.put(f"{BASE_URL}/contractors/{contractor_id}", json=update_data)
+                if response.status_code == 200:
+                    self.log_result("PUT Contractor", True, f"Updated contractor {contractor_id}")
+                else:
+                    self.log_result("PUT Contractor", False, f"Status {response.status_code}", response.text)
+            except Exception as e:
+                self.log_result("PUT Contractor", False, f"Exception: {str(e)}")
+        
+        # 4. GET single contractor
+        if self.created_resources['contractors']:
+            try:
+                contractor_id = self.created_resources['contractors'][0]
+                response = self.session.get(f"{BASE_URL}/contractors/{contractor_id}")
+                if response.status_code == 200:
+                    contractor = response.json()
+                    self.log_result("GET Single Contractor", True, f"Retrieved contractor: {contractor.get('nom')}")
+                else:
+                    self.log_result("GET Single Contractor", False, f"Status {response.status_code}", response.text)
+            except Exception as e:
+                self.log_result("GET Single Contractor", False, f"Exception: {str(e)}")
+    
+    def test_gas_cylinders_crud(self):
+        """Test Gas Cylinders API CRUD operations"""
+        print("\n=== Testing Gas Cylinders API ===")
+        
+        # 1. GET all gas cylinders
+        try:
+            response = self.session.get(f"{BASE_URL}/gas-cylinders")
+            if response.status_code == 200:
+                cylinders = response.json()
+                self.log_result("GET Gas Cylinders", True, f"Retrieved {len(cylinders)} gas cylinders")
+            else:
+                self.log_result("GET Gas Cylinders", False, f"Status {response.status_code}", response.text)
+        except Exception as e:
+            self.log_result("GET Gas Cylinders", False, f"Exception: {str(e)}")
+        
+        # 2. POST create new gas cylinder (test each gas type)
+        gas_types = ["O2", "air_medicale", "heliox", "nitrox"]
+        for gas_type in gas_types:
+            try:
+                cylinder_data = {
+                    "numero_bouteille": f"TEST-{gas_type}-001",
+                    "type_gaz": gas_type,
+                    "volume": "B50",
+                    "pression_service": 200.0,
+                    "localisation": "Test Storage Area",
+                    "date_remplissage": "2026-01-15",
+                    "date_expiration_gaz": "2027-01-15",
+                    "date_prochaine_epreuve": "2031-01-15",
+                    "statut": "pleine",
+                    "agent_responsable": "Test Agent"
+                }
+                response = self.session.post(f"{BASE_URL}/gas-cylinders", json=cylinder_data)
+                if response.status_code == 200:
+                    cylinder = response.json()
+                    cylinder_id = cylinder.get('id')
+                    self.created_resources['gas_cylinders'].append(cylinder_id)
+                    self.log_result(f"POST Gas Cylinder ({gas_type})", True, f"Created {gas_type} cylinder with ID: {cylinder_id}")
+                else:
+                    self.log_result(f"POST Gas Cylinder ({gas_type})", False, f"Status {response.status_code}", response.text)
+            except Exception as e:
+                self.log_result(f"POST Gas Cylinder ({gas_type})", False, f"Exception: {str(e)}")
+        
+        # 3. GET gas cylinder alerts
+        try:
+            response = self.session.get(f"{BASE_URL}/gas-cylinders/alerts")
+            if response.status_code == 200:
+                alerts = response.json()
+                expected_keys = ["gaz_expire", "epreuve_expire", "gaz_expire_30j", "epreuve_expire_90j"]
+                has_all_keys = all(key in alerts for key in expected_keys)
+                if has_all_keys:
+                    self.log_result("GET Gas Cylinder Alerts", True, f"Retrieved alerts with all expected keys")
+                else:
+                    self.log_result("GET Gas Cylinder Alerts", False, f"Missing expected keys in alerts response")
+            else:
+                self.log_result("GET Gas Cylinder Alerts", False, f"Status {response.status_code}", response.text)
+        except Exception as e:
+            self.log_result("GET Gas Cylinder Alerts", False, f"Exception: {str(e)}")
+        
+        # 4. POST refill gas cylinder
+        if self.created_resources['gas_cylinders']:
+            try:
+                cylinder_id = self.created_resources['gas_cylinders'][0]
+                refill_data = {
+                    "date_remplissage": "2026-02-01",
+                    "date_expiration": "2027-02-01",
+                    "pression": 200.0,
+                    "agent": "Test Refill Agent",
+                    "observations": "Test refill operation"
+                }
+                response = self.session.post(f"{BASE_URL}/gas-cylinders/{cylinder_id}/refill", data=refill_data)
+                if response.status_code == 200:
+                    updated_cylinder = response.json()
+                    if updated_cylinder.get('statut') == 'pleine':
+                        self.log_result("POST Refill Gas Cylinder", True, f"Successfully refilled cylinder {cylinder_id}")
+                    else:
+                        self.log_result("POST Refill Gas Cylinder", False, f"Cylinder status not updated to 'pleine'")
+                else:
+                    self.log_result("POST Refill Gas Cylinder", False, f"Status {response.status_code}", response.text)
+            except Exception as e:
+                self.log_result("POST Refill Gas Cylinder", False, f"Exception: {str(e)}")
+        
+        # 5. PUT update gas cylinder
+        if self.created_resources['gas_cylinders']:
+            try:
+                cylinder_id = self.created_resources['gas_cylinders'][0]
+                update_data = {
+                    "numero_bouteille": "TEST-O2-001-UPDATED",
+                    "type_gaz": "O2",
+                    "volume": "B50",
+                    "statut": "en_cours",
+                    "observations": "Updated test cylinder"
+                }
+                response = self.session.put(f"{BASE_URL}/gas-cylinders/{cylinder_id}", json=update_data)
+                if response.status_code == 200:
+                    self.log_result("PUT Gas Cylinder", True, f"Updated gas cylinder {cylinder_id}")
+                else:
+                    self.log_result("PUT Gas Cylinder", False, f"Status {response.status_code}", response.text)
+            except Exception as e:
+                self.log_result("PUT Gas Cylinder", False, f"Exception: {str(e)}")
+        
+        # 6. GET filtered gas cylinders by type
+        try:
+            response = self.session.get(f"{BASE_URL}/gas-cylinders?type_gaz=O2")
+            if response.status_code == 200:
+                cylinders = response.json()
+                all_o2 = all(cyl.get('type_gaz') == 'O2' for cyl in cylinders)
+                if all_o2:
+                    self.log_result("GET Gas Cylinders Filtered", True, f"Retrieved {len(cylinders)} O2 cylinders")
+                else:
+                    self.log_result("GET Gas Cylinders Filtered", False, "Filter not working correctly")
+            else:
+                self.log_result("GET Gas Cylinders Filtered", False, f"Status {response.status_code}", response.text)
+        except Exception as e:
+            self.log_result("GET Gas Cylinders Filtered", False, f"Exception: {str(e)}")
+    
+    def test_budget_api(self):
+        """Test Budget API operations"""
+        print("\n=== Testing Budget API ===")
+        
+        # 1. GET all budget items
+        try:
+            response = self.session.get(f"{BASE_URL}/budget")
+            if response.status_code == 200:
+                items = response.json()
+                self.log_result("GET Budget Items", True, f"Retrieved {len(items)} budget items")
+            else:
+                self.log_result("GET Budget Items", False, f"Status {response.status_code}", response.text)
+        except Exception as e:
+            self.log_result("GET Budget Items", False, f"Exception: {str(e)}")
+        
+        # 2. POST create budget item (with XPF to EUR conversion)
+        try:
+            budget_data = {
+                "annee": 2026,
+                "categorie": "maintenance_preventive",
+                "designation": "Test Maintenance Budget Item",
+                "description": "Test budget item for maintenance",
+                "montant_prevu_xpf": 100000,
+                "periodicite": "annuel",
+                "statut": "prevu"
+            }
+            response = self.session.post(f"{BASE_URL}/budget", json=budget_data)
+            if response.status_code == 200:
+                item = response.json()
+                item_id = item.get('id')
+                self.created_resources['budget_items'].append(item_id)
+                
+                # Check XPF to EUR conversion (1 XPF = 0.00838 EUR)
+                expected_eur = round(100000 * 0.00838, 2)
+                actual_eur = item.get('montant_prevu_eur')
+                if actual_eur == expected_eur:
+                    self.log_result("POST Budget Item (XPF to EUR)", True, f"Created budget item with correct EUR conversion: {actual_eur} EUR")
+                else:
+                    self.log_result("POST Budget Item (XPF to EUR)", False, f"EUR conversion incorrect. Expected: {expected_eur}, Got: {actual_eur}")
+            else:
+                self.log_result("POST Budget Item", False, f"Status {response.status_code}", response.text)
+        except Exception as e:
+            self.log_result("POST Budget Item", False, f"Exception: {str(e)}")
+        
+        # 3. GET budget summary for year 2026
+        try:
+            response = self.session.get(f"{BASE_URL}/budget/summary/2026")
+            if response.status_code == 200:
+                summary = response.json()
+                expected_fields = ["annee", "total_prevu_xpf", "total_prevu_eur", "total_realise_xpf", "total_realise_eur", "par_categorie", "items"]
+                has_all_fields = all(field in summary for field in expected_fields)
+                if has_all_fields:
+                    self.log_result("GET Budget Summary", True, f"Retrieved budget summary for 2026 with all expected fields")
+                else:
+                    missing = [f for f in expected_fields if f not in summary]
+                    self.log_result("GET Budget Summary", False, f"Missing fields: {missing}")
+            else:
+                self.log_result("GET Budget Summary", False, f"Status {response.status_code}", response.text)
+        except Exception as e:
+            self.log_result("GET Budget Summary", False, f"Exception: {str(e)}")
+        
+        # 4. PUT update budget item
+        if self.created_resources['budget_items']:
+            try:
+                item_id = self.created_resources['budget_items'][0]
+                update_data = {
+                    "annee": 2026,
+                    "categorie": "pieces_detachees",
+                    "designation": "Updated Test Budget Item",
+                    "montant_prevu_xpf": 150000,
+                    "montant_realise_xpf": 145000,
+                    "statut": "realise"
+                }
+                response = self.session.put(f"{BASE_URL}/budget/{item_id}", json=update_data)
+                if response.status_code == 200:
+                    updated_item = response.json()
+                    # Check EUR conversion for both prevu and realise
+                    expected_prevu_eur = round(150000 * 0.00838, 2)
+                    expected_realise_eur = round(145000 * 0.00838, 2)
+                    actual_prevu_eur = updated_item.get('montant_prevu_eur')
+                    actual_realise_eur = updated_item.get('montant_realise_eur')
+                    
+                    if actual_prevu_eur == expected_prevu_eur and actual_realise_eur == expected_realise_eur:
+                        self.log_result("PUT Budget Item", True, f"Updated budget item with correct EUR conversions")
+                    else:
+                        self.log_result("PUT Budget Item", False, f"EUR conversion incorrect after update")
+                else:
+                    self.log_result("PUT Budget Item", False, f"Status {response.status_code}", response.text)
+            except Exception as e:
+                self.log_result("PUT Budget Item", False, f"Exception: {str(e)}")
+        
+        # 5. GET budget items filtered by year
+        try:
+            response = self.session.get(f"{BASE_URL}/budget?annee=2026")
+            if response.status_code == 200:
+                items = response.json()
+                all_2026 = all(item.get('annee') == 2026 for item in items)
+                if all_2026:
+                    self.log_result("GET Budget Items Filtered", True, f"Retrieved {len(items)} budget items for 2026")
+                else:
+                    self.log_result("GET Budget Items Filtered", False, "Filter not working correctly")
+            else:
+                self.log_result("GET Budget Items Filtered", False, f"Status {response.status_code}", response.text)
+        except Exception as e:
+            self.log_result("GET Budget Items Filtered", False, f"Exception: {str(e)}")
+    
+    def test_report_templates_api(self):
+        """Test Report Templates API operations"""
+        print("\n=== Testing Report Templates API ===")
+        
+        # 1. GET all report templates (should return 4 default templates)
+        try:
+            response = self.session.get(f"{BASE_URL}/report-templates")
+            if response.status_code == 200:
+                templates = response.json()
+                self.log_result("GET Report Templates", True, f"Retrieved {len(templates)} report templates")
+                
+                # Check for expected default templates
+                expected_templates = ["Analyse de l'air respirable", "Contrôle annuel du caisson", "Étalonnage manomètre", "Contrôle soupape de sûreté"]
+                template_names = [t.get('nom') for t in templates]
+                found_defaults = [name for name in expected_templates if name in template_names]
+                if len(found_defaults) >= 4:
+                    self.log_result("GET Report Templates - Defaults", True, f"Found {len(found_defaults)} default templates")
+                else:
+                    self.log_result("GET Report Templates - Defaults", False, f"Only found {len(found_defaults)} default templates")
+            else:
+                self.log_result("GET Report Templates", False, f"Status {response.status_code}", response.text)
+        except Exception as e:
+            self.log_result("GET Report Templates", False, f"Exception: {str(e)}")
+        
+        # 2. POST create new report template
+        try:
+            template_data = {
+                "nom": "Test Report Template",
+                "type_controle": "controle_mensuel",
+                "description": "Test template for monthly control",
+                "champs": [
+                    {"nom": "test_field_1", "type": "text", "obligatoire": True},
+                    {"nom": "test_field_2", "type": "number", "obligatoire": False}
+                ],
+                "normes_reference": ["Test Norm 1", "Test Norm 2"],
+                "criteres_conformite": [
+                    {"parametre": "Test Param", "valeur_max": 100, "unite": "test_unit"}
+                ],
+                "modele_actif": True
+            }
+            response = self.session.post(f"{BASE_URL}/report-templates", json=template_data)
+            if response.status_code == 200:
+                template = response.json()
+                template_id = template.get('id')
+                self.created_resources['report_templates'].append(template_id)
+                self.log_result("POST Report Template", True, f"Created report template with ID: {template_id}")
+            else:
+                self.log_result("POST Report Template", False, f"Status {response.status_code}", response.text)
+        except Exception as e:
+            self.log_result("POST Report Template", False, f"Exception: {str(e)}")
+    
+    def test_documents_api(self):
+        """Test Documents API operations"""
+        print("\n=== Testing Documents API ===")
+        
+        # 1. GET all documents
+        try:
+            response = self.session.get(f"{BASE_URL}/documents")
+            if response.status_code == 200:
+                documents = response.json()
+                self.log_result("GET Documents", True, f"Retrieved {len(documents)} documents")
+            else:
+                self.log_result("GET Documents", False, f"Status {response.status_code}", response.text)
+        except Exception as e:
+            self.log_result("GET Documents", False, f"Exception: {str(e)}")
+        
+        # 2. POST create document (without file)
+        try:
+            document_data = {
+                "titre": "Test Document",
+                "type_document": "rapport",
+                "categorie": "Test Category",
+                "description": "Test document description",
+                "date_document": "2026-01-15",
+                "tags": ["test", "document"]
+            }
+            response = self.session.post(f"{BASE_URL}/documents", json=document_data)
+            if response.status_code == 200:
+                document = response.json()
+                document_id = document.get('id')
+                self.created_resources['documents'].append(document_id)
+                self.log_result("POST Document", True, f"Created document with ID: {document_id}")
+            else:
+                self.log_result("POST Document", False, f"Status {response.status_code}", response.text)
+        except Exception as e:
+            self.log_result("POST Document", False, f"Exception: {str(e)}")
+        
+        # 3. POST upload document with file
+        try:
+            # Create a test file
+            import io
+            test_file_content = b"This is a test document file content for testing purposes."
+            files = {'file': ('test_document.txt', io.BytesIO(test_file_content), 'text/plain')}
+            data = {
+                'titre': 'Test Uploaded Document',
+                'type_document': 'notice',
+                'categorie': 'Test Upload'
+            }
+            response = self.session.post(f"{BASE_URL}/documents/upload", files=files, data=data)
+            if response.status_code == 200:
+                document = response.json()
+                document_id = document.get('id')
+                self.created_resources['documents'].append(document_id)
+                fichier_url = document.get('fichier_url')
+                if fichier_url:
+                    self.log_result("POST Upload Document", True, f"Uploaded document with file URL: {fichier_url}")
+                else:
+                    self.log_result("POST Upload Document", False, "Document created but no file URL returned")
+            else:
+                self.log_result("POST Upload Document", False, f"Status {response.status_code}", response.text)
+        except Exception as e:
+            self.log_result("POST Upload Document", False, f"Exception: {str(e)}")
+        
+        # 4. GET documents filtered by type
+        try:
+            response = self.session.get(f"{BASE_URL}/documents?type_document=rapport")
+            if response.status_code == 200:
+                documents = response.json()
+                all_rapport = all(doc.get('type_document') == 'rapport' for doc in documents)
+                if all_rapport or len(documents) == 0:
+                    self.log_result("GET Documents Filtered", True, f"Retrieved {len(documents)} rapport documents")
+                else:
+                    self.log_result("GET Documents Filtered", False, "Filter not working correctly")
+            else:
+                self.log_result("GET Documents Filtered", False, f"Status {response.status_code}", response.text)
+        except Exception as e:
+            self.log_result("GET Documents Filtered", False, f"Exception: {str(e)}")
+    
+    def test_contracts_crud(self):
+        """Test Maintenance Contracts API CRUD operations"""
+        print("\n=== Testing Maintenance Contracts API ===")
+        
+        # Get a contractor ID for the contract
+        contractor_id = None
+        if self.created_resources['contractors']:
+            contractor_id = self.created_resources['contractors'][0]
+        else:
+            # Try to get an existing contractor
+            try:
+                response = self.session.get(f"{BASE_URL}/contractors")
+                if response.status_code == 200:
+                    contractors = response.json()
+                    if contractors:
+                        contractor_id = contractors[0].get('id')
+            except:
+                pass
+        
+        if not contractor_id:
+            self.log_result("Contracts Tests", False, "No contractor available for contract tests")
+            return
+        
+        # 1. GET all contracts
+        try:
+            response = self.session.get(f"{BASE_URL}/contracts")
+            if response.status_code == 200:
+                contracts = response.json()
+                self.log_result("GET Contracts", True, f"Retrieved {len(contracts)} contracts")
+            else:
+                self.log_result("GET Contracts", False, f"Status {response.status_code}", response.text)
+        except Exception as e:
+            self.log_result("GET Contracts", False, f"Exception: {str(e)}")
+        
+        # 2. POST create new contract
+        try:
+            contract_data = {
+                "numero_contrat": "TEST-CONTRACT-001",
+                "titre": "Test Maintenance Contract",
+                "contractor_id": contractor_id,
+                "type_contrat": "maintenance",
+                "date_debut": "2026-01-01",
+                "date_fin": "2026-12-31",
+                "montant_annuel": 500000,
+                "devise": "XPF",
+                "periodicite_facturation": "trimestriel",
+                "prestations_incluses": ["Maintenance préventive", "Dépannage"],
+                "statut": "actif"
+            }
+            response = self.session.post(f"{BASE_URL}/contracts", json=contract_data)
+            if response.status_code == 200:
+                contract = response.json()
+                contract_id = contract.get('id')
+                self.created_resources['contracts'].append(contract_id)
+                self.log_result("POST Contract", True, f"Created contract with ID: {contract_id}")
+            else:
+                self.log_result("POST Contract", False, f"Status {response.status_code}", response.text)
+        except Exception as e:
+            self.log_result("POST Contract", False, f"Exception: {str(e)}")
+        
+        # 3. GET single contract
+        if self.created_resources['contracts']:
+            try:
+                contract_id = self.created_resources['contracts'][0]
+                response = self.session.get(f"{BASE_URL}/contracts/{contract_id}")
+                if response.status_code == 200:
+                    contract = response.json()
+                    self.log_result("GET Single Contract", True, f"Retrieved contract: {contract.get('titre')}")
+                else:
+                    self.log_result("GET Single Contract", False, f"Status {response.status_code}", response.text)
+            except Exception as e:
+                self.log_result("GET Single Contract", False, f"Exception: {str(e)}")
+        
+        # 4. PUT update contract
+        if self.created_resources['contracts']:
+            try:
+                contract_id = self.created_resources['contracts'][0]
+                update_data = {
+                    "numero_contrat": "TEST-CONTRACT-001-UPDATED",
+                    "titre": "Updated Test Maintenance Contract",
+                    "contractor_id": contractor_id,
+                    "type_contrat": "maintenance",
+                    "date_debut": "2026-01-01",
+                    "date_fin": "2027-12-31",
+                    "montant_annuel": 600000,
+                    "statut": "actif"
+                }
+                response = self.session.put(f"{BASE_URL}/contracts/{contract_id}", json=update_data)
+                if response.status_code == 200:
+                    self.log_result("PUT Contract", True, f"Updated contract {contract_id}")
+                else:
+                    self.log_result("PUT Contract", False, f"Status {response.status_code}", response.text)
+            except Exception as e:
+                self.log_result("PUT Contract", False, f"Exception: {str(e)}")
+    
+    def test_import_api(self):
+        """Test Import API operations"""
+        print("\n=== Testing Import API ===")
+        
+        # Test initialize default data
+        try:
+            response = self.session.post(f"{BASE_URL}/init/default-data")
+            if response.status_code == 200:
+                result = response.json()
+                contractors_count = result.get('results', {}).get('contractors', 0)
+                templates_count = result.get('results', {}).get('templates', 0)
+                self.log_result("POST Init Default Data", True, f"Initialized {contractors_count} contractors and {templates_count} templates")
+            else:
+                self.log_result("POST Init Default Data", False, f"Status {response.status_code}", response.text)
+        except Exception as e:
+            self.log_result("POST Init Default Data", False, f"Exception: {str(e)}")
+    
     def cleanup_test_data(self):
         """Clean up created test data"""
         print("\n=== Cleaning up test data ===")
+        
+        # Delete created documents
+        for doc_id in self.created_resources['documents']:
+            try:
+                response = self.session.delete(f"{BASE_URL}/documents/{doc_id}")
+                if response.status_code == 200:
+                    print(f"✅ Deleted document: {doc_id}")
+            except:
+                pass
+        
+        # Delete created contracts
+        for contract_id in self.created_resources['contracts']:
+            try:
+                response = self.session.delete(f"{BASE_URL}/contracts/{contract_id}")
+                if response.status_code == 200:
+                    print(f"✅ Deleted contract: {contract_id}")
+            except:
+                pass
+        
+        # Delete created budget items
+        for item_id in self.created_resources['budget_items']:
+            try:
+                response = self.session.delete(f"{BASE_URL}/budget/{item_id}")
+                if response.status_code == 200:
+                    print(f"✅ Deleted budget item: {item_id}")
+            except:
+                pass
+        
+        # Delete created gas cylinders
+        for cylinder_id in self.created_resources['gas_cylinders']:
+            try:
+                response = self.session.delete(f"{BASE_URL}/gas-cylinders/{cylinder_id}")
+                if response.status_code == 200:
+                    print(f"✅ Deleted gas cylinder: {cylinder_id}")
+            except:
+                pass
+        
+        # Delete created contractors
+        for contractor_id in self.created_resources['contractors']:
+            try:
+                response = self.session.delete(f"{BASE_URL}/contractors/{contractor_id}")
+                if response.status_code == 200:
+                    print(f"✅ Deleted contractor: {contractor_id}")
+            except:
+                pass
         
         # Delete created interventions
         for intervention_id in self.created_resources['interventions']:
@@ -510,6 +1088,8 @@ class HyperMaintTester:
                     print(f"✅ Deleted equipment type: {type_id}")
             except:
                 pass
+        
+        # Note: We don't delete report_templates as they might be default templates
     
     def run_all_tests(self):
         """Run all tests"""
@@ -523,13 +1103,28 @@ class HyperMaintTester:
             print("❌ Authentication failed. Cannot proceed with tests.")
             return False
         
-        # Run all test suites
+        # Run all test suites - OLD FEATURES
+        print("\n" + "=" * 60)
+        print("TESTING OLD FEATURES (Previously Implemented)")
+        print("=" * 60)
         self.test_equipment_types_crud()
         self.test_subequipments_crud()
         self.test_interventions_curative_preventive()
         self.test_dashboard_stats_compressors()
         self.test_export_endpoints()
         self.test_work_order_delete()
+        
+        # Run all test suites - NEW FEATURES
+        print("\n" + "=" * 60)
+        print("TESTING NEW FEATURES (Phase 1 Implementation)")
+        print("=" * 60)
+        self.test_contractors_crud()
+        self.test_gas_cylinders_crud()
+        self.test_budget_api()
+        self.test_report_templates_api()
+        self.test_documents_api()
+        self.test_contracts_crud()
+        self.test_import_api()
         
         # Clean up
         self.cleanup_test_data()

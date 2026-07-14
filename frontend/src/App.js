@@ -12,6 +12,7 @@ import Equipments from './pages/Equipments';
 import EquipmentTypes from './pages/EquipmentTypes';
 import SubEquipments from './pages/SubEquipments';
 import WorkOrders from './pages/WorkOrders';
+import Planning from './pages/Planning';
 import Interventions from './pages/Interventions';
 import Inspections from './pages/Inspections';
 import SpareParts from './pages/SpareParts';
@@ -156,6 +157,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <Inspections />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/planning"
+        element={
+          <ProtectedRoute>
+            <Planning />
           </ProtectedRoute>
         }
       />

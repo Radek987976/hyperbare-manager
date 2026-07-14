@@ -2102,6 +2102,231 @@ async def get_maintenance_calendar(current_user: dict = Depends(get_current_user
     
     return calendar_data
 
+# ==================== PLANNING / SCHEDULING ROUTES ====================
+
+class CompleteWorkOrderRequest(BaseModel):
+    date_realisation: Optional[str] = None
+    technicien: Optional[str] = None
+    observations: Optional[str] = None
+    compteur_horaire: Optional[float] = None
+
+class RescheduleRequest(BaseModel):
+    item_type: str  # "work_order" ou "inspection"
+    item_id: str
+    new_date: str  # YYYY-MM-DD
+
+
+@api_router.post("/work-orders/{work_order_id}/complete")
+async def complete_work_order(work_order_id: str, data: CompleteWorkOrderRequest, current_user: dict = Depends(get_current_user)):
+    """Marque un ordre de maintenance comme terminé et génère automatiquement la prochaine occurrence."""
+    wo = await db.work_orders.find_one({"id": work_order_id}, {"_id": 0})
+    if not wo:
+        raise HTTPException(status_code=404, detail="Ordre de travail non trouvé")
+
+    date_real = data.date_realisation or datetime.now(timezone.utc).strftime("%Y-%m-%d")
+
+    # Marquer comme terminé
+    await db.work_orders.update_one(
+        {"id": work_order_id},
+        {"$set": {"statut": "terminee", "date_realisation": date_real}}
+    )
+
+    # Enregistrer une intervention pour tracer la réalisation
+    intervention = {
+        "id": str(uuid.uuid4()),
+        "work_order_id": work_order_id,
+        "maintenance_preventive_id": None,
+        "type_intervention": "preventive",
+        "date_intervention": date_real,
+        "technicien": data.technicien or "Non renseigné",
+        "actions_realisees": wo.get("titre", "Maintenance réalisée"),
+        "observations": data.observations,
+        "pieces_utilisees": [],
+        "duree_minutes": None,
+        "compteur_horaire": data.compteur_horaire,
+        "equipment_id": wo.get("equipment_id"),
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    await db.interventions.insert_one({k: v for k, v in intervention.items()})
+
+    # Mise à jour compteur horaire compresseur si fourni
+    if data.compteur_horaire is not None and wo.get("equipment_id"):
+        eq = await db.equipments.find_one({"id": wo["equipment_id"]})
+        if eq and (eq.get("type") or "").lower() == "compresseur":
+            await db.equipments.update_one(
+                {"id": wo["equipment_id"]},
+                {"$set": {"compteur_horaire": data.compteur_horaire},
+                 "$push": {"historique_compteur": {
+                     "date": datetime.now(timezone.utc).isoformat(),
+                     "valeur": data.compteur_horaire,
+                     "technicien": data.technicien or "Non renseigné"}}}
+            )
+
+    # Générer la prochaine occurrence (préventive + périodicité en jours)
+    next_wo = None
+    if wo.get("type_maintenance") == "preventive" and wo.get("periodicite_jours"):
+        try:
+            base = datetime.strptime(date_real, "%Y-%m-%d").date()
+            next_date = (base + timedelta(days=int(wo["periodicite_jours"]))).strftime("%Y-%m-%d")
+            next_wo = {
+                "id": str(uuid.uuid4()),
+                "titre": wo.get("titre"),
+                "description": wo.get("description"),
+                "type_maintenance": "preventive",
+                "priorite": wo.get("priorite", "normale"),
+                "statut": "planifiee",
+                "caisson_id": wo.get("caisson_id"),
+                "equipment_id": wo.get("equipment_id"),
+                "date_planifiee": next_date,
+                "periodicite_jours": wo.get("periodicite_jours"),
+                "periodicite_heures": wo.get("periodicite_heures"),
+                "compteur_declenchement": None,
+                "technicien_assigne": wo.get("technicien_assigne"),
+                "photos": [],
+                "documents": [],
+                "source": "auto_generated",
+                "parent_work_order_id": work_order_id,
+                "created_at": datetime.now(timezone.utc).isoformat(),
+            }
+            await db.work_orders.insert_one({k: v for k, v in next_wo.items()})
+            next_wo.pop("_id", None)
+        except (ValueError, TypeError):
+            next_wo = None
+
+    return {"completed": True, "work_order_id": work_order_id, "date_realisation": date_real,
+            "next_work_order": next_wo}
+
+
+@api_router.post("/planning/reschedule")
+async def reschedule_maintenance(data: RescheduleRequest, current_user: dict = Depends(get_current_user)):
+    """Replanifie une maintenance (glisser-déposer dans le calendrier)."""
+    try:
+        datetime.strptime(data.new_date, "%Y-%m-%d")
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Date invalide (format attendu: YYYY-MM-DD)")
+
+    if data.item_type == "work_order":
+        result = await db.work_orders.update_one(
+            {"id": data.item_id}, {"$set": {"date_planifiee": data.new_date}})
+        if result.matched_count == 0:
+            raise HTTPException(status_code=404, detail="Ordre de travail non trouvé")
+    elif data.item_type == "inspection":
+        result = await db.inspections.update_one(
+            {"id": data.item_id}, {"$set": {"date_validite": data.new_date}})
+        if result.matched_count == 0:
+            raise HTTPException(status_code=404, detail="Contrôle non trouvé")
+    else:
+        raise HTTPException(status_code=400, detail="item_type invalide")
+
+    return {"success": True, "item_id": data.item_id, "new_date": data.new_date}
+
+
+@api_router.get("/planning/events")
+async def get_planning_events(start: str, end: str, current_user: dict = Depends(get_current_user)):
+    """Retourne toutes les maintenances (ordres de travail + contrôles réglementaires) sur une plage de dates."""
+    try:
+        start_date = datetime.strptime(start, "%Y-%m-%d").date()
+        end_date = datetime.strptime(end, "%Y-%m-%d").date()
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Dates invalides (format attendu: YYYY-MM-DD)")
+
+    today = datetime.now(timezone.utc).date()
+    events = []
+
+    # Ordres de travail (maintenance préventive/corrective)
+    work_orders = await db.work_orders.find({}, {"_id": 0}).to_list(3000)
+    for wo in work_orders:
+        dp = wo.get("date_planifiee")
+        if not dp:
+            continue
+        try:
+            d = datetime.strptime(dp, "%Y-%m-%d").date()
+        except (ValueError, TypeError):
+            continue
+        if not (start_date <= d <= end_date):
+            continue
+        events.append({
+            "id": wo["id"],
+            "item_type": "work_order",
+            "origine": "preventive" if wo.get("type_maintenance") == "preventive" else "corrective",
+            "titre": wo.get("titre"),
+            "date": dp,
+            "statut": wo.get("statut", "planifiee"),
+            "equipment_id": wo.get("equipment_id"),
+            "priorite": wo.get("priorite", "normale"),
+            "periodicite_jours": wo.get("periodicite_jours"),
+            "is_overdue": d < today and wo.get("statut") != "terminee",
+        })
+
+    # Contrôles réglementaires (inspections) via date_validite
+    inspections = await db.inspections.find({}, {"_id": 0}).to_list(3000)
+    for insp in inspections:
+        dv = insp.get("date_validite")
+        if not dv:
+            continue
+        try:
+            d = datetime.strptime(dv, "%Y-%m-%d").date()
+        except (ValueError, TypeError):
+            continue
+        if not (start_date <= d <= end_date):
+            continue
+        events.append({
+            "id": insp["id"],
+            "item_type": "inspection",
+            "origine": "reglementaire",
+            "titre": insp.get("titre"),
+            "date": dv,
+            "statut": "planifiee",
+            "equipment_id": insp.get("equipment_id"),
+            "priorite": "normale",
+            "periodicite": insp.get("periodicite"),
+            "is_overdue": d < today,
+        })
+
+    events.sort(key=lambda x: x["date"])
+    return events
+
+
+@api_router.get("/planning/summary")
+async def get_planning_summary(year: int, current_user: dict = Depends(get_current_user)):
+    """Compte des maintenances par mois pour une année (vue annuelle)."""
+    start_date = datetime(year, 1, 1).date()
+    end_date = datetime(year, 12, 31).date()
+    today = datetime.now(timezone.utc).date()
+
+    months = {m: {"preventive": 0, "reglementaire": 0, "overdue": 0} for m in range(1, 13)}
+
+    work_orders = await db.work_orders.find({}, {"_id": 0}).to_list(3000)
+    for wo in work_orders:
+        dp = wo.get("date_planifiee")
+        if not dp:
+            continue
+        try:
+            d = datetime.strptime(dp, "%Y-%m-%d").date()
+        except (ValueError, TypeError):
+            continue
+        if start_date <= d <= end_date:
+            months[d.month]["preventive"] += 1
+            if d < today and wo.get("statut") != "terminee":
+                months[d.month]["overdue"] += 1
+
+    inspections = await db.inspections.find({}, {"_id": 0}).to_list(3000)
+    for insp in inspections:
+        dv = insp.get("date_validite")
+        if not dv:
+            continue
+        try:
+            d = datetime.strptime(dv, "%Y-%m-%d").date()
+        except (ValueError, TypeError):
+            continue
+        if start_date <= d <= end_date:
+            months[d.month]["reglementaire"] += 1
+            if d < today:
+                months[d.month]["overdue"] += 1
+
+    return {"year": year, "months": months}
+
+
 # ==================== EXPORT ROUTES ====================
 
 @api_router.get("/export/csv/{collection}")

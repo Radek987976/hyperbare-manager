@@ -147,6 +147,14 @@ export const workOrdersAPI = {
   },
   deletePhoto: (id, photoUrl) => api.delete(`/work-orders/${id}/photos?photo_url=${encodeURIComponent(photoUrl)}`),
   deleteDocument: (id, docUrl) => api.delete(`/work-orders/${id}/documents?doc_url=${encodeURIComponent(docUrl)}`),
+  complete: (id, data) => api.post(`/work-orders/${id}/complete`, data),
+};
+
+// Planning / Calendrier
+export const planningAPI = {
+  getEvents: (start, end) => api.get('/planning/events', { params: { start, end } }),
+  getSummary: (year) => api.get('/planning/summary', { params: { year } }),
+  reschedule: (data) => api.post('/planning/reschedule', data),
 };
 
 // Interventions

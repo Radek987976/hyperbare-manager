@@ -1,0 +1,31 @@
+{
+  "summary": "Planning mensuel/annuel feature validated end-to-end. Backend: 11/11 pytest passed (events, summary, reschedule, complete + auto-génération, régression). Frontend: page /planning s'affiche, vue Mois avec 35 cases jours et événements colorés (indigo=réglementaire, rouge=en retard, teal=préventif), navigation prev/next/aujourd'hui fonctionne, bascule Mois/Année (12 cartes avec compteurs), click sur year-month-1 ramène à Janvier 2026, dialog détail événement s'ouvre avec bouton mark-complete-btn.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_planning.py",
+    "/app/test_reports/pytest/planning_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "POST /api/work-orders/{id}/complete: only preventive WO with periodicite_jours generate next occurrence. WO with type='corrective' or without periodicite_jours will NOT auto-generate (expected behavior).",
+    "planning/events endpoint scans up to 3000 work_orders and 3000 inspections in-memory (Python filter by date). Fine for current volumes (~250+109) but could be optimized to Mongo query if data grows >10k.",
+    "HTML5 drag&drop not tested via Playwright (not simulable); the underlying /api/planning/reschedule endpoint validated directly with persistence check via GET (works)."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_planning.py"
+  ],
+  "success_rate": {"backend": "100% (11/11)", "frontend": "100%"},
+  "test_credentials": {"email": "admin@hypermaint.fr", "password": "admin123"},
+  "seed_data_creation": "Aucune. Le test_complete_generates_next a marqué UN work_order préventif réel comme 'terminee' et créé sa prochaine occurrence auto (workflow réel, comme indiqué par le main agent). Un autre WO a été replanifié puis restauré à sa date d'origine.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Planning feature 100% OK. Le drag&drop UI n'a pas été simulé (HTML5 non supporté proprement en Playwright), mais l'endpoint POST /api/planning/reschedule a été validé et la persistance vérifiée via GET. Vue Année affiche des compteurs corrects (ex Décembre 2026: 17 préventif + 1 réglem = 18). Événements en Jan 2026 sont majoritairement 'En retard' (couleur rouge) car dates passées vs aujourd'hui simulé."
+}

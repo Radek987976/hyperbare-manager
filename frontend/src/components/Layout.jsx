@@ -39,7 +39,8 @@ import {
   Upload,
   FileCheck,
   FolderOpen,
-  ClipboardCheck
+  ClipboardCheck,
+  CalendarDays
 } from 'lucide-react';
 import { usersAPI } from '../lib/api';
 
@@ -118,6 +119,7 @@ const Sidebar = ({ isOpen, onClose }) => {
     { to: '/equipements', icon: Settings2, label: 'Équipements' },
     { to: '/sous-equipements', icon: Layers, label: 'Sous-équipements' },
     { to: '/ordres-travail', icon: ClipboardList, label: 'Maintenance préventive' },
+    { to: '/planning', icon: CalendarDays, label: 'Planning' },
     { to: '/interventions', icon: History, label: 'Interventions' },
     { to: '/bouteilles-gaz', icon: Cylinder, label: 'Bouteilles de gaz' },
     { to: '/stock', icon: Package, label: 'Stock pièces' },

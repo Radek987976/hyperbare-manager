@@ -580,14 +580,13 @@ const Budget = () => {
             <div className="space-y-2">
               <Label htmlFor="contractor_id">Fournisseur/Prestataire</Label>
               <Select 
-                value={formData.contractor_id} 
+                value={formData.contractor_id || undefined} 
                 onValueChange={(value) => setFormData({ ...formData, contractor_id: value })}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Sélectionner..." />
+                  <SelectValue placeholder="Aucun" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Aucun</SelectItem>
                   {contractors.map(c => (
                     <SelectItem key={c.id} value={c.id}>{c.nom}</SelectItem>
                   ))}

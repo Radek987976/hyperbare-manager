@@ -575,14 +575,13 @@ const Documents = () => {
             <div className="space-y-2">
               <Label htmlFor="equipment_id">Équipement associé</Label>
               <Select 
-                value={uploadData.equipment_id} 
+                value={uploadData.equipment_id || undefined} 
                 onValueChange={(value) => setUploadData({ ...uploadData, equipment_id: value })}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Aucun" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Aucun</SelectItem>
                   {equipments.map(eq => (
                     <SelectItem key={eq.id} value={eq.id}>
                       {eq.type} - {eq.reference}

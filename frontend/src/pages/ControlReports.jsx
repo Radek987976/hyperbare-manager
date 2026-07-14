@@ -655,14 +655,13 @@ const ControlReports = () => {
                 <div className="space-y-2">
                   <Label htmlFor="equipment_id">Équipement</Label>
                   <Select 
-                    value={formData.equipment_id} 
+                    value={formData.equipment_id || undefined} 
                     onValueChange={(v) => setFormData({ ...formData, equipment_id: v })}
                   >
                     <SelectTrigger>
-                      <SelectValue placeholder="Sélectionner un équipement..." />
+                      <SelectValue placeholder="Aucun" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">Aucun</SelectItem>
                       {equipments.map(eq => (
                         <SelectItem key={eq.id} value={eq.id}>
                           {eq.type} - {eq.reference}

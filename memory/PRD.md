@@ -183,6 +183,9 @@ spare_parts: {id, nom, reference_fabricant, equipment_type, quantite_stock, seui
 - **Backend**: `GET /api/search?q=` sur équipements, sous-équipements, ordres de travail, interventions, contrôles → `{results, count}`.
 - **Frontend**: composant `GlobalSearch.jsx` (debounce, dropdown groupé, navigation clavier) dans le header Dashboard. Navigation directe: clic équipement/sous-équipement → ouvre la fiche détail (`state.openId`); maintenance/intervention/contrôle → page filtrée (`state.q`).
 
+### 2026-07-14 (suite) — Équipements Pupitre & Réseau gaz + reliaison
+- `link_pupitre_gaz.py`: crée « Pupitre de commande » (type Pupitre) et « Réseau gaz » (type Réseau gaz), relie leurs maintenances par mots-clés (pupitre/tableau → Pupitre 14 ; réseau/gaz/vanne/détendeur → Réseau gaz 8). Total équipements = 13. 50 ordres restent non rattachés (extincteurs/ARI génériques/contrôles niveau caisson).
+
 ## Backlog / Tâches à venir
 - **P1** ~~PDF attaché à chaque contrôle réglementaire~~ ✅ FAIT (2026-07-14)
 - **P1** ~~Équipements chambres (Chronique/SAS/Urgence) + reliaison maintenances~~ ✅ FAIT (2026-07-14)

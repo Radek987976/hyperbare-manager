@@ -309,10 +309,12 @@ class EquipmentBase(BaseModel):
     reference: str
     numero_serie: str
     criticite: str = Field(default="normale", description="critique, haute, normale, basse")
-    statut: str = Field(default="en_service", description="en_service, maintenance, hors_service")
+    statut: str = Field(default="en_service", description="en_service, maintenance, hors_service, reforme")
     caisson_id: str
     description: Optional[str] = None
     date_installation: Optional[str] = None
+    date_reforme: Optional[str] = None  # Date de réforme (si statut = reforme)
+    motif_reforme: Optional[str] = None  # Motif de réforme
     photos: List[str] = []  # Liste des URLs des photos
     documents: List[dict] = []  # Liste des documents PDF [{filename, url, uploaded_at}]
     compteur_horaire: Optional[float] = None  # Compteur horaire pour les compresseurs (en heures)

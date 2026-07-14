@@ -105,7 +105,9 @@ const Equipments = () => {
     statut: 'en_service',
     description: '',
     date_installation: '',
-    compteur_horaire: ''
+    compteur_horaire: '',
+    date_reforme: '',
+    motif_reforme: ''
   });
 
   useEffect(() => {
@@ -201,7 +203,9 @@ const Equipments = () => {
       statut: equipment.statut,
       description: equipment.description || '',
       date_installation: equipment.date_installation || '',
-      compteur_horaire: equipment.compteur_horaire?.toString() || ''
+      compteur_horaire: equipment.compteur_horaire?.toString() || '',
+      date_reforme: equipment.date_reforme || '',
+      motif_reforme: equipment.motif_reforme || ''
     });
     setShowModal(true);
   };
@@ -248,7 +252,9 @@ const Equipments = () => {
         caisson_id: caisson.id,
         compteur_horaire: formData.compteur_horaire ? parseFloat(formData.compteur_horaire) : null,
         date_installation: formData.date_installation || null,
-        description: formData.description || null
+        description: formData.description || null,
+        date_reforme: formData.statut === 'reforme' ? (formData.date_reforme || null) : null,
+        motif_reforme: formData.statut === 'reforme' ? (formData.motif_reforme || null) : null
       };
       
       if (selectedEquipment) {
@@ -669,6 +675,37 @@ const Equipments = () => {
                 data-testid="input-description"
               />
             </div>
+            {formData.statut === 'reforme' && (
+              <>
+                <div className="space-y-2">
+                  <Label htmlFor="date_reforme">Date de réforme</Label>
+                  <Input
+                    id="date_reforme"
+                    name="date_reforme"
+                    type="date"
+                    value={formData.date_reforme}
+                    onChange={handleChange}
+                    data-testid="input-date-reforme"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="motif_reforme">Motif de réforme</Label>
+                  <Select value={formData.motif_reforme} onValueChange={(v) => handleSelectChange('motif_reforme', v)}>
+                    <SelectTrigger data-testid="select-motif-reforme">
+                      <SelectValue placeholder="Sélectionner un motif" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Usure / vétusté">Usure / vétusté</SelectItem>
+                      <SelectItem value="Obsolescence">Obsolescence</SelectItem>
+                      <SelectItem value="Panne majeure / irréparable">Panne majeure / irréparable</SelectItem>
+                      <SelectItem value="Fin de vie réglementaire">Fin de vie réglementaire</SelectItem>
+                      <SelectItem value="Accident">Accident</SelectItem>
+                      <SelectItem value="Autre">Autre</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowModal(false)}>
@@ -735,6 +772,18 @@ const Equipments = () => {
                     {statusLabels[selectedEquipment.statut]}
                   </Badge>
                 </div>
+                {selectedEquipment.statut === 'reforme' && (
+                  <>
+                    <div data-testid="detail-date-reforme">
+                      <p className="text-xs text-slate-500 uppercase">Date de réforme</p>
+                      <p className="font-medium">{selectedEquipment.date_reforme ? formatDate(selectedEquipment.date_reforme) : '—'}</p>
+                    </div>
+                    <div data-testid="detail-motif-reforme">
+                      <p className="text-xs text-slate-500 uppercase">Motif de réforme</p>
+                      <p className="font-medium">{selectedEquipment.motif_reforme || '—'}</p>
+                    </div>
+                  </>
+                )}
                 <div>
                   <p className="text-xs text-slate-500 uppercase">Installation</p>
                   <p className="font-medium">{formatDate(selectedEquipment.date_installation)}</p>

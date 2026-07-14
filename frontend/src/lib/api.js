@@ -159,6 +159,11 @@ export const planningAPI = {
   reschedule: (data) => api.post('/planning/reschedule', data),
 };
 
+// Recherche globale
+export const searchAPI = {
+  search: (q) => api.get('/search', { params: { q } }),
+};
+
 // Interventions
 export const interventionsAPI = {
   getAll: (params) => api.get('/interventions', { params }),

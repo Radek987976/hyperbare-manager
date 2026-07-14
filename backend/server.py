@@ -10,6 +10,7 @@ import logging
 import io
 import csv
 import json
+import re
 import shutil
 import asyncio
 import resend
@@ -2416,6 +2417,68 @@ async def get_planning_summary(year: int, current_user: dict = Depends(get_curre
                 months[d.month]["overdue"] += 1
 
     return {"year": year, "months": months}
+
+
+@api_router.get("/search")
+async def global_search(q: str, current_user: dict = Depends(get_current_user)):
+    """Recherche globale: équipements, sous-équipements, maintenances, interventions, contrôles."""
+    q = (q or "").strip()
+    if len(q) < 2:
+        return {"results": [], "count": 0}
+    rx = {"$regex": re.escape(q), "$options": "i"}
+    results = []
+
+    equipments = await db.equipments.find(
+        {"$or": [{"reference": rx}, {"numero_serie": rx}, {"type": rx}, {"description": rx}]},
+        {"_id": 0}).to_list(15)
+    for e in equipments:
+        results.append({
+            "category": "equipment", "label_category": "Équipement",
+            "id": e["id"], "label": e.get("reference") or e.get("type"),
+            "sublabel": f"{e.get('type', '')} · S/N {e.get('numero_serie', '')}".strip(" ·"),
+        })
+
+    subs = await db.subequipments.find(
+        {"$or": [{"nom": rx}, {"reference": rx}, {"numero_serie": rx}]},
+        {"_id": 0}).to_list(15)
+    for s in subs:
+        results.append({
+            "category": "subequipment", "label_category": "Sous-équipement",
+            "id": s["id"], "label": s.get("nom"),
+            "sublabel": f"Réf {s.get('reference', '')}".strip(),
+        })
+
+    work_orders = await db.work_orders.find(
+        {"$or": [{"titre": rx}, {"description": rx}, {"technicien_assigne": rx}]},
+        {"_id": 0}).to_list(15)
+    for w in work_orders:
+        results.append({
+            "category": "work_order", "label_category": "Maintenance",
+            "id": w["id"], "label": w.get("titre"),
+            "sublabel": f"{w.get('type_maintenance', '')} · {w.get('statut', '')} · {w.get('date_planifiee', '')}".strip(" ·"),
+        })
+
+    interventions = await db.interventions.find(
+        {"$or": [{"actions_realisees": rx}, {"technicien": rx}, {"observations": rx}]},
+        {"_id": 0}).to_list(15)
+    for it in interventions:
+        results.append({
+            "category": "intervention", "label_category": "Intervention",
+            "id": it["id"], "label": it.get("actions_realisees") or "Intervention",
+            "sublabel": f"{it.get('technicien', '')} · {it.get('date_intervention', '')}".strip(" ·"),
+        })
+
+    inspections = await db.inspections.find(
+        {"$or": [{"titre": rx}, {"organisme_certificateur": rx}]},
+        {"_id": 0}).to_list(15)
+    for insp in inspections:
+        results.append({
+            "category": "inspection", "label_category": "Contrôle réglementaire",
+            "id": insp["id"], "label": insp.get("titre"),
+            "sublabel": f"{insp.get('type_controle', '')} · échéance {insp.get('date_validite', '')}".strip(" ·"),
+        })
+
+    return {"results": results, "count": len(results)}
 
 
 # ==================== EXPORT ROUTES ====================

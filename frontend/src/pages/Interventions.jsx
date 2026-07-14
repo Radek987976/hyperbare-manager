@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { interventionsAPI, workOrdersAPI, sparePartsAPI, usersAPI, equipmentsAPI } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
 import { formatDate } from '../lib/utils';
@@ -24,6 +25,8 @@ function Interventions() {
   });
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const _loc = useLocation();
+  useEffect(() => { if (_loc.state?.q) setSearchTerm(_loc.state.q); }, [_loc.state]);
   const [showModal, setShowModal] = useState(false);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [selectedItem, setSelectedItem] = useState(null);

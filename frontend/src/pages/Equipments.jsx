@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { equipmentsAPI, caissonAPI, equipmentTypesAPI } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
 import { 
@@ -109,6 +110,18 @@ const Equipments = () => {
   useEffect(() => {
     loadData();
   }, []);
+
+  const location = useLocation();
+  useEffect(() => {
+    if (location.state?.q) setSearchTerm(location.state.q);
+  }, [location.state]);
+  useEffect(() => {
+    const openId = location.state?.openId;
+    if (openId && equipments.length) {
+      const eq = equipments.find(e => e.id === openId);
+      if (eq) { setSelectedEquipment(eq); setShowDetailModal(true); }
+    }
+  }, [equipments, location.state]);
 
   const loadData = async () => {
     try {

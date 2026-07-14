@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { workOrdersAPI, equipmentsAPI, caissonAPI, usersAPI, equipmentTypesAPI } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
 import { 
@@ -89,6 +90,8 @@ const WorkOrders = () => {
   const [caisson, setCaisson] = useState(null);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const _loc = useLocation();
+  useEffect(() => { if (_loc.state?.q) setSearchTerm(_loc.state.q); }, [_loc.state]);
   const [filterStatut, setFilterStatut] = useState('all');
   const [filterType, setFilterType] = useState('all');
   const [activeTab, setActiveTab] = useState('all');

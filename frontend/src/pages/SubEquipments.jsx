@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { subEquipmentsAPI, equipmentsAPI } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
 import { formatDate, statusLabels, getStatusClass } from '../lib/utils';
@@ -88,6 +89,18 @@ const SubEquipments = () => {
   useEffect(() => {
     loadData();
   }, []);
+
+  const location = useLocation();
+  useEffect(() => {
+    if (location.state?.q) setSearchTerm(location.state.q);
+  }, [location.state]);
+  useEffect(() => {
+    const openId = location.state?.openId;
+    if (openId && subEquipments.length) {
+      const item = subEquipments.find(s => s.id === openId);
+      if (item) { setSelectedItem(item); setShowDetailModal(true); }
+    }
+  }, [subEquipments, location.state]);
 
   const loadData = async () => {
     try {

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { inspectionsAPI, caissonAPI, equipmentsAPI } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
 import { formatDate, daysUntil, equipmentTypeLabels, periodiciteLabels, getErrorMessage } from '../lib/utils';
@@ -71,6 +72,8 @@ const Inspections = () => {
   const [equipments, setEquipments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const _loc = useLocation();
+  useEffect(() => { if (_loc.state?.q) setSearchTerm(_loc.state.q); }, [_loc.state]);
   
   const [showModal, setShowModal] = useState(false);
   const [showDetailModal, setShowDetailModal] = useState(false);

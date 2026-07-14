@@ -184,8 +184,14 @@ spare_parts: {id, nom, reference_fabricant, equipment_type, quantite_stock, seui
 - **Frontend**: composant `GlobalSearch.jsx` (debounce, dropdown groupé, navigation clavier) dans le header Dashboard. Navigation directe: clic équipement/sous-équipement → ouvre la fiche détail (`state.openId`); maintenance/intervention/contrôle → page filtrée (`state.q`).
 
 ## Backlog / Tâches à venir
-- **P1** Upload/attachement de fichiers PDF aux PV de contrôle (`ControlReports`).
-- **P2** Notifications email/push pour les alertes.
+- **P1** ~~PDF attaché à chaque contrôle réglementaire~~ ✅ FAIT (2026-07-14)
+- **P1** ~~Équipements chambres (Chronique/SAS/Urgence) + reliaison maintenances~~ ✅ FAIT (2026-07-14)
+- **P2** Notifications email/push pour les alertes — NON souhaité par l'utilisateur.
+- Recherche avancée (filtres) — NON souhaité par l'utilisateur.
+
+### 2026-07-14 (suite) — PDF sur contrôles + Chambres (VÉRIFIÉ testing_agent 100%, backend 12/12)
+- **PDF sur contrôle**: UI câblée dans `Inspections.jsx` (modal détail → section « Documents PDF (PV / procédures) », ajout/suppression). Endpoints `POST/DELETE /api/inspections/{id}/procedures` (PDF only, servis via /api/uploads/inspections/).
+- **Chambres**: `link_chambers.py` crée 3 équipements (Chambre Chronique/SAS/Urgence, type « Chambre hyperbare ») et relie 114 ordres de travail (40/36/38). History: Chronique 39, SAS 35, Urgence 38 futures. Total équipements = 11.
 
 ### 2026-07-14 (suite) — Historique & maintenances futures par équipement (VÉRIFIÉ testing_agent 100%)
 - **Backend**: helper `_build_maintenance_history()` + `GET /equipments/{id}/history` et `GET /subequipments/{id}/history` → `{historique, futures}` (agrège interventions, work_orders, inspections par equipment_id).

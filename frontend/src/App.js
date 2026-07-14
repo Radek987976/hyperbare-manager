@@ -23,6 +23,8 @@ import Contractors from './pages/Contractors';
 import GasCylinders from './pages/GasCylinders';
 import Budget from './pages/Budget';
 import Import from './pages/Import';
+import Contracts from './pages/Contracts';
+import Documents from './pages/Documents';
 import './App.css';
 
 // Protected Route Component
@@ -221,6 +223,22 @@ function AppRoutes() {
         element={
           <ProtectedRoute adminOnly>
             <Import />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/contrats"
+        element={
+          <ProtectedRoute>
+            <Contracts />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/documents"
+        element={
+          <ProtectedRoute>
+            <Documents />
           </ProtectedRoute>
         }
       />

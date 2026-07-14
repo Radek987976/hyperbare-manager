@@ -36,7 +36,9 @@ import {
   Building2,
   Cylinder,
   Calculator,
-  Upload
+  Upload,
+  FileCheck,
+  FolderOpen
 } from 'lucide-react';
 import { usersAPI } from '../lib/api';
 
@@ -119,6 +121,8 @@ const Sidebar = ({ isOpen, onClose }) => {
     { to: '/bouteilles-gaz', icon: Cylinder, label: 'Bouteilles de gaz' },
     { to: '/stock', icon: Package, label: 'Stock pièces' },
     { to: '/prestataires', icon: Building2, label: 'Prestataires' },
+    { to: '/contrats', icon: FileCheck, label: 'Contrats' },
+    { to: '/documents', icon: FolderOpen, label: 'Documents' },
     { to: '/budget', icon: Calculator, label: 'Budget prévisionnel' },
     { to: '/rapports', icon: FileText, label: 'Rapports PDF' },
   ];

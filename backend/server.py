@@ -1894,6 +1894,89 @@ async def get_alerts(current_user: dict = Depends(get_current_user)):
             "item_type": "equipment"
         })
     
+    # Gas cylinder alerts
+    gas_cylinders = await db.gas_cylinders.find({}, {"_id": 0}).to_list(1000)
+    for cyl in gas_cylinders:
+        # Gas expiration
+        if cyl.get("date_expiration_gaz"):
+            try:
+                exp_date = datetime.strptime(cyl["date_expiration_gaz"], "%Y-%m-%d").date()
+                days_left = (exp_date - today).days
+                if days_left < 0:
+                    alerts.append({
+                        "type": "gaz_expire",
+                        "severity": "critical",
+                        "title": f"Gaz expiré: {cyl['numero_bouteille']}",
+                        "description": f"{cyl['type_gaz']} - Expiré depuis {abs(days_left)} jours",
+                        "item_id": cyl["id"],
+                        "item_type": "gas_cylinder"
+                    })
+                elif days_left <= 30:
+                    alerts.append({
+                        "type": "gaz_expire_bientot",
+                        "severity": "warning",
+                        "title": f"Gaz expire bientôt: {cyl['numero_bouteille']}",
+                        "description": f"{cyl['type_gaz']} - Expire dans {days_left} jours",
+                        "item_id": cyl["id"],
+                        "item_type": "gas_cylinder"
+                    })
+            except (ValueError, KeyError):
+                pass
+        
+        # Hydraulic test expiration
+        if cyl.get("date_prochaine_epreuve"):
+            try:
+                epr_date = datetime.strptime(cyl["date_prochaine_epreuve"], "%Y-%m-%d").date()
+                days_left = (epr_date - today).days
+                if days_left < 0:
+                    alerts.append({
+                        "type": "epreuve_expiree",
+                        "severity": "critical",
+                        "title": f"Épreuve expirée: {cyl['numero_bouteille']}",
+                        "description": f"{cyl['type_gaz']} - Requalification requise",
+                        "item_id": cyl["id"],
+                        "item_type": "gas_cylinder"
+                    })
+                elif days_left <= 90:
+                    alerts.append({
+                        "type": "epreuve_bientot",
+                        "severity": "warning",
+                        "title": f"Épreuve dans {days_left}j: {cyl['numero_bouteille']}",
+                        "description": f"{cyl['type_gaz']} - Prévoir requalification",
+                        "item_id": cyl["id"],
+                        "item_type": "gas_cylinder"
+                    })
+            except (ValueError, KeyError):
+                pass
+    
+    # Contract expiration alerts
+    contracts = await db.contracts.find({"statut": "actif"}, {"_id": 0}).to_list(1000)
+    for contract in contracts:
+        if contract.get("date_fin"):
+            try:
+                end_date = datetime.strptime(contract["date_fin"], "%Y-%m-%d").date()
+                days_left = (end_date - today).days
+                if days_left < 0:
+                    alerts.append({
+                        "type": "contrat_expire",
+                        "severity": "warning",
+                        "title": f"Contrat expiré: {contract['titre']}",
+                        "description": f"Expiré depuis {abs(days_left)} jours",
+                        "item_id": contract["id"],
+                        "item_type": "contract"
+                    })
+                elif days_left <= 60:
+                    alerts.append({
+                        "type": "contrat_expire_bientot",
+                        "severity": "info",
+                        "title": f"Contrat expire bientôt: {contract['titre']}",
+                        "description": f"Expire dans {days_left} jours",
+                        "item_id": contract["id"],
+                        "item_type": "contract"
+                    })
+            except (ValueError, KeyError):
+                pass
+    
     # Sort by severity
     severity_order = {"critical": 0, "warning": 1, "info": 2}
     alerts.sort(key=lambda x: severity_order.get(x["severity"], 3))

@@ -196,6 +196,10 @@ spare_parts: {id, nom, reference_fabricant, equipment_type, quantite_stock, seui
 - Backend: helper `_reformed_equipment_ids()`; exclusion dans `get_alerts`, `get_upcoming_maintenance`, `get_maintenance_calendar`, `get_planning_events`, `get_planning_summary`, `_build_maintenance_history` (futures=[] si réformé, historique conservé).
 - Frontend: `reforme` dans STATUTS (Equipments.jsx) + `statusLabels.reforme` (« Réformé ») + `getStatusClass` (badge gris).
 
+### 2026-07-14 (suite) — Date/motif de réforme + Extincteurs individuels (VÉRIFIÉ testing_agent 100%, backend 7/7)
+- **Date + motif de réforme**: champs `date_reforme` + `motif_reforme` sur Equipment. Formulaire édition: apparaissent si statut='reforme' (date + Select motif). Affichés dans la fiche. Nullifiés si statut != reforme.
+- **Extincteurs individuels**: `link_extincteurs.py` remplace le parc par 4 extincteurs (CX0198-0016, CX0219-0018/0024/0082), 12 contrôles réels répartis, work_orders réassignés, parc supprimé. Total = 19 équipements.
+
 ## Backlog / Tâches à venir
 - **P1** ~~PDF attaché à chaque contrôle réglementaire~~ ✅ FAIT (2026-07-14)
 - **P1** ~~Équipements chambres (Chronique/SAS/Urgence) + reliaison maintenances~~ ✅ FAIT (2026-07-14)

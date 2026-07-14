@@ -183,3 +183,7 @@ spare_parts: {id, nom, reference_fabricant, equipment_type, quantite_stock, seui
 - **P1** Planning mensuel automatique / calendrier interactif (drag & drop) basé sur périodicité réglementaire.
 - **P1** Upload/attachement de fichiers PDF aux PV de contrôle (`ControlReports`).
 - **P2** Notifications email/push pour les alertes.
+
+### 2026-07-14 (suite) — Correctif « Maintenance préventive vide » (VÉRIFIÉ testing_agent 100%)
+- Cause: le menu « Maintenance préventive » pointe vers `/ordres-travail` (collection `work_orders`, vide). Les 248 tâches Excel étaient dans `inspections`.
+- Fix: `import_real_data.py` réimporte les feuilles maintenance → `work_orders` (preventive/planifiée), et suivi_controle → `inspections`. Résultat: work_orders=248, inspections=109.

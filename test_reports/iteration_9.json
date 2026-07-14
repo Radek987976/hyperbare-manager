@@ -1,0 +1,31 @@
+{
+  "summary": "Iteration 9 - Statut 'Réformé' testé de bout en bout. Backend: 2/2 tests pytest OK, exclusion complète du planning (events/summary), upcoming-maintenance, alerts; historique conservé (futures=[]); restauration vérifiée. Frontend: option 'Réformé' dispo dans le select Statut du modal Modifier, badge gris affiché dans la liste, revert 'En service' fonctionne, 0 pageerror.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Dashboard (chargement initial avant login)", "issues": ["Warnings récurrents Recharts: 'The width(-1) and height(-1) of chart should be greater than 0' - pré-existant, non bloquant"]},
+      {"screen": "Modal Modifier l'équipement", "issues": ["Warning a11y: 'Missing Description or aria-describedby for DialogContent' - pré-existant, non bloquant"]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_reforme.py",
+    "/app/test_reports/pytest/iter9.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "PUT /api/equipments/{id} exige tout le corps (type, reference, numero_serie, caisson_id) même pour un simple changement de statut. Un PATCH partiel serait plus ergonomique côté API (l'UI envoie déjà tout, donc OK en pratique).",
+    "Le statut est un str libre côté backend (aucun enum) - 'reforme' n'est validé que par la logique métier. Envisager un Literal / Enum Pydantic pour bloquer les valeurs invalides."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_reforme.py"
+  ],
+  "success_rate": {"backend": "100% (2/2)", "frontend": "100% (option Réformé présente, badge affiché, revert OK, 0 pageerror)"},
+  "test_credentials": "admin@hypermaint.fr / admin123 (OK). /app/memory/test_credentials.md toujours absent.",
+  "seed_data_creation": "Aucune. BAUER 01 passé en 'reforme' puis remis en 'en_service' (état initial restauré, vérifié par test finally + par re-fetch des events > 0).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Endpoint PUT /api/equipments/{id} exige le body complet (type, reference, numero_serie, caisson_id, statut, ...). Pour tester 'reforme', récupérer d'abord GET /api/equipments, puis PUT avec {**eq, 'statut': 'reforme'}. Backend exclut correctement les équipements réformés dans: /api/planning/events, /api/planning/summary, /api/dashboard/alerts, /api/dashboard/upcoming-maintenance. /api/equipments/{id}/history retourne futures=[] pour un équipement réformé mais conserve les données historiques. Frontend: dans le modal Modifier, le select Statut est le 3e combobox du dialog (index 2). Les options exactes: 'En service', 'En maintenance', 'Hors service', 'Réformé'. Le badge 'Réformé' s'affiche en gris dans la colonne Statut de /equipements.",
+  "rca of the issue": "N/A - aucun bug."
+}

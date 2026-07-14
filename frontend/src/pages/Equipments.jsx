@@ -74,7 +74,7 @@ import { Download } from 'lucide-react';
 import { MaintenanceHistory } from '../components/MaintenanceHistory';
 
 const API_URL = process.env.REACT_APP_BACKEND_URL;
-const STATUTS = ['en_service', 'maintenance', 'hors_service'];
+const STATUTS = ['en_service', 'maintenance', 'hors_service', 'reforme'];
 const CRITICITES = ['critique', 'haute', 'normale', 'basse'];
 
 const Equipments = () => {

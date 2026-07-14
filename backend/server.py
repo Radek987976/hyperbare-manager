@@ -1330,6 +1330,10 @@ async def _build_maintenance_history(entity_id: str):
     historique = []
     futures = []
 
+    # Équipement réformé : on conserve l'historique mais plus de maintenances futures
+    eq = await db.equipments.find_one({"id": entity_id}, {"_id": 0, "statut": 1})
+    is_reformed = bool(eq and eq.get("statut") == "reforme")
+
     # Interventions réalisées
     interventions = await db.interventions.find({"equipment_id": entity_id}, {"_id": 0}).to_list(1000)
     for it in interventions:
@@ -1358,7 +1362,7 @@ async def _build_maintenance_history(entity_id: str):
         if wo.get("statut") == "terminee":
             entry["date"] = wo.get("date_realisation") or wo.get("date_planifiee")
             historique.append(entry)
-        else:
+        elif not is_reformed:
             entry["date"] = wo.get("date_planifiee")
             d = parse(entry["date"])
             entry["is_overdue"] = bool(d and d < today)
@@ -1378,8 +1382,8 @@ async def _build_maintenance_history(entity_id: str):
                 "acteur": insp.get("organisme_certificateur"),
                 "observations": insp.get("resultat"),
             })
-        # Prochaine échéance -> futures
-        if insp.get("date_validite"):
+        # Prochaine échéance -> futures (sauf si équipement réformé)
+        if insp.get("date_validite") and not is_reformed:
             d = parse(insp.get("date_validite"))
             futures.append({
                 "source": "inspection",
@@ -1910,10 +1914,17 @@ async def get_dashboard_stats(current_user: dict = Depends(get_current_user)):
         "compresseurs": compresseurs_stats
     }
 
+async def _reformed_equipment_ids():
+    """Retourne l'ensemble des ids d'équipements réformés (exclus des maintenances futures / en retard)."""
+    docs = await db.equipments.find({"statut": "reforme"}, {"id": 1, "_id": 0}).to_list(2000)
+    return {d["id"] for d in docs}
+
+
 @api_router.get("/dashboard/alerts")
 async def get_alerts(current_user: dict = Depends(get_current_user)):
     alerts = []
     today = datetime.now(timezone.utc).date()
+    reformed = await _reformed_equipment_ids()
     
     # Low stock alerts
     spare_parts = await db.spare_parts.find({}, {"_id": 0}).to_list(1000)
@@ -1932,6 +1943,8 @@ async def get_alerts(current_user: dict = Depends(get_current_user)):
     inspections = await db.inspections.find({}, {"_id": 0}).to_list(2000)
     for inspection in inspections:
         if not inspection.get("date_validite"):
+            continue
+        if inspection.get("equipment_id") in reformed:
             continue
         try:
             expiry_date = datetime.strptime(inspection["date_validite"], "%Y-%m-%d").date()
@@ -1961,6 +1974,8 @@ async def get_alerts(current_user: dict = Depends(get_current_user)):
     # Overdue work orders
     work_orders = await db.work_orders.find({"statut": {"$in": ["planifiee", "en_cours"]}}, {"_id": 0}).to_list(1000)
     for wo in work_orders:
+        if wo.get("equipment_id") in reformed:
+            continue
         try:
             planned_date = datetime.strptime(wo["date_planifiee"], "%Y-%m-%d").date()
             if planned_date < today:
@@ -2080,6 +2095,7 @@ async def get_alerts(current_user: dict = Depends(get_current_user)):
 @api_router.get("/dashboard/upcoming-maintenance")
 async def get_upcoming_maintenance(current_user: dict = Depends(get_current_user)):
     today = datetime.now(timezone.utc).date()
+    reformed = await _reformed_equipment_ids()
     work_orders = await db.work_orders.find(
         {"statut": {"$in": ["planifiee", "en_cours"]}},
         {"_id": 0}
@@ -2087,6 +2103,8 @@ async def get_upcoming_maintenance(current_user: dict = Depends(get_current_user
     
     upcoming = []
     for wo in work_orders:
+        if wo.get("equipment_id") in reformed:
+            continue
         try:
             planned_date = datetime.strptime(wo["date_planifiee"], "%Y-%m-%d").date()
             days_diff = (planned_date - today).days
@@ -2102,6 +2120,8 @@ async def get_upcoming_maintenance(current_user: dict = Depends(get_current_user
     for insp in inspections:
         dv = insp.get("date_validite")
         if not dv:
+            continue
+        if insp.get("equipment_id") in reformed:
             continue
         try:
             planned_date = datetime.strptime(dv, "%Y-%m-%d").date()
@@ -2131,6 +2151,7 @@ async def get_maintenance_calendar(current_user: dict = Depends(get_current_user
     """Retourne les maintenances planifiées sur 52 semaines pour le calendrier"""
     today = datetime.now(timezone.utc).date()
     end_date = today + timedelta(weeks=52)
+    reformed = await _reformed_equipment_ids()
     
     work_orders = await db.work_orders.find(
         {"statut": {"$in": ["planifiee", "en_cours", "terminee"]}},
@@ -2140,6 +2161,8 @@ async def get_maintenance_calendar(current_user: dict = Depends(get_current_user
     calendar_data = []
     
     for wo in work_orders:
+        if wo.get("equipment_id") in reformed:
+            continue
         try:
             planned_date = datetime.strptime(wo["date_planifiee"], "%Y-%m-%d").date()
             # Inclure les maintenances passées (4 semaines) et futures (52 semaines)
@@ -2169,6 +2192,8 @@ async def get_maintenance_calendar(current_user: dict = Depends(get_current_user
     for insp in inspections:
         dv = insp.get("date_validite")
         if not dv:
+            continue
+        if insp.get("equipment_id") in reformed:
             continue
         try:
             planned_date = datetime.strptime(dv, "%Y-%m-%d").date()
@@ -2324,11 +2349,14 @@ async def get_planning_events(start: str, end: str, equipment_id: Optional[str] 
 
     today = datetime.now(timezone.utc).date()
     events = []
+    reformed = await _reformed_equipment_ids()
     wo_filter = {"equipment_id": equipment_id} if equipment_id else {}
 
     # Ordres de travail (maintenance préventive/corrective)
     work_orders = await db.work_orders.find(wo_filter, {"_id": 0}).to_list(3000)
     for wo in work_orders:
+        if wo.get("equipment_id") in reformed:
+            continue
         dp = wo.get("date_planifiee")
         if not dp:
             continue
@@ -2357,6 +2385,8 @@ async def get_planning_events(start: str, end: str, equipment_id: Optional[str] 
     for insp in inspections:
         dv = insp.get("date_validite")
         if not dv:
+            continue
+        if insp.get("equipment_id") in reformed:
             continue
         try:
             d = datetime.strptime(dv, "%Y-%m-%d").date()
@@ -2390,9 +2420,12 @@ async def get_planning_summary(year: int, equipment_id: Optional[str] = None, cu
 
     months = {m: {"preventive": 0, "reglementaire": 0, "overdue": 0} for m in range(1, 13)}
     ent_filter = {"equipment_id": equipment_id} if equipment_id else {}
+    reformed = await _reformed_equipment_ids()
 
     work_orders = await db.work_orders.find(ent_filter, {"_id": 0}).to_list(3000)
     for wo in work_orders:
+        if wo.get("equipment_id") in reformed:
+            continue
         dp = wo.get("date_planifiee")
         if not dp:
             continue
@@ -2409,6 +2442,8 @@ async def get_planning_summary(year: int, equipment_id: Optional[str] = None, cu
     for insp in inspections:
         dv = insp.get("date_validite")
         if not dv:
+            continue
+        if insp.get("equipment_id") in reformed:
             continue
         try:
             d = datetime.strptime(dv, "%Y-%m-%d").date()

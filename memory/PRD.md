@@ -181,8 +181,14 @@ spare_parts: {id, nom, reference_fabricant, equipment_type, quantite_stock, seui
 
 ## Backlog / Tâches à venir
 - **P1** ~~Planning mensuel automatique / calendrier interactif~~ ✅ FAIT (2026-07-14)
+- **P1** ~~Historique + maintenances futures par équipement/sous-équipement~~ ✅ FAIT (2026-07-14)
 - **P1** Upload/attachement de fichiers PDF aux PV de contrôle (`ControlReports`).
 - **P2** Notifications email/push pour les alertes.
+
+### 2026-07-14 (suite) — Historique & maintenances futures par équipement (VÉRIFIÉ testing_agent 100%)
+- **Backend**: helper `_build_maintenance_history()` + `GET /equipments/{id}/history` et `GET /subequipments/{id}/history` → `{historique, futures}` (agrège interventions, work_orders, inspections par equipment_id).
+- **Frontend**: composant `MaintenanceHistory.jsx` intégré dans les fiches détail de `Equipments.jsx` et `SubEquipments.jsx` (sections « Maintenances à venir » + « Historique », items colorés, en retard en rouge). `getHistory` ajouté dans api.js.
+- Note: seuls compresseurs (BAUER) et cuves ont des maintenances liées (equipment_id) dans les données importées.
 
 ### 2026-07-14 (suite) — Planning mensuel automatique (VÉRIFIÉ testing_agent 100%)
 - **Backend** (`server.py`): `POST /work-orders/{id}/complete` (clôture + génère la prochaine occurrence à J+periodicite_jours + crée intervention + maj compteur compresseur), `POST /planning/reschedule` (glisser-déposer), `GET /planning/events?start&end` (fusion work_orders+inspections, champ `origine`, `is_overdue`), `GET /planning/summary?year` (compteurs par mois).

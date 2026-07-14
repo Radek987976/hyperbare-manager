@@ -53,8 +53,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '../components/ui/alert-dialog';
-import {
-  Settings2,
+import { Settings2,
   Plus,
   Search,
   Filter,
@@ -70,6 +69,7 @@ import {
   Image,
   FileText
 } from 'lucide-react';
+import { MaintenanceHistory } from '../components/MaintenanceHistory';
 
 const API_URL = process.env.REACT_APP_BACKEND_URL;
 const STATUTS = ['en_service', 'maintenance', 'hors_service'];
@@ -654,7 +654,7 @@ const Equipments = () => {
 
       {/* Detail Modal */}
       <Dialog open={showDetailModal} onOpenChange={setShowDetailModal}>
-        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="font-['Barlow_Condensed'] uppercase text-xl">
               Détails de l'équipement
@@ -808,6 +808,9 @@ const Equipments = () => {
                   )}
                 </div>
               </div>
+
+              {/* Historique & maintenances futures */}
+              <MaintenanceHistory entityId={selectedEquipment.id} entityType="equipment" />
             </div>
           )}
         </DialogContent>

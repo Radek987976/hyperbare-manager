@@ -1316,6 +1316,97 @@ async def get_work_orders(
     work_orders = await db.work_orders.find(query, {"_id": 0}).to_list(1000)
     return work_orders
 
+async def _build_maintenance_history(entity_id: str):
+    """Agrège l'historique et les maintenances futures pour un équipement/sous-équipement."""
+    today = datetime.now(timezone.utc).date()
+
+    def parse(d):
+        try:
+            return datetime.strptime(d, "%Y-%m-%d").date()
+        except (ValueError, TypeError):
+            return None
+
+    historique = []
+    futures = []
+
+    # Interventions réalisées
+    interventions = await db.interventions.find({"equipment_id": entity_id}, {"_id": 0}).to_list(1000)
+    for it in interventions:
+        historique.append({
+            "source": "intervention",
+            "type": "Intervention " + (it.get("type_intervention") or ""),
+            "titre": it.get("actions_realisees") or "Intervention",
+            "date": it.get("date_intervention"),
+            "statut": "terminee",
+            "acteur": it.get("technicien"),
+            "observations": it.get("observations"),
+        })
+
+    # Ordres de travail (maintenance préventive/corrective)
+    work_orders = await db.work_orders.find({"equipment_id": entity_id}, {"_id": 0}).to_list(2000)
+    for wo in work_orders:
+        entry = {
+            "source": "work_order",
+            "type": "Maintenance " + (wo.get("type_maintenance") or "préventive"),
+            "titre": wo.get("titre"),
+            "statut": wo.get("statut"),
+            "acteur": wo.get("technicien_assigne"),
+            "observations": wo.get("description"),
+            "periodicite_jours": wo.get("periodicite_jours"),
+        }
+        if wo.get("statut") == "terminee":
+            entry["date"] = wo.get("date_realisation") or wo.get("date_planifiee")
+            historique.append(entry)
+        else:
+            entry["date"] = wo.get("date_planifiee")
+            d = parse(entry["date"])
+            entry["is_overdue"] = bool(d and d < today)
+            futures.append(entry)
+
+    # Contrôles réglementaires (inspections)
+    inspections = await db.inspections.find({"equipment_id": entity_id}, {"_id": 0}).to_list(2000)
+    for insp in inspections:
+        # Dernier contrôle réalisé -> historique
+        if insp.get("date_realisation"):
+            historique.append({
+                "source": "inspection",
+                "type": "Contrôle réglementaire",
+                "titre": insp.get("titre"),
+                "date": insp.get("date_realisation"),
+                "statut": "terminee",
+                "acteur": insp.get("organisme_certificateur"),
+                "observations": insp.get("resultat"),
+            })
+        # Prochaine échéance -> futures
+        if insp.get("date_validite"):
+            d = parse(insp.get("date_validite"))
+            futures.append({
+                "source": "inspection",
+                "type": "Contrôle réglementaire",
+                "titre": insp.get("titre"),
+                "date": insp.get("date_validite"),
+                "statut": "planifiee",
+                "acteur": insp.get("organisme_certificateur"),
+                "periodicite": insp.get("periodicite"),
+                "is_overdue": bool(d and d < today),
+            })
+
+    historique.sort(key=lambda x: x.get("date") or "", reverse=True)
+    futures.sort(key=lambda x: x.get("date") or "")
+    return {"historique": historique, "futures": futures}
+
+
+@api_router.get("/equipments/{equipment_id}/history")
+async def get_equipment_history(equipment_id: str, current_user: dict = Depends(get_current_user)):
+    return await _build_maintenance_history(equipment_id)
+
+
+@api_router.get("/subequipments/{subequipment_id}/history")
+async def get_subequipment_history(subequipment_id: str, current_user: dict = Depends(get_current_user)):
+    return await _build_maintenance_history(subequipment_id)
+
+
+
 @api_router.get("/work-orders/{work_order_id}", response_model=WorkOrder)
 async def get_work_order(work_order_id: str, current_user: dict = Depends(get_current_user)):
     work_order = await db.work_orders.find_one({"id": work_order_id}, {"_id": 0})

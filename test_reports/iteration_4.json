@@ -1,0 +1,22 @@
+{
+  "summary": "Feature 'historique + maintenances futures' validée backend + frontend. Backend pytest 8/8 passés (1 skip car aucun sous-équipement en base). Endpoint GET /api/equipments/{id}/history renvoie 200 avec {historique, futures} pour BAUER 01: 25 futures (dont 18 en retard), 0 historique. GET /api/subequipments/{id}/history OK (200) sur ID inexistant retourne 200/404 sans 500. Frontend: login OK, /equipements filtrage BAUER 01, menu actions -> Voir détails ouvre dialog avec type/référence/N°série/description/photos/documents ET section 'Maintenances à venir' (badge 25, 25 [data-testid=maint-future-item], premier item en style overdue border/bg #AE2012) + section 'Historique' (0). Page /sous-equipements charge (0 sous-équipement en base = attendu). Planning s'affiche avec calendrier mensuel juillet 2026.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_maintenance_history.py",
+    "/app/test_reports/pytest/maintenance_history.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Console warning récurrent Recharts (width/height -1) sur Dashboard - cosmétique, mais devrait être investigué si production.",
+    "Aucun sous-équipement en base actuellement: le composant MaintenanceHistory sur /sous-equipements n'a pas pu être testé visuellement mais l'endpoint /api/subequipments/{id}/history est validé structurellement.",
+    "MaintenanceHistory.jsx: pas de gestion d'erreur visible pour l'utilisateur (catch silencieux -> tableaux vides). Acceptable pour MVP."
+  ],
+  "updated_files": ["/app/backend/tests/test_maintenance_history.py"],
+  "success_rate": {"backend": "100% (8/8, 1 skip attendu)", "frontend": "100%"},
+  "test_credentials": {"email": "admin@hypermaint.fr", "password": "admin123"},
+  "seed_data_creation": "Aucune - données réelles utilisées",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "BAUER 01 = 25 futures, 18 en retard (dates 2000+). Aucun sous-équipement en base -> UI section MaintenanceHistory sous-équipements non testable visuellement (page charge sans erreur)."
+}

@@ -54,6 +54,7 @@ import {
   Image,
   X
 } from 'lucide-react';
+import { MaintenanceHistory } from '../components/MaintenanceHistory';
 
 const STATUTS = ['en_service', 'maintenance', 'hors_service'];
 
@@ -489,7 +490,7 @@ const SubEquipments = () => {
 
       {/* Modal détail */}
       <Dialog open={showDetailModal} onOpenChange={setShowDetailModal}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="font-['Barlow_Condensed'] uppercase">
               Détails du sous-équipement
@@ -627,6 +628,9 @@ const SubEquipments = () => {
                   )}
                 </div>
               </div>
+
+              {/* Historique & maintenances futures */}
+              <MaintenanceHistory entityId={selectedItem.id} entityType="subequipment" />
             </div>
           )}
           

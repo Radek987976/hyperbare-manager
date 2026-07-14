@@ -87,8 +87,9 @@ export const equipmentsAPI = {
       headers: { 'Content-Type': 'multipart/form-data' }
     });
   },
-  deletePhoto: (id, photoUrl) => api.delete(`/equipments/${id}/photos?photo_url=${encodeURIComponent(photoUrl)}`),
   deleteDocument: (id, docUrl) => api.delete(`/equipments/${id}/documents?doc_url=${encodeURIComponent(docUrl)}`),
+  deletePhoto: (id, photoUrl) => api.delete(`/equipments/${id}/photos?photo_url=${encodeURIComponent(photoUrl)}`),
+  getHistory: (id) => api.get(`/equipments/${id}/history`),
 };
 
 // Equipment Types
@@ -122,6 +123,7 @@ export const subEquipmentsAPI = {
   },
   deletePhoto: (id, photoUrl) => api.delete(`/subequipments/${id}/photos?photo_url=${encodeURIComponent(photoUrl)}`),
   deleteDocument: (id, docUrl) => api.delete(`/subequipments/${id}/documents?doc_url=${encodeURIComponent(docUrl)}`),
+  getHistory: (id) => api.get(`/subequipments/${id}/history`),
 };
 
 // Work Orders

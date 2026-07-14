@@ -227,15 +227,15 @@ def import_all():
             return equip_map.get("cuve_w3004")
         return None
 
-    # ---------- 4. Inspections depuis feuilles maintenance ----------
-    db.inspections.delete_many({"source": "import_maintenance"})
-    insp_docs = []
+    # ---------- 4. Ordres de travail (maintenance préventive) depuis feuilles maintenance ----------
+    db.inspections.delete_many({"source": "import_maintenance"})  # nettoyage ancien import
+    db.work_orders.delete_many({"source": "import_maintenance"})
+    wo_docs = []
     for sheet in ["CHAMBRE", "COMPRESSEURS", "CUVES INCENDIE", "EXTINCTEURS ARI", "PUPITRE", "RESEAU GAZ"]:
         hr = header_row(MAINT, sheet)
         if hr is None:
             continue
         df = pd.read_excel(MAINT, sheet_name=sheet, header=hr)
-        cols = {str(c).strip(): i for i, c in enumerate(df.columns)}
         for _, row in df.iterrows():
             ref = clean(row.iloc[0])
             titre = clean(row.get("INTERVENTIONS"))
@@ -249,32 +249,43 @@ def import_all():
             egal = clean(row.get("EGAL"))
             date_real = to_date_str(row.get("DATE"))
             date_val = to_date_str(row.get("DATE2"))
-            note_parts = []
-            if localisation:
-                note_parts.append(f"Localisation: {localisation}")
+            try:
+                periodicite_jours = int(float(jour)) if clean(jour) is not None else None
+            except (TypeError, ValueError):
+                periodicite_jours = None
+            date_planifiee = date_val or date_real or datetime.now(timezone.utc).strftime("%Y-%m-%d")
+            equipment_id = match_equipment(localisation)
+            desc_parts = []
             if equipement:
-                note_parts.append(f"Équipement: {equipement}")
+                desc_parts.append(f"Équipement: {equipement}")
+            if egal:
+                desc_parts.append(f"Périodicité: {egal.strip()}")
             if obs:
-                note_parts.append(f"Obs: {obs}")
-            insp_docs.append({
+                desc_parts.append(f"Dernière obs.: {obs}")
+            criticite = "haute" if equipment_id and equipment_id in (
+                equip_map.get("bauer01"), equip_map.get("bauer02")) else "normale"
+            wo_docs.append({
                 "id": new_id(),
                 "titre": titre if not localisation else f"{titre} ({localisation})",
-                "type_controle": classify_controle(titre),
-                "periodicite": map_periodicite(jour, egal),
+                "description": " | ".join(desc_parts) or titre,
+                "type_maintenance": "preventive",
+                "priorite": criticite,
+                "statut": "planifiee",
                 "caisson_id": cid,
-                "equipment_id": match_equipment(localisation),
-                "date_realisation": date_real,
-                "date_validite": date_val,
-                "organisme_certificateur": interv,
-                "resultat": obs,
-                "observations": " | ".join(note_parts) or None,
-                "procedure_documents": [],
+                "equipment_id": equipment_id,
+                "date_planifiee": date_planifiee,
+                "periodicite_jours": periodicite_jours,
+                "periodicite_heures": None,
+                "compteur_declenchement": None,
+                "technicien_assigne": interv,
+                "photos": [],
+                "documents": [],
                 "source": "import_maintenance",
                 "created_at": now_iso(),
             })
-    if insp_docs:
-        db.inspections.insert_many(insp_docs)
-    report["inspections_maintenance"] = len(insp_docs)
+    if wo_docs:
+        db.work_orders.insert_many(wo_docs)
+    report["work_orders_maintenance"] = len(wo_docs)
 
     # ---------- 5. Inspections depuis suivi_controle (controles reglementaires) ----------
     db.inspections.delete_many({"source": "import_suivi"})
@@ -516,6 +527,6 @@ if __name__ == "__main__":
     for k, v in rep.items():
         print(f"  {k}: {v}")
     print("\n=== COMPTES FINAUX ===")
-    for c in ["caisson", "equipments", "inspections", "budget", "gas_cylinders",
+    for c in ["caisson", "equipments", "work_orders", "inspections", "budget", "gas_cylinders",
               "spare_parts", "contractors", "control_reports"]:
         print(f"  {c}: {db[c].count_documents({})}")

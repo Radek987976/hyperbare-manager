@@ -186,6 +186,11 @@ spare_parts: {id, nom, reference_fabricant, equipment_type, quantite_stock, seui
 ### 2026-07-14 (suite) — Équipements Pupitre & Réseau gaz + reliaison
 - `link_pupitre_gaz.py`: crée « Pupitre de commande » (type Pupitre) et « Réseau gaz » (type Réseau gaz), relie leurs maintenances par mots-clés (pupitre/tableau → Pupitre 14 ; réseau/gaz/vanne/détendeur → Réseau gaz 8). Total équipements = 13. 50 ordres restent non rattachés (extincteurs/ARI génériques/contrôles niveau caisson).
 
+### 2026-07-14 (suite) — Extincteurs/ARI + Filtre Planning + Fiche PDF (VÉRIFIÉ testing_agent 100%, backend 9/9)
+- **Reliaison 100%**: `link_remaining.py` crée « Extincteurs hyperbares », « ARI (parc) », « Caisson (général) ». 0 maintenance non reliée. Total = 16 équipements.
+- **Filtre Planning**: `/api/planning/events` & `/api/planning/summary` acceptent `equipment_id`; Select `planning-equipment-filter` sur la page Planning.
+- **Fiche PDF équipement**: bouton « Fiche PDF » (`download-equipment-pdf-btn`) dans le modal → `/api/reports/pdf/equipment/{id}` (infos + historique). PDF sur fiche équipement (documents) déjà existant, confirmé fonctionnel.
+
 ## Backlog / Tâches à venir
 - **P1** ~~PDF attaché à chaque contrôle réglementaire~~ ✅ FAIT (2026-07-14)
 - **P1** ~~Équipements chambres (Chronique/SAS/Urgence) + reliaison maintenances~~ ✅ FAIT (2026-07-14)

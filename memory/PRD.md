@@ -3,6 +3,13 @@
 ## Énoncé du problème original
 Application web de GMAO (gestion de maintenance assistée par ordinateur) pour un caisson hyperbare unique contenant plusieurs équipements et sous-équipements.
 
+## Changelog (2026-06-15) — Migration historique
+- **Interventions historiques** : les 114 maintenances préventives à date passée ont été converties en interventions "terminées" (script `backend/migrate_history.py`), et les OT marqués `terminee`. Historique des interventions = 117 au total, visibles dans la page Interventions ET dans la fiche équipement/sous-équipement (endpoint `/equipments/{id}/history`).
+- **Sous-équipements** : 76 créés (52 manomètres + 24 soupapes) dans la collection `subequipments`, rattachés par emplacement (Chronique/SAS/Urgence, sinon Caisson général). Réformés → statut hors_service.
+- **Compteur horaire** : BAUER 01 = 7441 h (dernière lecture fiable du fichier Excel). ⚠️ BAUER 02 et LUCHARD non extractibles du fichier (données trop bruitées) — en attente de valeurs.
+- **Fix backend** : détection compresseur insensible à la casse (`Compresseur`) pour la mise à jour du compteur lors d'une intervention.
+
+
 ## Changelog (2026-06-15)
 - **Bouton "Nouvelle intervention"** ajouté sur le tableau de bord à côté de "Nouvelle maintenance" (route /interventions).
 - **Listes déroulantes searchables** : nouveau composant réutilisable `frontend/src/components/ui/searchable-select.jsx` (Popover + cmdk). Tri alphabétique, recherche en tapant, dernier élément sélectionné remonté en haut (mémorisé via localStorage par data-testid). Migration de TOUS les `<Select>` de l'app (16 pages).

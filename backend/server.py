@@ -1561,7 +1561,7 @@ async def create_intervention(data: InterventionCreate, current_user: dict = Dep
     # Mettre à jour le compteur horaire si fourni et si c'est un compresseur
     if data.compteur_horaire is not None and equipment_id:
         equipment = await db.equipments.find_one({"id": equipment_id})
-        if equipment and equipment.get("type") == "compresseur":
+        if equipment and (equipment.get("type") or "").lower() == "compresseur":
             # Mettre à jour le compteur horaire de l'équipement
             historique_entry = {
                 "date": datetime.now(timezone.utc).isoformat(),

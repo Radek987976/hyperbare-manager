@@ -1,5 +1,5 @@
 import * as React from "react";
-import { Check, ChevronsUpDown, Clock } from "lucide-react";
+import { Check, ChevronsUpDown, Clock, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
@@ -33,6 +33,7 @@ export const SearchableSelect = React.forwardRef(function SearchableSelect(
     searchPlaceholder = "Rechercher...",
     emptyText = "Aucun résultat",
     disabled = false,
+    allowCustom = false,
     className,
     contentClassName,
     "data-testid": dataTestId,
@@ -40,6 +41,7 @@ export const SearchableSelect = React.forwardRef(function SearchableSelect(
   ref
 ) {
   const [open, setOpen] = React.useState(false);
+  const [search, setSearch] = React.useState("");
   const storageKey = dataTestId ? `ss-last:${dataTestId}` : null;
 
   const lastValue = React.useMemo(() => {
@@ -77,11 +79,24 @@ export const SearchableSelect = React.forwardRef(function SearchableSelect(
         /* ignore */
       }
     }
+    setSearch("");
     setOpen(false);
   };
 
+  const trimmed = search.trim();
+  const showCustom =
+    allowCustom &&
+    trimmed &&
+    !options.some((o) => String(o.label).toLowerCase() === trimmed.toLowerCase());
+
+  const displayLabel = selected
+    ? selected.label
+    : allowCustom && value
+    ? value
+    : placeholder;
+
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover open={open} onOpenChange={(o) => { setOpen(o); if (!o) setSearch(""); }}>
       <PopoverTrigger asChild>
         <Button
           ref={ref}
@@ -93,11 +108,11 @@ export const SearchableSelect = React.forwardRef(function SearchableSelect(
           data-testid={dataTestId}
           className={cn(
             "w-full justify-between font-normal border-slate-200 bg-white hover:bg-white",
-            !selected && "text-muted-foreground",
+            !selected && !(allowCustom && value) && "text-muted-foreground",
             className
           )}
         >
-          <span className="truncate">{selected ? selected.label : placeholder}</span>
+          <span className="truncate">{displayLabel}</span>
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
@@ -106,10 +121,21 @@ export const SearchableSelect = React.forwardRef(function SearchableSelect(
         align="start"
       >
         <Command>
-          <CommandInput placeholder={searchPlaceholder} />
+          <CommandInput placeholder={searchPlaceholder} value={search} onValueChange={setSearch} />
           <CommandList>
-            <CommandEmpty>{emptyText}</CommandEmpty>
+            {!showCustom && <CommandEmpty>{emptyText}</CommandEmpty>}
             <CommandGroup>
+              {showCustom && (
+                <CommandItem
+                  value={trimmed}
+                  onSelect={() => handleSelect(trimmed)}
+                  data-testid={dataTestId ? `${dataTestId}-custom` : undefined}
+                  className="text-[#005F73] font-medium"
+                >
+                  <Plus className="mr-2 h-4 w-4" />
+                  Utiliser « {trimmed} »
+                </CommandItem>
+              )}
               {sortedOptions.map((opt) => (
                 <CommandItem
                   key={opt.value}

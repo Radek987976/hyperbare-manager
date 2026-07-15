@@ -304,47 +304,18 @@ function Interventions() {
               </div>
               <div>
                 <Label>Technicien *</Label>
-                {!showCustomTechnicien ? (
-                  <SearchableSelect
-                    value={formData.technicien}
-                    onValueChange={v => {
-                      if (v === "__custom__") {
-                        setShowCustomTechnicien(true);
-                        setFormData(p => ({ ...p, technicien: '' }));
-                      } else {
-                        setFormData(p => ({ ...p, technicien: v }));
-                      }
-                    }}
-                    placeholder="Sélectionner un technicien"
-                    options={[
-                      ...data.technicians.map(tech => ({
-                        value: `${tech.prenom} ${tech.nom}`,
-                        label: `${tech.prenom} ${tech.nom}`,
-                      })),
-                      { value: "__custom__", label: "+ Saisir un autre nom..." },
-                    ]}
-                    data-testid="interv-technicien-select"
-                  />
-                ) : (
-                  <div className="flex gap-2">
-                    <Input
-                      value={formData.technicien}
-                      onChange={(e) => setFormData(p => ({ ...p, technicien: e.target.value }))}
-                      placeholder="Nom du technicien"
-                    />
-                    <Button 
-                      type="button" 
-                      variant="outline" 
-                      size="icon"
-                      onClick={() => {
-                        setShowCustomTechnicien(false);
-                        setFormData(p => ({ ...p, technicien: '' }));
-                      }}
-                    >
-                      ×
-                    </Button>
-                  </div>
-                )}
+                <SearchableSelect
+                  value={formData.technicien}
+                  onValueChange={(v) => setFormData(p => ({ ...p, technicien: v }))}
+                  allowCustom
+                  placeholder="Sélectionner ou saisir un technicien"
+                  searchPlaceholder="Rechercher ou saisir un nom..."
+                  options={data.technicians.map(tech => ({
+                    value: `${tech.prenom} ${tech.nom}`,
+                    label: `${tech.prenom} ${tech.nom}`,
+                  }))}
+                  data-testid="interv-technicien-select"
+                />
               </div>
               <div>
                 <Label>Durée (min)</Label>

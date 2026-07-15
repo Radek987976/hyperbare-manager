@@ -666,46 +666,15 @@ const WorkOrders = () => {
             
             <div className="space-y-2">
               <Label>Technicien assigné</Label>
-              {!showCustomTechnicien ? (
-                <SearchableSelect
-                  value={formData.technicien_assigne}
-                  onValueChange={(v) => {
-                    if (v === "__custom__") {
-                      setShowCustomTechnicien(true);
-                      handleSelectChange('technicien_assigne', '');
-                    } else {
-                      handleSelectChange('technicien_assigne', v === "__none__" ? "" : v);
-                    }
-                  }}
-                  data-testid="input-technicien"
-                  placeholder="Sélectionner un technicien"
-                  options={[
-                    { value: "__none__", label: "Non assigné" },
-                    ...technicians.map(tech => ({ value: `${tech.prenom} ${tech.nom}`, label: `${tech.prenom} ${tech.nom} (${tech.role})` })),
-                    { value: "__custom__", label: "+ Saisir un autre nom..." },
-                  ]}
-                />
-              ) : (
-                <div className="flex gap-2">
-                  <Input
-                    value={formData.technicien_assigne}
-                    onChange={(e) => handleSelectChange('technicien_assigne', e.target.value)}
-                    placeholder="Nom du technicien"
-                    data-testid="input-technicien-custom"
-                  />
-                  <Button 
-                    type="button" 
-                    variant="outline" 
-                    size="icon"
-                    onClick={() => {
-                      setShowCustomTechnicien(false);
-                      handleSelectChange('technicien_assigne', '');
-                    }}
-                  >
-                    ×
-                  </Button>
-                </div>
-              )}
+              <SearchableSelect
+                value={formData.technicien_assigne}
+                onValueChange={(v) => handleSelectChange('technicien_assigne', v)}
+                allowCustom
+                data-testid="input-technicien"
+                placeholder="Sélectionner ou saisir un technicien"
+                searchPlaceholder="Rechercher ou saisir un nom..."
+                options={technicians.map(tech => ({ value: `${tech.prenom} ${tech.nom}`, label: `${tech.prenom} ${tech.nom} (${tech.role})` }))}
+              />
             </div>
           </div>
           <DialogFooter>

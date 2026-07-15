@@ -3,6 +3,14 @@
 ## Énoncé du problème original
 Application web de GMAO (gestion de maintenance assistée par ordinateur) pour un caisson hyperbare unique contenant plusieurs équipements et sous-équipements.
 
+## Changelog (2026-06-15)
+- **Bouton "Nouvelle intervention"** ajouté sur le tableau de bord à côté de "Nouvelle maintenance" (route /interventions).
+- **Listes déroulantes searchables** : nouveau composant réutilisable `frontend/src/components/ui/searchable-select.jsx` (Popover + cmdk). Tri alphabétique, recherche en tapant, dernier élément sélectionné remonté en haut (mémorisé via localStorage par data-testid). Migration de TOUS les `<Select>` de l'app (16 pages).
+- **Fix compteur horaire compresseur** : la détection `isCompressor` dans Interventions est désormais insensible à la casse (le type en base est 'Compresseur'). Le champ "Compteur horaire compresseur" s'affiche bien lors de la création d'une intervention sur un compresseur.
+- Fonctionnalité "bloc-notes/messagerie sur tableau de bord" : ABANDONNÉE à la demande de l'utilisateur.
+- Testé frontend (iteration_11.json) : 100% OK, aucun blocage.
+
+
 ## Architecture technique
 
 ### Backend (FastAPI + MongoDB)

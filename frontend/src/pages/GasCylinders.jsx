@@ -24,13 +24,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from '../components/ui/dialog';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '../components/ui/select';
+import { SearchableSelect } from '../components/ui/searchable-select';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -388,28 +382,22 @@ const GasCylinders = () => {
                     className="pl-10"
                   />
                 </div>
-                <Select value={filterType} onValueChange={setFilterType}>
-                  <SelectTrigger className="w-full sm:w-40">
-                    <SelectValue placeholder="Type de gaz" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Tous les gaz</SelectItem>
-                    {GAS_TYPES.map(type => (
-                      <SelectItem key={type.value} value={type.value}>{type.label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Select value={filterStatut} onValueChange={setFilterStatut}>
-                  <SelectTrigger className="w-full sm:w-40">
-                    <SelectValue placeholder="Statut" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Tous les statuts</SelectItem>
-                    {STATUTS.map(s => (
-                      <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <SearchableSelect
+                  value={filterType}
+                  onValueChange={setFilterType}
+                  className="w-full sm:w-40"
+                  data-testid="filter-type-gaz"
+                  placeholder="Type de gaz"
+                  options={[{ value: 'all', label: 'Tous les gaz' }, ...GAS_TYPES.map(type => ({ value: type.value, label: type.label }))]}
+                />
+                <SearchableSelect
+                  value={filterStatut}
+                  onValueChange={setFilterStatut}
+                  className="w-full sm:w-40"
+                  data-testid="filter-statut-gaz"
+                  placeholder="Statut"
+                  options={[{ value: 'all', label: 'Tous les statuts' }, ...STATUTS.map(s => ({ value: s.value, label: s.label }))]}
+                />
               </div>
             </CardContent>
           </Card>
@@ -641,35 +629,21 @@ const GasCylinders = () => {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="type_gaz">Type de gaz *</Label>
-                <Select 
-                  value={formData.type_gaz} 
+                <SearchableSelect
+                  value={formData.type_gaz}
                   onValueChange={(value) => setFormData({ ...formData, type_gaz: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {GAS_TYPES.map(type => (
-                      <SelectItem key={type.value} value={type.value}>{type.label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  data-testid="input-type-gaz"
+                  options={GAS_TYPES.map(type => ({ value: type.value, label: type.label }))}
+                />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="volume">Volume</Label>
-                <Select 
-                  value={formData.volume} 
+                <SearchableSelect
+                  value={formData.volume}
                   onValueChange={(value) => setFormData({ ...formData, volume: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {VOLUMES.map(v => (
-                      <SelectItem key={v} value={v}>{v}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  data-testid="input-volume"
+                  options={VOLUMES.map(v => ({ value: v, label: v }))}
+                />
               </div>
             </div>
 
@@ -685,19 +659,12 @@ const GasCylinders = () => {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="statut">Statut</Label>
-                <Select 
-                  value={formData.statut} 
+                <SearchableSelect
+                  value={formData.statut}
                   onValueChange={(value) => setFormData({ ...formData, statut: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {STATUTS.map(s => (
-                      <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  data-testid="input-statut-gaz"
+                  options={STATUTS.map(s => ({ value: s.value, label: s.label }))}
+                />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="localisation">Localisation</Label>

@@ -25,13 +25,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from '../components/ui/dialog';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '../components/ui/select';
+import { SearchableSelect } from '../components/ui/searchable-select';
 import {
   Tabs,
   TabsContent,
@@ -345,16 +339,12 @@ const ControlReports = () => {
               {champ.nom.replace(/_/g, ' ')}
               {champ.obligatoire && <span className="text-red-500 ml-1">*</span>}
             </Label>
-            <Select value={value || ''} onValueChange={(v) => handleFieldChange(champ.nom, v)}>
-              <SelectTrigger>
-                <SelectValue placeholder="Sélectionner..." />
-              </SelectTrigger>
-              <SelectContent>
-                {champ.options?.map(opt => (
-                  <SelectItem key={opt} value={opt}>{opt}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <SearchableSelect
+              value={value || ''}
+              onValueChange={(v) => handleFieldChange(champ.nom, v)}
+              placeholder="Sélectionner..."
+              options={(champ.options || []).map(opt => ({ value: opt, label: opt }))}
+            />
           </div>
         );
       
@@ -594,16 +584,12 @@ const ControlReports = () => {
             {!selectedTemplate && (
               <div className="space-y-2">
                 <Label>Modèle de PV *</Label>
-                <Select onValueChange={handleTemplateSelect}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Sélectionner un modèle..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {templates.map(t => (
-                      <SelectItem key={t.id} value={t.id}>{t.nom}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <SearchableSelect
+                  value={formData.template_id}
+                  onValueChange={handleTemplateSelect}
+                  placeholder="Sélectionner un modèle..."
+                  options={templates.map(t => ({ value: t.id, label: t.nom }))}
+                />
               </div>
             )}
 
@@ -654,21 +640,12 @@ const ControlReports = () => {
 
                 <div className="space-y-2">
                   <Label htmlFor="equipment_id">Équipement</Label>
-                  <Select 
-                    value={formData.equipment_id || undefined} 
+                  <SearchableSelect
+                    value={formData.equipment_id}
                     onValueChange={(v) => setFormData({ ...formData, equipment_id: v })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Aucun" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {equipments.map(eq => (
-                        <SelectItem key={eq.id} value={eq.id}>
-                          {eq.type} - {eq.reference}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                    placeholder="Aucun"
+                    options={equipments.map(eq => ({ value: eq.id, label: `${eq.type} - ${eq.reference}` }))}
+                  />
                 </div>
 
                 {/* Template fields */}
@@ -700,19 +677,12 @@ const ControlReports = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="resultat">Résultat *</Label>
-                    <Select 
-                      value={formData.resultat} 
+                    <SearchableSelect
+                      value={formData.resultat}
                       onValueChange={(v) => setFormData({ ...formData, resultat: v })}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {RESULT_OPTIONS.map(r => (
-                          <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                      data-testid="input-resultat-pv"
+                      options={RESULT_OPTIONS.map(r => ({ value: r.value, label: r.label }))}
+                    />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="validite_jusqua">Validité jusqu&apos;au</Label>

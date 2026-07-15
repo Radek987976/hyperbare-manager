@@ -23,13 +23,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from '../components/ui/dialog';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '../components/ui/select';
+import { SearchableSelect } from '../components/ui/searchable-select';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -377,19 +371,14 @@ const SpareParts = () => {
                 data-testid="search-input"
               />
             </div>
-            <Select value={filterType} onValueChange={(v) => setFilterType(v)}>
-              <SelectTrigger className="w-full md:w-48" data-testid="filter-type">
-                <SelectValue placeholder="Type d'équipement" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Tous les types</SelectItem>
-                {equipmentTypes.map(type => (
-                  <SelectItem key={type.id} value={type.nom}>
-                    {type.nom}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <SearchableSelect
+              value={filterType}
+              onValueChange={(v) => setFilterType(v)}
+              className="w-full md:w-48"
+              data-testid="filter-type"
+              placeholder="Type d'équipement"
+              options={[{ value: 'all', label: 'Tous les types' }, ...equipmentTypes.map(type => ({ value: type.nom, label: type.nom }))]}
+            />
           </div>
         </CardContent>
       </Card>
@@ -530,18 +519,13 @@ const SpareParts = () => {
             </div>
             <div className="space-y-2">
               <Label>Type d'équipement *</Label>
-              <Select value={formData.equipment_type} onValueChange={(v) => handleSelectChange('equipment_type', v)}>
-                <SelectTrigger data-testid="input-equipment-type">
-                  <SelectValue placeholder="Sélectionner un type" />
-                </SelectTrigger>
-                <SelectContent>
-                  {equipmentTypes.map(type => (
-                    <SelectItem key={type.id} value={type.nom}>
-                      {type.nom}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <SearchableSelect
+                value={formData.equipment_type}
+                onValueChange={(v) => handleSelectChange('equipment_type', v)}
+                data-testid="input-equipment-type"
+                placeholder="Sélectionner un type"
+                options={equipmentTypes.map(type => ({ value: type.nom, label: type.nom }))}
+              />
             </div>
             <div className="space-y-2">
               <Label htmlFor="quantite_stock">Quantité en stock *</Label>

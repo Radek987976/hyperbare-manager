@@ -34,13 +34,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from '../components/ui/dialog';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '../components/ui/select';
+import { SearchableSelect } from '../components/ui/searchable-select';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -402,19 +396,14 @@ const WorkOrders = () => {
                 data-testid="search-input"
               />
             </div>
-            <Select value={filterType} onValueChange={(v) => setFilterType(v)}>
-              <SelectTrigger className="w-full md:w-44" data-testid="filter-type">
-                <SelectValue placeholder="Type" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Tous les types</SelectItem>
-                {TYPES_MAINTENANCE.map(type => (
-                  <SelectItem key={type} value={type}>
-                    {maintenanceTypeLabels[type]}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <SearchableSelect
+              value={filterType}
+              onValueChange={(v) => setFilterType(v)}
+              className="w-full md:w-44"
+              data-testid="filter-type"
+              placeholder="Type"
+              options={[{ value: 'all', label: 'Tous les types' }, ...TYPES_MAINTENANCE.map(type => ({ value: type, label: maintenanceTypeLabels[type] }))]}
+            />
           </div>
         </CardContent>
       </Card>
@@ -572,64 +561,40 @@ const WorkOrders = () => {
             </div>
             <div className="space-y-2">
               <Label>Type de maintenance *</Label>
-              <Select value={formData.type_maintenance} onValueChange={(v) => handleSelectChange('type_maintenance', v)}>
-                <SelectTrigger data-testid="input-type-maintenance">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {TYPES_MAINTENANCE.map(type => (
-                    <SelectItem key={type} value={type}>
-                      {maintenanceTypeLabels[type]}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <SearchableSelect
+                value={formData.type_maintenance}
+                onValueChange={(v) => handleSelectChange('type_maintenance', v)}
+                data-testid="input-type-maintenance"
+                options={TYPES_MAINTENANCE.map(type => ({ value: type, label: maintenanceTypeLabels[type] }))}
+              />
             </div>
             <div className="space-y-2">
               <Label>Priorité *</Label>
-              <Select value={formData.priorite} onValueChange={(v) => handleSelectChange('priorite', v)}>
-                <SelectTrigger data-testid="input-priorite">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {PRIORITES.map(p => (
-                    <SelectItem key={p} value={p}>
-                      {priorityLabels[p]}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <SearchableSelect
+                value={formData.priorite}
+                onValueChange={(v) => handleSelectChange('priorite', v)}
+                data-testid="input-priorite"
+                options={PRIORITES.map(p => ({ value: p, label: priorityLabels[p] }))}
+              />
             </div>
             <div className="space-y-2">
               <Label>Statut *</Label>
-              <Select value={formData.statut} onValueChange={(v) => handleSelectChange('statut', v)}>
-                <SelectTrigger data-testid="input-statut">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {STATUTS.map(s => (
-                    <SelectItem key={s} value={s}>
-                      {statusLabels[s]}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <SearchableSelect
+                value={formData.statut}
+                onValueChange={(v) => handleSelectChange('statut', v)}
+                data-testid="input-statut"
+                options={STATUTS.map(s => ({ value: s, label: statusLabels[s] }))}
+              />
             </div>
             <div className="space-y-2">
               <Label>Équipement concerné</Label>
-              <Select value={formData.equipment_id || "caisson"} onValueChange={(v) => handleSelectChange('equipment_id', v === "caisson" ? "" : v)}>
-                <SelectTrigger data-testid="input-equipment">
-                  <SelectValue placeholder="Caisson entier" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="caisson">Caisson entier</SelectItem>
-                  {equipments.map(eq => (
-                    <SelectItem key={eq.id} value={eq.id}>
-                      {getTypeLabel(eq.type)} - {eq.reference}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <SearchableSelect
+                value={formData.equipment_id || "caisson"}
+                onValueChange={(v) => handleSelectChange('equipment_id', v === "caisson" ? "" : v)}
+                data-testid="input-equipment"
+                placeholder="Caisson entier"
+                options={[{ value: 'caisson', label: 'Caisson entier' }, ...equipments.map(eq => ({ value: eq.id, label: `${getTypeLabel(eq.type)} - ${eq.reference}` }))]}
+              />
             </div>
             <div className="space-y-2">
               <Label htmlFor="date_planifiee">Date planifiée *</Label>
@@ -702,32 +667,24 @@ const WorkOrders = () => {
             <div className="space-y-2">
               <Label>Technicien assigné</Label>
               {!showCustomTechnicien ? (
-                <Select 
-                  value={formData.technicien_assigne || "none"} 
+                <SearchableSelect
+                  value={formData.technicien_assigne}
                   onValueChange={(v) => {
-                    if (v === "custom") {
+                    if (v === "__custom__") {
                       setShowCustomTechnicien(true);
                       handleSelectChange('technicien_assigne', '');
                     } else {
-                      handleSelectChange('technicien_assigne', v === "none" ? "" : v);
+                      handleSelectChange('technicien_assigne', v === "__none__" ? "" : v);
                     }
                   }}
-                >
-                  <SelectTrigger data-testid="input-technicien">
-                    <SelectValue placeholder="Sélectionner un technicien" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">Non assigné</SelectItem>
-                    {technicians.map(tech => (
-                      <SelectItem key={tech.id} value={`${tech.prenom} ${tech.nom}`}>
-                        {tech.prenom} {tech.nom} ({tech.role})
-                      </SelectItem>
-                    ))}
-                    <SelectItem value="custom" className="text-[#005F73] font-medium">
-                      + Saisir un autre nom...
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
+                  data-testid="input-technicien"
+                  placeholder="Sélectionner un technicien"
+                  options={[
+                    { value: "__none__", label: "Non assigné" },
+                    ...technicians.map(tech => ({ value: `${tech.prenom} ${tech.nom}`, label: `${tech.prenom} ${tech.nom} (${tech.role})` })),
+                    { value: "__custom__", label: "+ Saisir un autre nom..." },
+                  ]}
+                />
               ) : (
                 <div className="flex gap-2">
                   <Input

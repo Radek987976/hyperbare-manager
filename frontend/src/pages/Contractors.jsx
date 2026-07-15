@@ -24,13 +24,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from '../components/ui/dialog';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '../components/ui/select';
+import { SearchableSelect } from '../components/ui/searchable-select';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -309,17 +303,14 @@ const Contractors = () => {
                 className="pl-10"
               />
             </div>
-            <Select value={filterType} onValueChange={setFilterType}>
-              <SelectTrigger className="w-full sm:w-48">
-                <SelectValue placeholder="Type" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Tous les types</SelectItem>
-                {TYPES.map(type => (
-                  <SelectItem key={type.value} value={type.value}>{type.label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <SearchableSelect
+              value={filterType}
+              onValueChange={setFilterType}
+              className="w-full sm:w-48"
+              data-testid="filter-type"
+              placeholder="Type"
+              options={[{ value: 'all', label: 'Tous les types' }, ...TYPES.map(type => ({ value: type.value, label: type.label }))]}
+            />
           </div>
         </CardContent>
       </Card>
@@ -435,19 +426,12 @@ const Contractors = () => {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="type">Type *</Label>
-                <Select 
-                  value={formData.type} 
+                <SearchableSelect
+                  value={formData.type}
                   onValueChange={(value) => setFormData({ ...formData, type: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {TYPES.map(type => (
-                      <SelectItem key={type.value} value={type.value}>{type.label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  data-testid="input-type-contractor"
+                  options={TYPES.map(type => ({ value: type.value, label: type.label }))}
+                />
               </div>
             </div>
 

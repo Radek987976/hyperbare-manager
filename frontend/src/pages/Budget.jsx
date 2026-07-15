@@ -24,13 +24,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from '../components/ui/dialog';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '../components/ui/select';
+import { SearchableSelect } from '../components/ui/searchable-select';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -269,16 +263,12 @@ const Budget = () => {
           <p className="text-gray-500">Planification budgétaire annuelle</p>
         </div>
         <div className="flex items-center gap-2">
-          <Select value={selectedYear.toString()} onValueChange={(v) => setSelectedYear(parseInt(v))}>
-            <SelectTrigger className="w-32">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {years.map(year => (
-                <SelectItem key={year} value={year.toString()}>{year}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <SearchableSelect
+            value={selectedYear.toString()}
+            onValueChange={(v) => setSelectedYear(parseInt(v))}
+            className="w-32"
+            options={years.map(year => ({ value: year.toString(), label: year.toString() }))}
+          />
           <Button variant="outline" onClick={() => setShowInEur(!showInEur)}>
             {showInEur ? 'Afficher XPF' : 'Afficher EUR'}
           </Button>
@@ -379,17 +369,14 @@ const Budget = () => {
       {/* Filter */}
       <Card>
         <CardContent className="p-4">
-          <Select value={filterCategory} onValueChange={setFilterCategory}>
-            <SelectTrigger className="w-full sm:w-64">
-              <SelectValue placeholder="Filtrer par catégorie" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Toutes les catégories</SelectItem>
-              {CATEGORIES.map(cat => (
-                <SelectItem key={cat.value} value={cat.value}>{cat.label}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <SearchableSelect
+            value={filterCategory}
+            onValueChange={setFilterCategory}
+            className="w-full sm:w-64"
+            data-testid="filter-category-budget"
+            placeholder="Filtrer par catégorie"
+            options={[{ value: 'all', label: 'Toutes les catégories' }, ...CATEGORIES.map(cat => ({ value: cat.value, label: cat.label }))]}
+          />
         </CardContent>
       </Card>
 
@@ -489,35 +476,21 @@ const Budget = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="categorie">Catégorie *</Label>
-                <Select 
-                  value={formData.categorie} 
+                <SearchableSelect
+                  value={formData.categorie}
                   onValueChange={(value) => setFormData({ ...formData, categorie: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {CATEGORIES.map(cat => (
-                      <SelectItem key={cat.value} value={cat.value}>{cat.label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  data-testid="input-categorie-budget"
+                  options={CATEGORIES.map(cat => ({ value: cat.value, label: cat.label }))}
+                />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="statut">Statut</Label>
-                <Select 
-                  value={formData.statut} 
+                <SearchableSelect
+                  value={formData.statut}
                   onValueChange={(value) => setFormData({ ...formData, statut: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {STATUTS.map(s => (
-                      <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  data-testid="input-statut-budget"
+                  options={STATUTS.map(s => ({ value: s.value, label: s.label }))}
+                />
               </div>
             </div>
 
@@ -579,19 +552,13 @@ const Budget = () => {
 
             <div className="space-y-2">
               <Label htmlFor="contractor_id">Fournisseur/Prestataire</Label>
-              <Select 
-                value={formData.contractor_id || undefined} 
+              <SearchableSelect
+                value={formData.contractor_id}
                 onValueChange={(value) => setFormData({ ...formData, contractor_id: value })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Aucun" />
-                </SelectTrigger>
-                <SelectContent>
-                  {contractors.map(c => (
-                    <SelectItem key={c.id} value={c.id}>{c.nom}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                data-testid="input-contractor-budget"
+                placeholder="Aucun"
+                options={contractors.map(c => ({ value: c.id, label: c.nom }))}
+              />
             </div>
 
             <div className="space-y-2">

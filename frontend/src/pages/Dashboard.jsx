@@ -23,7 +23,8 @@ import {
   Activity,
   Mail,
   Loader2,
-  Bell
+  Bell,
+  Wrench
 } from 'lucide-react';
 import {
   BarChart,
@@ -163,6 +164,12 @@ const Dashboard = () => {
               Envoyer alertes
             </Button>
           )}
+          <Link to="/interventions">
+            <Button variant="outline" className="border-[#0A9396] text-[#0A9396] hover:bg-[#0A9396]/5" data-testid="new-intervention-btn">
+              <Wrench className="w-4 h-4 mr-2" />
+              Nouvelle intervention
+            </Button>
+          </Link>
           <Link to="/ordres-travail">
             <Button className="bg-[#005F73] hover:bg-[#004C5C]" data-testid="new-work-order-btn">
               <ClipboardList className="w-4 h-4 mr-2" />

@@ -25,13 +25,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from '../components/ui/dialog';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '../components/ui/select';
+import { SearchableSelect } from '../components/ui/searchable-select';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -307,19 +301,14 @@ const SubEquipments = () => {
                 />
               </div>
             </div>
-            <Select value={filterParent} onValueChange={setFilterParent}>
-              <SelectTrigger className="w-[250px]">
-                <SelectValue placeholder="Filtrer par équipement" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Tous les équipements</SelectItem>
-                {equipments.map(eq => (
-                  <SelectItem key={eq.id} value={eq.id}>
-                    {eq.type} - {eq.reference}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <SearchableSelect
+              value={filterParent}
+              onValueChange={setFilterParent}
+              className="w-[250px]"
+              data-testid="filter-parent"
+              placeholder="Filtrer par équipement"
+              options={[{ value: 'all', label: 'Tous les équipements' }, ...equipments.map(eq => ({ value: eq.id, label: `${eq.type} - ${eq.reference}` }))]}
+            />
           </div>
         </CardContent>
       </Card>
@@ -405,21 +394,13 @@ const SubEquipments = () => {
           <div className="space-y-4 py-4 max-h-[60vh] overflow-y-auto">
             <div className="space-y-2">
               <Label>Équipement parent *</Label>
-              <Select
+              <SearchableSelect
                 value={formData.parent_equipment_id}
                 onValueChange={(v) => handleSelectChange('parent_equipment_id', v)}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Sélectionner l'équipement parent" />
-                </SelectTrigger>
-                <SelectContent>
-                  {equipments.map(eq => (
-                    <SelectItem key={eq.id} value={eq.id}>
-                      {eq.type} - {eq.reference}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                data-testid="input-parent-equipment"
+                placeholder="Sélectionner l'équipement parent"
+                options={equipments.map(eq => ({ value: eq.id, label: `${eq.type} - ${eq.reference}` }))}
+              />
             </div>
             
             <div className="grid grid-cols-2 gap-4">
@@ -454,19 +435,12 @@ const SubEquipments = () => {
               </div>
               <div className="space-y-2">
                 <Label>Statut</Label>
-                <Select
+                <SearchableSelect
                   value={formData.statut}
                   onValueChange={(v) => handleSelectChange('statut', v)}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {STATUTS.map(s => (
-                      <SelectItem key={s} value={s}>{statusLabels[s] || s}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  data-testid="input-statut-sub"
+                  options={STATUTS.map(s => ({ value: s, label: statusLabels[s] || s }))}
+                />
               </div>
             </div>
             

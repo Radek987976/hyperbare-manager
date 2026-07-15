@@ -17,13 +17,7 @@ import {
   TableHeader,
   TableRow,
 } from '../components/ui/table';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '../components/ui/select';
+import { SearchableSelect } from '../components/ui/searchable-select';
 import {
   Dialog,
   DialogContent,
@@ -635,34 +629,16 @@ const UsersPage = () => {
             </div>
             <div className="space-y-2">
               <Label htmlFor="role">Rôle</Label>
-              <Select
+              <SearchableSelect
                 value={formData.role}
                 onValueChange={(v) => setFormData({ ...formData, role: v })}
-              >
-                <SelectTrigger data-testid="select-role">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="admin">
-                    <div className="flex items-center">
-                      <Shield className="w-3 h-3 mr-2" />
-                      Administrateur
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="technicien">
-                    <div className="flex items-center">
-                      <User className="w-3 h-3 mr-2" />
-                      Technicien
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="invite">
-                    <div className="flex items-center">
-                      <Eye className="w-3 h-3 mr-2" />
-                      Invité
-                    </div>
-                  </SelectItem>
-                </SelectContent>
-              </Select>
+                data-testid="select-role"
+                options={[
+                  { value: 'admin', label: 'Administrateur' },
+                  { value: 'technicien', label: 'Technicien' },
+                  { value: 'invite', label: 'Invité' },
+                ]}
+              />
             </div>
           </div>
           <DialogFooter>
@@ -859,35 +835,18 @@ const UserTable = ({
                         <span className="ml-1">{getRoleLabel(user.role)}</span>
                       </Badge>
                     ) : (
-                      <Select 
-                        value={user.role} 
+                      <SearchableSelect
+                        value={user.role}
                         onValueChange={(v) => handleRoleChange(user.id, v)}
                         disabled={actionLoading === user.id}
-                      >
-                        <SelectTrigger className="w-40" data-testid={`role-select-${user.id}`}>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="admin">
-                            <div className="flex items-center">
-                              <Shield className="w-3 h-3 mr-2" />
-                              Administrateur
-                            </div>
-                          </SelectItem>
-                          <SelectItem value="technicien">
-                            <div className="flex items-center">
-                              <User className="w-3 h-3 mr-2" />
-                              Technicien
-                            </div>
-                          </SelectItem>
-                          <SelectItem value="invite">
-                            <div className="flex items-center">
-                              <Eye className="w-3 h-3 mr-2" />
-                              Invité
-                            </div>
-                          </SelectItem>
-                        </SelectContent>
-                      </Select>
+                        className="w-40"
+                        data-testid={`role-select-${user.id}`}
+                        options={[
+                          { value: 'admin', label: 'Administrateur' },
+                          { value: 'technicien', label: 'Technicien' },
+                          { value: 'invite', label: 'Invité' },
+                        ]}
+                      />
                     )}
                   </TableCell>
                   <TableCell>

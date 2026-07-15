@@ -15,8 +15,8 @@ import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Textarea } from '../components/ui/textarea';
 import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue
-} from '../components/ui/select';
+  SearchableSelect
+} from '../components/ui/searchable-select';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription
 } from '../components/ui/dialog';
@@ -157,17 +157,14 @@ export default function Planning() {
           <p className="text-slate-500 mt-1">Calendrier automatique basé sur les périodicités réglementaires</p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          <Select value={equipmentFilter} onValueChange={setEquipmentFilter}>
-            <SelectTrigger className="w-[220px]" data-testid="planning-equipment-filter">
-              <SelectValue placeholder="Tous les équipements" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Tous les équipements</SelectItem>
-              {equipments.map(eq => (
-                <SelectItem key={eq.id} value={eq.id}>{eq.reference || eq.type}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <SearchableSelect
+            value={equipmentFilter}
+            onValueChange={setEquipmentFilter}
+            className="w-[220px]"
+            data-testid="planning-equipment-filter"
+            placeholder="Tous les équipements"
+            options={[{ value: 'all', label: 'Tous les équipements' }, ...equipments.map(eq => ({ value: eq.id, label: eq.reference || eq.type }))]}
+          />
           <div className="flex rounded-lg border border-slate-200 overflow-hidden" data-testid="view-toggle">
             <button
               onClick={() => setView('month')}

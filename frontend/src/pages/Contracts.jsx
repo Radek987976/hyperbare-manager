@@ -24,13 +24,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from '../components/ui/dialog';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '../components/ui/select';
+import { SearchableSelect } from '../components/ui/searchable-select';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -378,17 +372,14 @@ const Contracts = () => {
                 className="pl-10"
               />
             </div>
-            <Select value={filterStatut} onValueChange={setFilterStatut}>
-              <SelectTrigger className="w-full sm:w-40">
-                <SelectValue placeholder="Statut" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Tous les statuts</SelectItem>
-                {STATUTS.map(s => (
-                  <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <SearchableSelect
+              value={filterStatut}
+              onValueChange={setFilterStatut}
+              className="w-full sm:w-40"
+              data-testid="filter-statut-contract"
+              placeholder="Statut"
+              options={[{ value: 'all', label: 'Tous les statuts' }, ...STATUTS.map(s => ({ value: s.value, label: s.label }))]}
+            />
           </div>
         </CardContent>
       </Card>
@@ -507,19 +498,12 @@ const Contracts = () => {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="type_contrat">Type *</Label>
-                <Select 
-                  value={formData.type_contrat} 
+                <SearchableSelect
+                  value={formData.type_contrat}
                   onValueChange={(value) => setFormData({ ...formData, type_contrat: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {TYPES_CONTRAT.map(t => (
-                      <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  data-testid="input-type-contrat"
+                  options={TYPES_CONTRAT.map(t => ({ value: t.value, label: t.label }))}
+                />
               </div>
             </div>
 
@@ -535,19 +519,13 @@ const Contracts = () => {
 
             <div className="space-y-2">
               <Label htmlFor="contractor_id">Prestataire *</Label>
-              <Select 
-                value={formData.contractor_id} 
+              <SearchableSelect
+                value={formData.contractor_id}
                 onValueChange={(value) => setFormData({ ...formData, contractor_id: value })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Sélectionner un prestataire" />
-                </SelectTrigger>
-                <SelectContent>
-                  {contractors.map(c => (
-                    <SelectItem key={c.id} value={c.id}>{c.nom}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                data-testid="input-contractor-contract"
+                placeholder="Sélectionner un prestataire"
+                options={contractors.map(c => ({ value: c.id, label: c.nom }))}
+              />
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -590,35 +568,21 @@ const Contracts = () => {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="periodicite_facturation">Facturation</Label>
-                <Select 
-                  value={formData.periodicite_facturation} 
+                <SearchableSelect
+                  value={formData.periodicite_facturation}
                   onValueChange={(value) => setFormData({ ...formData, periodicite_facturation: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {PERIODICITES.map(p => (
-                      <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  data-testid="input-facturation"
+                  options={PERIODICITES.map(p => ({ value: p.value, label: p.label }))}
+                />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="statut">Statut</Label>
-                <Select 
-                  value={formData.statut} 
+                <SearchableSelect
+                  value={formData.statut}
                   onValueChange={(value) => setFormData({ ...formData, statut: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {STATUTS.map(s => (
-                      <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  data-testid="input-statut-contract"
+                  options={STATUTS.map(s => ({ value: s.value, label: s.label }))}
+                />
               </div>
             </div>
 

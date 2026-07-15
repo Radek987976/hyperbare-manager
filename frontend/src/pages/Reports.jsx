@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../co
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
+import { SearchableSelect } from '../components/ui/searchable-select';
 import {
   FileText,
   Download,
@@ -232,18 +232,13 @@ const Reports = () => {
                 <div className="flex flex-wrap items-end gap-4 mt-4">
                   <div className="space-y-2 flex-1 min-w-[200px] max-w-[300px]">
                     <Label>Sélectionner un équipement</Label>
-                    <Select value={selectedEquipment} onValueChange={setSelectedEquipment}>
-                      <SelectTrigger data-testid="select-equipment">
-                        <SelectValue placeholder="Choisir un équipement" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {equipments.map((eq) => (
-                          <SelectItem key={eq.id} value={eq.id}>
-                            {eq.reference} ({eq.type})
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <SearchableSelect
+                      value={selectedEquipment}
+                      onValueChange={setSelectedEquipment}
+                      data-testid="select-equipment"
+                      placeholder="Choisir un équipement"
+                      options={equipments.map(eq => ({ value: eq.id, label: `${eq.reference} (${eq.type})` }))}
+                    />
                   </div>
                   
                   <Button

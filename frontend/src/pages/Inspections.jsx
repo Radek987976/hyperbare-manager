@@ -26,13 +26,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from '../components/ui/dialog';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '../components/ui/select';
+import { SearchableSelect } from '../components/ui/searchable-select';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -483,34 +477,23 @@ const Inspections = () => {
             </div>
             <div className="space-y-2">
               <Label>Périodicité *</Label>
-              <Select value={formData.periodicite} onValueChange={(v) => handleSelectChange('periodicite', v)}>
-                <SelectTrigger data-testid="input-periodicite">
-                  <SelectValue placeholder="Sélectionner une périodicité" />
-                </SelectTrigger>
-                <SelectContent>
-                  {PERIODICITES.map(p => (
-                    <SelectItem key={p} value={p}>
-                      {periodiciteLabels[p]}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <SearchableSelect
+                value={formData.periodicite}
+                onValueChange={(v) => handleSelectChange('periodicite', v)}
+                data-testid="input-periodicite"
+                placeholder="Sélectionner une périodicité"
+                options={PERIODICITES.map(p => ({ value: p, label: periodiciteLabels[p] }))}
+              />
             </div>
             <div className="space-y-2">
               <Label>Équipement concerné</Label>
-              <Select value={formData.equipment_id || "caisson"} onValueChange={(v) => handleSelectChange('equipment_id', v === "caisson" ? "" : v)}>
-                <SelectTrigger data-testid="input-equipment">
-                  <SelectValue placeholder="Caisson entier" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="caisson">Caisson entier</SelectItem>
-                  {equipments.map(eq => (
-                    <SelectItem key={eq.id} value={eq.id}>
-                      {equipmentTypeLabels[eq.type]} - {eq.reference}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <SearchableSelect
+                value={formData.equipment_id || "caisson"}
+                onValueChange={(v) => handleSelectChange('equipment_id', v === "caisson" ? "" : v)}
+                data-testid="input-equipment"
+                placeholder="Caisson entier"
+                options={[{ value: 'caisson', label: 'Caisson entier' }, ...equipments.map(eq => ({ value: eq.id, label: `${equipmentTypeLabels[eq.type] || eq.type} - ${eq.reference}` }))]}
+              />
             </div>
             <div className="space-y-2">
               <Label htmlFor="date_realisation">Date de réalisation *</Label>

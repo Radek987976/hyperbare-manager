@@ -31,13 +31,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from '../components/ui/dialog';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '../components/ui/select';
+import { SearchableSelect } from '../components/ui/searchable-select';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -422,45 +416,30 @@ const Equipments = () => {
                 data-testid="search-input"
               />
             </div>
-            <Select value={filterType} onValueChange={(v) => setFilterType(v)}>
-              <SelectTrigger className="w-full md:w-40" data-testid="filter-type">
-                <SelectValue placeholder="Type" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Tous les types</SelectItem>
-                {equipmentTypes.map(type => (
-                  <SelectItem key={type.id} value={type.nom}>
-                    {type.nom}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select value={filterStatut} onValueChange={(v) => setFilterStatut(v)}>
-              <SelectTrigger className="w-full md:w-40" data-testid="filter-statut">
-                <SelectValue placeholder="Statut" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Tous les statuts</SelectItem>
-                {STATUTS.map(statut => (
-                  <SelectItem key={statut} value={statut}>
-                    {statusLabels[statut]}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select value={filterCriticite} onValueChange={(v) => setFilterCriticite(v)}>
-              <SelectTrigger className="w-full md:w-40" data-testid="filter-criticite">
-                <SelectValue placeholder="Criticité" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Toutes</SelectItem>
-                {CRITICITES.map(crit => (
-                  <SelectItem key={crit} value={crit}>
-                    {criticiteLabels[crit]}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <SearchableSelect
+              value={filterType}
+              onValueChange={(v) => setFilterType(v)}
+              className="w-full md:w-40"
+              data-testid="filter-type"
+              placeholder="Type"
+              options={[{ value: 'all', label: 'Tous les types' }, ...equipmentTypes.map(type => ({ value: type.nom, label: type.nom }))]}
+            />
+            <SearchableSelect
+              value={filterStatut}
+              onValueChange={(v) => setFilterStatut(v)}
+              className="w-full md:w-40"
+              data-testid="filter-statut"
+              placeholder="Statut"
+              options={[{ value: 'all', label: 'Tous les statuts' }, ...STATUTS.map(statut => ({ value: statut, label: statusLabels[statut] }))]}
+            />
+            <SearchableSelect
+              value={filterCriticite}
+              onValueChange={(v) => setFilterCriticite(v)}
+              className="w-full md:w-40"
+              data-testid="filter-criticite"
+              placeholder="Criticité"
+              options={[{ value: 'all', label: 'Toutes' }, ...CRITICITES.map(crit => ({ value: crit, label: criticiteLabels[crit] }))]}
+            />
             {hasActiveFilters && (
               <Button variant="ghost" onClick={clearFilters} size="icon">
                 <X className="w-4 h-4" />
@@ -588,18 +567,13 @@ const Equipments = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>Type *</Label>
-              <Select value={formData.type} onValueChange={(v) => handleSelectChange('type', v)}>
-                <SelectTrigger data-testid="input-type">
-                  <SelectValue placeholder="Sélectionner un type" />
-                </SelectTrigger>
-                <SelectContent>
-                  {equipmentTypes.map(type => (
-                    <SelectItem key={type.id} value={type.nom}>
-                      {type.nom}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <SearchableSelect
+                value={formData.type}
+                onValueChange={(v) => handleSelectChange('type', v)}
+                data-testid="input-type"
+                placeholder="Sélectionner un type"
+                options={equipmentTypes.map(type => ({ value: type.nom, label: type.nom }))}
+              />
             </div>
             <div className="space-y-2">
               <Label htmlFor="reference">Référence *</Label>
@@ -625,33 +599,21 @@ const Equipments = () => {
             </div>
             <div className="space-y-2">
               <Label>Criticité *</Label>
-              <Select value={formData.criticite} onValueChange={(v) => handleSelectChange('criticite', v)}>
-                <SelectTrigger data-testid="input-criticite">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {CRITICITES.map(crit => (
-                    <SelectItem key={crit} value={crit}>
-                      {criticiteLabels[crit]}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <SearchableSelect
+                value={formData.criticite}
+                onValueChange={(v) => handleSelectChange('criticite', v)}
+                data-testid="input-criticite"
+                options={CRITICITES.map(crit => ({ value: crit, label: criticiteLabels[crit] }))}
+              />
             </div>
             <div className="space-y-2">
               <Label>Statut *</Label>
-              <Select value={formData.statut} onValueChange={(v) => handleSelectChange('statut', v)}>
-                <SelectTrigger data-testid="input-statut">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {STATUTS.map(statut => (
-                    <SelectItem key={statut} value={statut}>
-                      {statusLabels[statut]}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <SearchableSelect
+                value={formData.statut}
+                onValueChange={(v) => handleSelectChange('statut', v)}
+                data-testid="input-statut"
+                options={STATUTS.map(statut => ({ value: statut, label: statusLabels[statut] }))}
+              />
             </div>
             <div className="space-y-2">
               <Label htmlFor="date_installation">Date d'installation</Label>
@@ -690,19 +652,20 @@ const Equipments = () => {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="motif_reforme">Motif de réforme</Label>
-                  <Select value={formData.motif_reforme} onValueChange={(v) => handleSelectChange('motif_reforme', v)}>
-                    <SelectTrigger data-testid="select-motif-reforme">
-                      <SelectValue placeholder="Sélectionner un motif" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Usure / vétusté">Usure / vétusté</SelectItem>
-                      <SelectItem value="Obsolescence">Obsolescence</SelectItem>
-                      <SelectItem value="Panne majeure / irréparable">Panne majeure / irréparable</SelectItem>
-                      <SelectItem value="Fin de vie réglementaire">Fin de vie réglementaire</SelectItem>
-                      <SelectItem value="Accident">Accident</SelectItem>
-                      <SelectItem value="Autre">Autre</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <SearchableSelect
+                    value={formData.motif_reforme}
+                    onValueChange={(v) => handleSelectChange('motif_reforme', v)}
+                    data-testid="select-motif-reforme"
+                    placeholder="Sélectionner un motif"
+                    options={[
+                      { value: 'Usure / vétusté', label: 'Usure / vétusté' },
+                      { value: 'Obsolescence', label: 'Obsolescence' },
+                      { value: 'Panne majeure / irréparable', label: 'Panne majeure / irréparable' },
+                      { value: 'Fin de vie réglementaire', label: 'Fin de vie réglementaire' },
+                      { value: 'Accident', label: 'Accident' },
+                      { value: 'Autre', label: 'Autre' },
+                    ]}
+                  />
                 </div>
               </>
             )}

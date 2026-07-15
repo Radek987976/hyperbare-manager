@@ -24,13 +24,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from '../components/ui/dialog';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '../components/ui/select';
+import { SearchableSelect } from '../components/ui/searchable-select';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -356,28 +350,22 @@ const Documents = () => {
                 className="pl-10"
               />
             </div>
-            <Select value={filterType} onValueChange={setFilterType}>
-              <SelectTrigger className="w-full sm:w-48">
-                <SelectValue placeholder="Type" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Tous les types</SelectItem>
-                {TYPES_DOCUMENT.map(t => (
-                  <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select value={filterCategory} onValueChange={setFilterCategory}>
-              <SelectTrigger className="w-full sm:w-48">
-                <SelectValue placeholder="Catégorie" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Toutes les catégories</SelectItem>
-                {CATEGORIES.map(c => (
-                  <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <SearchableSelect
+              value={filterType}
+              onValueChange={setFilterType}
+              className="w-full sm:w-48"
+              data-testid="filter-type-doc"
+              placeholder="Type"
+              options={[{ value: 'all', label: 'Tous les types' }, ...TYPES_DOCUMENT.map(t => ({ value: t.value, label: t.label }))]}
+            />
+            <SearchableSelect
+              value={filterCategory}
+              onValueChange={setFilterCategory}
+              className="w-full sm:w-48"
+              data-testid="filter-category-doc"
+              placeholder="Catégorie"
+              options={[{ value: 'all', label: 'Toutes les catégories' }, ...CATEGORIES.map(c => ({ value: c.value, label: c.label }))]}
+            />
           </div>
         </CardContent>
       </Card>
@@ -528,38 +516,25 @@ const Documents = () => {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="type_document">Type *</Label>
-                <Select 
-                  value={uploadData.type_document} 
+                <SearchableSelect
+                  value={uploadData.type_document}
                   onValueChange={(value) => setUploadData({ ...uploadData, type_document: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {TYPES_DOCUMENT.map(t => (
-                      <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  data-testid="input-type-document"
+                  options={TYPES_DOCUMENT.map(t => ({ value: t.value, label: t.label }))}
+                />
               </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="categorie">Catégorie</Label>
-                <Select 
-                  value={uploadData.categorie} 
+                <SearchableSelect
+                  value={uploadData.categorie}
                   onValueChange={(value) => setUploadData({ ...uploadData, categorie: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Sélectionner..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {CATEGORIES.map(c => (
-                      <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  data-testid="input-categorie-doc"
+                  placeholder="Sélectionner..."
+                  options={CATEGORIES.map(c => ({ value: c.value, label: c.label }))}
+                />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="date_validite">Date de validité</Label>
@@ -574,21 +549,13 @@ const Documents = () => {
 
             <div className="space-y-2">
               <Label htmlFor="equipment_id">Équipement associé</Label>
-              <Select 
-                value={uploadData.equipment_id || undefined} 
+              <SearchableSelect
+                value={uploadData.equipment_id}
                 onValueChange={(value) => setUploadData({ ...uploadData, equipment_id: value })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Aucun" />
-                </SelectTrigger>
-                <SelectContent>
-                  {equipments.map(eq => (
-                    <SelectItem key={eq.id} value={eq.id}>
-                      {eq.type} - {eq.reference}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                data-testid="input-equipment-doc"
+                placeholder="Aucun"
+                options={equipments.map(eq => ({ value: eq.id, label: `${eq.type} - ${eq.reference}` }))}
+              />
             </div>
 
             <div className="space-y-2">

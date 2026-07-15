@@ -12,7 +12,7 @@ import { Textarea } from '../components/ui/textarea';
 import { Skeleton } from '../components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../components/ui/dialog';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
+import { SearchableSelect } from '../components/ui/searchable-select';
 import { History, Plus, Search, Eye, Loader2, Clock, User, Package, Wrench, Activity } from 'lucide-react';
 
 function Interventions() {
@@ -126,7 +126,7 @@ function Interventions() {
   }
 
   const selectedEquipment = getSelectedEquipment();
-  const isCompressor = selectedEquipment?.type === 'compresseur';
+  const isCompressor = (selectedEquipment?.type || '').toLowerCase() === 'compresseur';
 
   async function handleSave() {
     setSaving(true);
@@ -257,47 +257,44 @@ function Interventions() {
             {/* Type d'intervention */}
             <div>
               <Label>Type d'intervention *</Label>
-              <Select value={formData.type_intervention} onValueChange={v => setFormData(p => ({ ...p, type_intervention: v, work_order_id: '', maintenance_preventive_id: '' }))}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="curative">Maintenance curative</SelectItem>
-                  <SelectItem value="preventive">Maintenance préventive</SelectItem>
-                </SelectContent>
-              </Select>
+              <SearchableSelect
+                value={formData.type_intervention}
+                onValueChange={v => setFormData(p => ({ ...p, type_intervention: v, work_order_id: '', maintenance_preventive_id: '' }))}
+                options={[
+                  { value: 'curative', label: 'Maintenance curative' },
+                  { value: 'preventive', label: 'Maintenance préventive' },
+                ]}
+                data-testid="interv-type-select"
+              />
             </div>
 
             <div className="grid grid-cols-2 gap-4">
               {formData.type_intervention === 'curative' ? (
                 <div>
                   <Label>Maintenance corrective</Label>
-                  <Select value={formData.work_order_id} onValueChange={v => setFormData(p => ({ ...p, work_order_id: v }))}>
-                    <SelectTrigger><SelectValue placeholder="Sélectionner" /></SelectTrigger>
-                    <SelectContent>
-                      {curativeWorkOrders.length === 0 ? (
-                        <SelectItem value="none" disabled>Aucune maintenance corrective en attente</SelectItem>
-                      ) : (
-                        curativeWorkOrders.map(wo => <SelectItem key={wo.id} value={wo.id}>{wo.titre}</SelectItem>)
-                      )}
-                    </SelectContent>
-                  </Select>
+                  <SearchableSelect
+                    value={formData.work_order_id}
+                    onValueChange={v => setFormData(p => ({ ...p, work_order_id: v }))}
+                    placeholder="Sélectionner"
+                    options={curativeWorkOrders.map(wo => ({ value: wo.id, label: wo.titre }))}
+                    emptyText="Aucune maintenance corrective en attente"
+                    data-testid="interv-wo-select"
+                  />
                 </div>
               ) : (
                 <div>
                   <Label>Maintenance préventive</Label>
-                  <Select value={formData.maintenance_preventive_id} onValueChange={v => setFormData(p => ({ ...p, maintenance_preventive_id: v }))}>
-                    <SelectTrigger><SelectValue placeholder="Sélectionner" /></SelectTrigger>
-                    <SelectContent>
-                      {preventiveWorkOrders.length === 0 ? (
-                        <SelectItem value="none" disabled>Aucune maintenance préventive planifiée</SelectItem>
-                      ) : (
-                        preventiveWorkOrders.map(wo => (
-                          <SelectItem key={wo.id} value={wo.id}>
-                            {wo.titre} {wo.periodicite_heures ? `(${wo.periodicite_heures}h)` : wo.periodicite_jours ? `(${wo.periodicite_jours}j)` : ''}
-                          </SelectItem>
-                        ))
-                      )}
-                    </SelectContent>
-                  </Select>
+                  <SearchableSelect
+                    value={formData.maintenance_preventive_id}
+                    onValueChange={v => setFormData(p => ({ ...p, maintenance_preventive_id: v }))}
+                    placeholder="Sélectionner"
+                    options={preventiveWorkOrders.map(wo => ({
+                      value: wo.id,
+                      label: `${wo.titre}${wo.periodicite_heures ? ` (${wo.periodicite_heures}h)` : wo.periodicite_jours ? ` (${wo.periodicite_jours}j)` : ''}`,
+                    }))}
+                    emptyText="Aucune maintenance préventive planifiée"
+                    data-testid="interv-preventive-select"
+                  />
                   <p className="text-xs text-slate-500 mt-1">Une nouvelle maintenance sera créée automatiquement</p>
                 </div>
               )}
@@ -308,30 +305,26 @@ function Interventions() {
               <div>
                 <Label>Technicien *</Label>
                 {!showCustomTechnicien ? (
-                  <Select 
-                    value={formData.technicien || "none"} 
+                  <SearchableSelect
+                    value={formData.technicien}
                     onValueChange={v => {
-                      if (v === "custom") {
+                      if (v === "__custom__") {
                         setShowCustomTechnicien(true);
                         setFormData(p => ({ ...p, technicien: '' }));
                       } else {
-                        setFormData(p => ({ ...p, technicien: v === "none" ? "" : v }));
+                        setFormData(p => ({ ...p, technicien: v }));
                       }
                     }}
-                  >
-                    <SelectTrigger><SelectValue placeholder="Sélectionner" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">Sélectionner un technicien</SelectItem>
-                      {data.technicians.map(tech => (
-                        <SelectItem key={tech.id} value={`${tech.prenom} ${tech.nom}`}>
-                          {tech.prenom} {tech.nom}
-                        </SelectItem>
-                      ))}
-                      <SelectItem value="custom" className="text-[#005F73] font-medium">
-                        + Saisir un autre nom...
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
+                    placeholder="Sélectionner un technicien"
+                    options={[
+                      ...data.technicians.map(tech => ({
+                        value: `${tech.prenom} ${tech.nom}`,
+                        label: `${tech.prenom} ${tech.nom}`,
+                      })),
+                      { value: "__custom__", label: "+ Saisir un autre nom..." },
+                    ]}
+                    data-testid="interv-technicien-select"
+                  />
                 ) : (
                   <div className="flex gap-2">
                     <Input
@@ -423,16 +416,16 @@ function Interventions() {
                 <div className="flex gap-2 items-end">
                   <div className="flex-1">
                     <Label className="text-xs text-slate-500">Pièce détachée</Label>
-                    <Select value={partSelect.part} onValueChange={v => setPartSelect(p => ({ ...p, part: v }))}>
-                      <SelectTrigger><SelectValue placeholder="Sélectionner une pièce" /></SelectTrigger>
-                      <SelectContent>
-                        {data.spareParts.map(p => (
-                          <SelectItem key={p.id} value={p.id}>
-                            {p.nom} {p.quantite_stock !== undefined && <span className="text-slate-400">(stock: {p.quantite_stock})</span>}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <SearchableSelect
+                      value={partSelect.part}
+                      onValueChange={v => setPartSelect(p => ({ ...p, part: v }))}
+                      placeholder="Sélectionner une pièce"
+                      options={data.spareParts.map(p => ({
+                        value: p.id,
+                        label: `${p.nom}${p.quantite_stock !== undefined ? ` (stock: ${p.quantite_stock})` : ''}`,
+                      }))}
+                      data-testid="interv-piece-select"
+                    />
                   </div>
                   <div className="w-24">
                     <Label className="text-xs text-slate-500">Quantité</Label>

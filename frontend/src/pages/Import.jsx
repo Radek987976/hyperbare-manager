@@ -6,13 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../co
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '../components/ui/select';
+import { SearchableSelect } from '../components/ui/searchable-select';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -201,21 +195,12 @@ const Import = () => {
           {/* Type selection */}
           <div className="space-y-2">
             <Label>Type d&apos;import *</Label>
-            <Select value={selectedType} onValueChange={setSelectedType}>
-              <SelectTrigger>
-                <SelectValue placeholder="Sélectionner le type de données à importer" />
-              </SelectTrigger>
-              <SelectContent>
-                {IMPORT_TYPES.map(type => (
-                  <SelectItem key={type.value} value={type.value}>
-                    <span className="flex items-center gap-2">
-                      <span>{type.icon}</span>
-                      <span>{type.label}</span>
-                    </span>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <SearchableSelect
+              value={selectedType}
+              onValueChange={setSelectedType}
+              placeholder="Sélectionner le type de données à importer"
+              options={IMPORT_TYPES.map(type => ({ value: type.value, label: `${type.icon} ${type.label}` }))}
+            />
             {selectedType && (
               <p className="text-sm text-gray-500">
                 {IMPORT_TYPES.find(t => t.value === selectedType)?.description}

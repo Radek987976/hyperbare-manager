@@ -316,6 +316,7 @@ class EquipmentBase(BaseModel):
     date_installation: Optional[str] = None
     date_reforme: Optional[str] = None  # Date de réforme (si statut = reforme)
     motif_reforme: Optional[str] = None  # Motif de réforme
+    technicien_reforme: Optional[str] = None  # Technicien responsable de la réforme
     gas_cylinder_id: Optional[str] = None  # Bouteille de gaz associée (ex: extincteur, ARI)
     photos: List[str] = []  # Liste des URLs des photos
     documents: List[dict] = []  # Liste des documents PDF [{filename, url, uploaded_at}]

@@ -2354,7 +2354,7 @@ async def get_maintenance_calendar(current_user: dict = Depends(get_current_user
         if role != "admin" and f.get("technicien_id") != uid:
             continue
         try:
-            d0 = datetime.strptime(f["date_debut"], "%Y-%m-%d").date()
+            d0 = datetime.strptime(f["date_debut"][:10], "%Y-%m-%d").date()
         except (ValueError, TypeError, KeyError):
             continue
         if today - timedelta(weeks=4) <= d0 <= end_date:
@@ -2642,8 +2642,8 @@ async def get_planning_summary(year: int, equipment_id: Optional[str] = None, cu
 def _formation_event_days(f: dict, window_start=None, window_end=None):
     """Génère la liste des jours (date) couverts par une formation, éventuellement bornée."""
     try:
-        d0 = datetime.strptime(f["date_debut"], "%Y-%m-%d").date()
-        d1 = datetime.strptime(f["date_fin"], "%Y-%m-%d").date()
+        d0 = datetime.strptime(f["date_debut"][:10], "%Y-%m-%d").date()
+        d1 = datetime.strptime(f["date_fin"][:10], "%Y-%m-%d").date()
     except (ValueError, TypeError, KeyError):
         return []
     if d1 < d0:

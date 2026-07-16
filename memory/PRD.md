@@ -3,6 +3,16 @@
 ## Énoncé du problème original
 Application web de GMAO (gestion de maintenance assistée par ordinateur) pour un caisson hyperbare unique contenant plusieurs équipements et sous-équipements.
 
+## Changelog (2026-06-16) — Lot fonctionnalités (interventions, formations, réforme, dashboard)
+- **Dashboard cliquable**: les alertes (`goToAlert`) et maintenances à venir (`goToUpcoming`) ouvrent directement l'OT concerné (WorkOrders ouvre le détail via `location.state.openId`).
+- **Calendrier hebdomadaire**: la grille 52 semaines du Dashboard remplacée par un agenda groupé semaine par semaine (`data-testid=weekly-agenda`), items cliquables.
+- **Interventions**: édition d'une ancienne intervention réservée à l'admin (`PUT /api/interventions/{id}`, réajuste le stock des pièces), ajout/suppression de PV PDF même après enregistrement (`POST/DELETE /api/interventions/{id}/documents`), affichage des pièces utilisées dans le détail.
+- **Formations**: nouvelle entité (`/api/formations` CRUD, admin). Création depuis le Dashboard (nom, technicien, du→au). Visible dans l'agenda hebdo, le calendrier Planning (bande violette, icône GraduationCap) et le calendrier dashboard. Un technicien ne voit que ses formations ; l'admin voit tout.
+- **Réforme**: ajout du champ « Technicien responsable » (`technicien_reforme`) en plus du motif ; consigné dans l'historique des statuts et affiché dans la fiche.
+- **Techniciens**: `GET /api/users/technicians` exclut désormais les comptes admin (saisie libre toujours possible).
+- Testé par l'agent de test (iteration_13) : 100% backend + frontend. Bug corrigé : import `useNavigate` + `formationsAPI/usersAPI` dans Dashboard.jsx.
+
+
 ## Changelog (2026-06-16) — Préparation déploiement + revue de code (sécurité)
 - **Déploiement**: 2 blocages corrigés → `JWT_SECRET` généré aléatoirement dans `backend/.env` (plus de fallback codé en dur, `server.py` L70 = `os.environ['JWT_SECRET']`) ; `.gitignore` nettoyé (fichiers `.env` requis ne sont plus bloqués, lignes `-e` parasites retirées). deployment_agent → PASS. Login vérifié OK.
 - **Correctifs sécurité/qualité (faible risque)**:

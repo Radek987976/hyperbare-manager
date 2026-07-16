@@ -4351,23 +4351,29 @@ async def create_control_report(report: ControlReportCreate, current_user: dict 
 @api_router.post("/import/excel")
 async def import_excel_file(
     file: UploadFile = File(...),
-    import_type: str = Form(...),  # maintenance, controles, bouteilles, budget
+    import_type: str = Form(...),  # maintenance, controles, bouteilles, budget, equipements, interventions
     current_user: dict = Depends(require_admin)
 ):
-    """Import data from Excel file"""
-    if not file.filename.endswith(('.xlsx', '.xls')):
-        raise HTTPException(status_code=400, detail="Format de fichier non supporté. Utilisez .xlsx ou .xls")
-    
-    # Save file temporarily
+    """Import data from Excel/CSV/Numbers file"""
+    fname = (file.filename or "").lower()
+    ext = None
+    for e in (".xlsx", ".xls", ".csv", ".numbers"):
+        if fname.endswith(e):
+            ext = e
+            break
+    if not ext:
+        raise HTTPException(status_code=400, detail="Format non supporté. Utilisez .xlsx, .csv ou .numbers")
+
+    # Save file temporarily (en conservant l'extension)
     file_id = str(uuid.uuid4())
-    temp_path = UPLOADS_DIR / "imports" / f"{file_id}.xlsx"
-    
+    temp_path = UPLOADS_DIR / "imports" / f"{file_id}{ext}"
+
     with open(temp_path, "wb") as f:
         shutil.copyfileobj(file.file, f)
-    
+
     try:
         result = {"imported": 0, "errors": [], "type": import_type}
-        
+
         if import_type == "prestataires":
             result = await import_contractors_from_excel(temp_path)
         elif import_type == "bouteilles":
@@ -4378,15 +4384,192 @@ async def import_excel_file(
             result = await import_maintenance_from_excel(temp_path)
         elif import_type == "controles":
             result = await import_controls_from_excel(temp_path)
+        elif import_type == "equipements":
+            result = await import_equipements_from_rows(_read_tabular_rows(temp_path, ext))
+        elif import_type == "interventions":
+            result = await import_interventions_from_rows(_read_tabular_rows(temp_path, ext))
         else:
             raise HTTPException(status_code=400, detail=f"Type d'import non supporté: {import_type}")
-        
+
         return result
-    
+
     finally:
         # Clean up temp file
         if temp_path.exists():
             temp_path.unlink()
+
+
+def _read_tabular_rows(file_path: Path, ext: str):
+    """Lit un fichier .xlsx/.csv/.numbers -> liste de dict (clés en MAJUSCULES)."""
+    if ext == ".numbers":
+        try:
+            from numbers_parser import Document
+        except Exception:
+            raise HTTPException(status_code=400, detail="Fichier .numbers non pris en charge sur ce serveur. Exportez-le en Excel (.xlsx) depuis Numbers : Fichier → Exporter vers → Excel.")
+        doc = Document(str(file_path))
+        raw = doc.sheets[0].tables[0].rows(values_only=True)
+        header_idx = next((i for i, r in enumerate(raw) if r and any(c not in (None, "") for c in r)), 0)
+        headers = [str(h).strip().upper() if h is not None else "" for h in raw[header_idx]]
+        rows = []
+        for r in raw[header_idx + 1:]:
+            if not r or not any(c not in (None, "") for c in r):
+                continue
+            rows.append({headers[i]: r[i] for i in range(min(len(headers), len(r))) if headers[i]})
+        return rows
+    if ext == ".csv":
+        df = pd.read_csv(file_path, dtype=str)
+    else:
+        df = pd.read_excel(file_path, sheet_name=0)
+    df.columns = [str(c).strip().upper() for c in df.columns]
+    return df.to_dict("records")
+
+
+def _cell(row: dict, *keys):
+    for k in keys:
+        if k in row:
+            v = row[k]
+            if v is None:
+                continue
+            try:
+                if isinstance(v, float) and pd.isna(v):
+                    continue
+            except Exception:
+                pass
+            s = str(v).strip()
+            if s and s.lower() != "nan":
+                return s
+    return None
+
+
+def _parse_date(v):
+    if v is None:
+        return None
+    if isinstance(v, datetime):
+        return v.strftime("%Y-%m-%d")
+    s = str(v).strip()
+    if not s or s.lower() == "nan":
+        return None
+    for fmt in ("%d/%m/%Y", "%Y-%m-%d", "%d-%m-%Y", "%d/%m/%y", "%Y/%m/%d"):
+        try:
+            return datetime.strptime(s[:10], fmt).strftime("%Y-%m-%d")
+        except ValueError:
+            continue
+    try:
+        return pd.to_datetime(s, dayfirst=True).strftime("%Y-%m-%d")
+    except Exception:
+        return None
+
+
+def _to_float(v):
+    s = _cell({"X": v}, "X")
+    if s is None:
+        return None
+    try:
+        return float(s.replace(",", ".").replace(" ", ""))
+    except ValueError:
+        return None
+
+
+async def import_equipements_from_rows(rows: list) -> dict:
+    imported, updated, errors = 0, 0, []
+    caisson = await db.equipments.find_one({"type": {"$regex": "caisson", "$options": "i"}}, {"_id": 0, "id": 1})
+    default_caisson = caisson["id"] if caisson else ""
+    existing_types = {t["nom"] async for t in db.equipment_types.find({}, {"_id": 0, "nom": 1})}
+    for i, row in enumerate(rows):
+        ref = _cell(row, "REFERENCE", "RÉFÉRENCE", "REF")
+        typ = _cell(row, "TYPE")
+        if not ref or not typ:
+            errors.append(f"Ligne {i + 2}: REFERENCE et TYPE obligatoires")
+            continue
+        if typ not in existing_types:
+            await db.equipment_types.insert_one({"id": str(uuid.uuid4()), "nom": typ, "created_at": datetime.now(timezone.utc).isoformat()})
+            existing_types.add(typ)
+        crit = (_cell(row, "CRITICITE", "CRITICITÉ") or "normale").lower()
+        statut = (_cell(row, "STATUT") or "en_service").lower()
+        fields = {
+            "type": typ,
+            "reference": ref,
+            "numero_serie": _cell(row, "N_SERIE", "NUMERO_SERIE", "N° SERIE") or ref,
+            "marque": _cell(row, "MARQUE"),
+            "modele": _cell(row, "MODELE", "MODÈLE"),
+            "criticite": crit if crit in ("critique", "haute", "normale", "basse") else "normale",
+            "statut": statut if statut in ("en_service", "maintenance", "hors_service", "reforme") else "en_service",
+            "date_installation": _parse_date(_cell(row, "DATE_INSTALLATION", "DATE INSTALLATION")),
+            "localisation": _cell(row, "LOCALISATION"),
+            "compteur_horaire": _to_float(_cell(row, "COMPTEUR_HORAIRE", "COMPTEUR HORAIRE")),
+        }
+        fields = {k: v for k, v in fields.items() if v is not None}
+        existing = await db.equipments.find_one({"reference": ref}, {"_id": 0, "id": 1})
+        if existing:
+            await db.equipments.update_one({"id": existing["id"]}, {"$set": fields})
+            updated += 1
+        else:
+            fields["id"] = str(uuid.uuid4())
+            fields.setdefault("caisson_id", default_caisson)
+            fields["historique_statut"] = []
+            fields["created_at"] = datetime.now(timezone.utc).isoformat()
+            await db.equipments.insert_one(fields)
+            imported += 1
+    return {"imported": imported, "updated": updated, "errors": errors, "type": "equipements"}
+
+
+async def import_interventions_from_rows(rows: list) -> dict:
+    imported, errors = 0, []
+    by_ref, by_serie = {}, {}
+    async for e in db.equipments.find({}, {"_id": 0, "id": 1, "reference": 1, "numero_serie": 1}):
+        if e.get("reference"):
+            by_ref[e["reference"].strip().lower()] = e["id"]
+        if e.get("numero_serie"):
+            by_serie[str(e["numero_serie"]).strip().lower()] = e["id"]
+    async for s in db.subequipments.find({}, {"_id": 0, "id": 1, "reference": 1, "numero_serie": 1, "nom": 1}):
+        for key in (s.get("reference"), s.get("numero_serie"), s.get("nom")):
+            if key:
+                by_ref.setdefault(str(key).strip().lower(), s["id"])
+    docs = []
+    for i, row in enumerate(rows):
+        eqref = _cell(row, "EQUIPEMENT", "EQUIPEMENT ", "EQUIPMENT")
+        serie = _cell(row, "N_SERIE", "NUMERO_SERIE")
+        eqid = None
+        if eqref:
+            eqid = by_ref.get(eqref.strip().lower())
+        if not eqid and serie:
+            eqid = by_serie.get(serie.strip().lower()) or by_ref.get(serie.strip().lower())
+        if not eqid:
+            errors.append(f"Ligne {i + 2}: équipement introuvable (EQUIPEMENT='{eqref}', N_SERIE='{serie}')")
+            continue
+        date = _parse_date(_cell(row, "DATE"))
+        actions = _cell(row, "ACTIONS_REALISEES", "ACTIONS REALISEES", "ACTIONS RÉALISÉES", "INTERVENTIONS", "ACTIONS")
+        if not date or not actions:
+            errors.append(f"Ligne {i + 2}: DATE et ACTIONS_REALISEES obligatoires")
+            continue
+        typ = (_cell(row, "TYPE") or "curative").lower()
+        typ = "preventive" if typ.startswith("prev") or typ.startswith("prév") else "curative"
+        pieces_txt = _cell(row, "PIECES_UTILISEES", "PIECES UTILISEES", "PIÈCES")
+        obs = _cell(row, "OBSERVATION", "OBSERVATIONS")
+        if pieces_txt:
+            obs = f"{obs} | Pièces: {pieces_txt}" if obs else f"Pièces: {pieces_txt}"
+        docs.append({
+            "id": str(uuid.uuid4()),
+            "work_order_id": None,
+            "maintenance_preventive_id": None,
+            "type_intervention": typ,
+            "date_intervention": date,
+            "technicien": _cell(row, "INTERVENANT", "INTERVENANTS", "TECHNICIEN") or "Import",
+            "actions_realisees": actions,
+            "observations": obs,
+            "pieces_utilisees": [],
+            "duree_minutes": None,
+            "compteur_horaire": _to_float(_cell(row, "COMPTEUR_HORAIRE", "COMPTEUR HORAIRE")),
+            "equipment_id": eqid,
+            "source": "import_excel",
+            "created_at": datetime.now(timezone.utc).isoformat(),
+        })
+    if docs:
+        await db.interventions.insert_many(docs)
+        imported = len(docs)
+    return {"imported": imported, "errors": errors, "type": "interventions"}
+
+
 
 async def import_contractors_from_excel(file_path: Path) -> dict:
     """Import contractors from Excel"""

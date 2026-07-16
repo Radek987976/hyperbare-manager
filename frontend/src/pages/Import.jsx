@@ -59,6 +59,18 @@ const IMPORT_TYPES = [
     description: 'Importer le suivi des contrôles périodiques des organes de sécurité',
     icon: '📋'
   },
+  {
+    value: 'equipements',
+    label: 'Équipements',
+    description: 'Importer une base d\'équipements (REFERENCE, TYPE, N_SERIE, CRITICITE, STATUT...). Colonnes en 1re ligne.',
+    icon: '🛠️'
+  },
+  {
+    value: 'interventions',
+    label: 'Interventions (base de données)',
+    description: 'Importer l\'historique complet des interventions, rattachées par EQUIPEMENT ou N_SERIE. Colonnes: EQUIPEMENT, TYPE, DATE, INTERVENANT, ACTIONS_REALISEES...',
+    icon: '📝'
+  },
 ];
 
 const Import = () => {
@@ -74,8 +86,8 @@ const Import = () => {
   const handleFileChange = (e) => {
     const file = e.target.files[0];
     if (file) {
-      if (!file.name.endsWith('.xlsx') && !file.name.endsWith('.xls')) {
-        setError('Format de fichier non supporté. Veuillez utiliser un fichier Excel (.xlsx ou .xls)');
+      if (!/\.(xlsx|xls|csv|numbers)$/i.test(file.name)) {
+        setError('Format non supporté. Utilisez .xlsx, .csv ou .numbers');
         return;
       }
       setSelectedFile(file);
@@ -188,7 +200,7 @@ const Import = () => {
             Import Excel
           </CardTitle>
           <CardDescription>
-            Importer des données depuis un fichier Excel (.xlsx)
+            Importer des données depuis un fichier Excel (.xlsx), CSV ou Numbers (.numbers)
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
@@ -215,7 +227,7 @@ const Import = () => {
               <Input
                 id="file-upload"
                 type="file"
-                accept=".xlsx,.xls"
+                accept=".xlsx,.xls,.csv,.numbers"
                 onChange={handleFileChange}
                 className="hidden"
               />
@@ -228,7 +240,7 @@ const Import = () => {
                     'Cliquez pour sélectionner un fichier ou glissez-déposez'
                   )}
                 </p>
-                <p className="text-xs text-gray-400">Fichiers Excel (.xlsx, .xls)</p>
+                <p className="text-xs text-gray-400">Fichiers acceptés : .xlsx, .csv, .numbers (Mac)</p>
               </label>
             </div>
           </div>
@@ -329,6 +341,20 @@ const Import = () => {
           <div>
             <h4 className="font-medium text-gray-900">Maintenances</h4>
             <p>Colonnes recommandées : Détail intervention, Périodicité, Observation technique</p>
+          </div>
+
+          <div>
+            <h4 className="font-medium text-gray-900">Équipements (base de données)</h4>
+            <p>Colonnes : <strong>REFERENCE</strong>*, <strong>TYPE</strong>*, MARQUE, MODELE, N_SERIE, DATE_INSTALLATION (JJ/MM/AAAA), CRITICITE (critique/haute/normale/basse), STATUT (en_service/maintenance/hors_service/reforme), LOCALISATION, COMPTEUR_HORAIRE. Mise à jour si la REFERENCE existe déjà.</p>
+          </div>
+
+          <div>
+            <h4 className="font-medium text-gray-900">Interventions (base de données)</h4>
+            <p>Colonnes : <strong>EQUIPEMENT</strong>* (réf. exacte) ou N_SERIE, <strong>TYPE</strong>* (preventive/curative), <strong>DATE</strong>* (JJ/MM/AAAA), <strong>INTERVENANT</strong>*, <strong>ACTIONS_REALISEES</strong>*, OBSERVATION, COMPTEUR_HORAIRE, PIECES_UTILISEES. Rattachement automatique à l'équipement par REFERENCE ou N_SERIE.</p>
+          </div>
+
+          <div className="p-2 bg-slate-50 rounded text-xs">
+            💡 <strong>Fichier Mac (.numbers)</strong> : accepté directement (1re feuille lue). Importez d'abord les équipements, puis les interventions.
           </div>
         </CardContent>
       </Card>

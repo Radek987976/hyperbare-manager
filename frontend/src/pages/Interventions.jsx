@@ -57,6 +57,27 @@ function Interventions() {
     loadData();
   }, []);
 
+  // Open a pre-filled "new intervention" form when arriving from the Dashboard
+  useEffect(() => {
+    const woId = _loc.state?.openWorkOrderId;
+    if (woId && data.workOrders.length) {
+      const wo = data.workOrders.find(w => w.id === woId);
+      if (wo) {
+        const isPreventive = wo.type_maintenance === 'preventive';
+        setEditingId(null);
+        setFormData({
+          ...emptyForm,
+          type_intervention: isPreventive ? 'preventive' : 'curative',
+          work_order_id: isPreventive ? '' : wo.id,
+          maintenance_preventive_id: isPreventive ? wo.id : '',
+        });
+        setShowCustomTechnicien(false);
+        setShowModal(true);
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data.workOrders, _loc.state]);
+
   async function loadData() {
     try {
       const [r1, r2, r3, r4, r5] = await Promise.all([

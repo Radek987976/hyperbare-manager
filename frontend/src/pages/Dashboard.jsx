@@ -69,7 +69,7 @@ const Dashboard = () => {
   const [formationForm, setFormationForm] = useState(emptyFormation);
 
   const goToAlert = (a) => {
-    if (a.item_type === 'work_order') navigate('/ordres-travail', { state: { openId: a.item_id } });
+    if (a.item_type === 'work_order') navigate('/interventions', { state: { openWorkOrderId: a.item_id } });
     else if (a.item_type === 'inspection') navigate('/controles');
     else if (a.item_type === 'spare_part') navigate('/stock');
     else if (a.item_type === 'equipment') navigate('/equipements', { state: { openId: a.item_id } });
@@ -77,7 +77,7 @@ const Dashboard = () => {
 
   const goToUpcoming = (wo) => {
     if (wo.origine === 'controle_reglementaire') navigate('/controles');
-    else navigate('/ordres-travail', { state: { openId: wo.id } });
+    else navigate('/interventions', { state: { openWorkOrderId: wo.id } });
   };
 
   const saveFormation = async () => {
@@ -738,7 +738,11 @@ const Dashboard = () => {
                       <div className="divide-y divide-slate-100">
                         {items.map(m => (
                           <div key={`${m.id}-${m.date_planifiee}`}
-                            onClick={() => { if (!m.is_formation) navigate('/ordres-travail', { state: { openId: m.id } }); }}
+                            onClick={() => {
+                              if (m.is_formation) return;
+                              if (m.type_maintenance === 'reglementaire') navigate('/controles');
+                              else navigate('/interventions', { state: { openWorkOrderId: m.id } });
+                            }}
                             data-testid={`agenda-item-${m.id}`}
                             className={`flex items-center justify-between gap-3 px-3 py-2 text-sm border-l-4 ${colorOf(m)} ${m.is_formation ? '' : 'cursor-pointer hover:bg-slate-50'}`}>
                             <div className="flex items-center gap-2 min-w-0">

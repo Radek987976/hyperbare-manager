@@ -3,6 +3,13 @@
 ## Énoncé du problème original
 Application web de GMAO (gestion de maintenance assistée par ordinateur) pour un caisson hyperbare unique contenant plusieurs équipements et sous-équipements.
 
+## Changelog (2026-06-16) — Dashboard : clic → intervention
+- Sur le Tableau de bord, cliquer une **alerte active** (type ordre de travail), une **maintenance à venir** ou un item de l'**agenda hebdomadaire** ouvre désormais le **formulaire d'intervention pré-rempli** (page Interventions) avec la maintenance correspondante : préventive → OT préventif (`maintenance_preventive_id`), corrective → OT correctif (`work_order_id`).
+- Les **contrôles réglementaires** continuent de renvoyer vers la page Contrôles ; les alertes stock/gaz/équipement gardent leur navigation dédiée ; une formation ne déclenche rien.
+- Implémentation : `Dashboard.jsx` (goToAlert/goToUpcoming + onClick agenda) → `navigate('/interventions', { state: { openWorkOrderId } })` ; `Interventions.jsx` effet sur `_loc.state.openWorkOrderId` ouvre le modal pré-rempli (même pattern que WorkOrders openId).
+- Ajout `DialogDescription` au modal d'intervention (correctif a11y). Testé UI 100% (iteration_15).
+
+
 ## Changelog (2026-06-16) — Cache stale fix + Mot de passe oublié
 - **Fix « je ne vois pas les mises à jour »**: le service worker (`public/service-worker.js`) était en **cache-first** et resservait indéfiniment l'ancienne version. Passé en **network-first** (cache v2) + rechargement auto via `controllerchange` dans `index.js`. Les utilisateurs récupèrent désormais la dernière version automatiquement.
 - **Mot de passe oublié (flux admin-médié)**:

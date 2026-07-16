@@ -11,7 +11,7 @@ import { Label } from '../components/ui/label';
 import { Textarea } from '../components/ui/textarea';
 import { Skeleton } from '../components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '../components/ui/dialog';
 import { SearchableSelect } from '../components/ui/searchable-select';
 import { History, Plus, Search, Eye, Loader2, Clock, User, Package, Wrench, Activity, FileText, Upload, Edit, Trash2, X } from 'lucide-react';
 
@@ -344,7 +344,10 @@ function Interventions() {
 
       <Dialog open={showModal} onOpenChange={setShowModal}>
         <DialogContent className="max-w-2xl">
-          <DialogHeader><DialogTitle>{editingId ? 'Modifier l\'intervention' : 'Enregistrer une intervention'}</DialogTitle></DialogHeader>
+          <DialogHeader>
+            <DialogTitle>{editingId ? 'Modifier l\'intervention' : 'Enregistrer une intervention'}</DialogTitle>
+            <DialogDescription>Renseignez la maintenance concernée, le technicien et les actions réalisées.</DialogDescription>
+          </DialogHeader>
           <div className="space-y-4">
             {/* Type d'intervention */}
             <div>

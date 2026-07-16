@@ -23,6 +23,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
   DialogFooter,
 } from '../components/ui/dialog';
 import {
@@ -551,6 +552,9 @@ const UsersPage = () => {
             <DialogTitle className="flex items-center gap-2">
               <KeyRound className="w-5 h-5 text-[#005F73]" /> Mot de passe temporaire envoyé
             </DialogTitle>
+            <DialogDescription>
+              Communiquez ce mot de passe temporaire à l'utilisateur. Il devra en définir un nouveau à sa prochaine connexion.
+            </DialogDescription>
           </DialogHeader>
           {tempResult && (
             <div className="space-y-3">

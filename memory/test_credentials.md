@@ -9,7 +9,7 @@
 - **Email**: tech@hypermaint.fr
 - **Mot de passe**: tech12345
 - **Rôle**: Technicien
-- Note: ce mot de passe peut changer si le flux « mot de passe oublié / mot de passe temporaire » est testé. Le remettre via Admin > Utilisateurs > changer le mot de passe si besoin.
+- Note: ce mot de passe peut changer si le flux « mot de passe oublié / mot de passe temporaire » est testé. Le remettre à tech12345 via Admin > Utilisateurs > changer le mot de passe si besoin.
 
 ## Base de données
 - DB_NAME: hyperbaremanager_prod (NE PAS MODIFIER)

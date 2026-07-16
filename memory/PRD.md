@@ -3,6 +3,17 @@
 ## Énoncé du problème original
 Application web de GMAO (gestion de maintenance assistée par ordinateur) pour un caisson hyperbare unique contenant plusieurs équipements et sous-équipements.
 
+## Changelog (2026-06-16) — Cache stale fix + Mot de passe oublié
+- **Fix « je ne vois pas les mises à jour »**: le service worker (`public/service-worker.js`) était en **cache-first** et resservait indéfiniment l'ancienne version. Passé en **network-first** (cache v2) + rechargement auto via `controllerchange` dans `index.js`. Les utilisateurs récupèrent désormais la dernière version automatiquement.
+- **Mot de passe oublié (flux admin-médié)**:
+  - Login : lien « Mot de passe oublié ? » → modal email → `POST /api/auth/forgot-password` (réponse générique, anti-énumération) → notifie **tous les admins** par email.
+  - Admin (page Utilisateurs) : carte « demandes de réinitialisation » (`GET /api/users/reset-requests`) + bouton « Envoyer un mot de passe temporaire » (`POST /api/users/{id}/send-temp-password`) → génère un mot de passe temporaire (secrets), l'affiche à l'admin (repli si email non délivré) et le mail à l'utilisateur.
+  - Changement forcé : `must_change_password` renvoyé au login ; `ProtectedRoute` affiche `ForcePasswordChange` jusqu'au changement (`PUT /api/users/me/change-password` efface le flag).
+  - Techniciens excluent l'admin (déjà fait). Testé E2E API 100% + UI 100% (iteration_14).
+- Email Resend : en mode sandbox (`onboarding@resend.dev`) l'envoi réel peut échouer ; le mot de passe temporaire est toujours affiché à l'admin. Pour l'envoi à tous, vérifier un domaine dans Resend.
+- Utilisateur de test créé : tech@hypermaint.fr / tech12345 (technicien).
+
+
 ## Changelog (2026-06-16) — Lot fonctionnalités (interventions, formations, réforme, dashboard)
 - **Dashboard cliquable**: les alertes (`goToAlert`) et maintenances à venir (`goToUpcoming`) ouvrent directement l'OT concerné (WorkOrders ouvre le détail via `location.state.openId`).
 - **Calendrier hebdomadaire**: la grille 52 semaines du Dashboard remplacée par un agenda groupé semaine par semaine (`data-testid=weekly-agenda`), items cliquables.

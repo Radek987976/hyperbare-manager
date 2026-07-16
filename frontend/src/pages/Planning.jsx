@@ -4,7 +4,7 @@ import {
   format, addMonths, subMonths, isSameMonth, isSameDay, isToday
 } from 'date-fns';
 import { fr } from 'date-fns/locale';
-import { ChevronLeft, ChevronRight, CalendarDays, Wrench, ShieldCheck, AlertTriangle, CheckCircle2, RotateCw } from 'lucide-react';
+import { ChevronLeft, ChevronRight, CalendarDays, Wrench, ShieldCheck, AlertTriangle, CheckCircle2, RotateCw, GraduationCap } from 'lucide-react';
 import { toast } from 'sonner';
 import { planningAPI, workOrdersAPI } from '../lib/api';
 import { equipmentsAPI } from '../lib/api';
@@ -32,6 +32,7 @@ const safeFormat = (value, pattern) => {
 };
 
 const eventStyle = (ev) => {
+  if (ev.origine === 'formation') return 'bg-[#7c3aed]/10 text-[#7c3aed] border-[#7c3aed]/30';
   if (ev.statut === 'terminee') return 'bg-[#0A9396]/15 text-[#0A9396] border-[#0A9396]/30 line-through';
   if (ev.is_overdue) return 'bg-[#AE2012]/10 text-[#AE2012] border-[#AE2012]/30';
   if (ev.origine === 'reglementaire') return 'bg-indigo-100 text-indigo-800 border-indigo-300';
@@ -187,6 +188,7 @@ export default function Planning() {
         <span className="flex items-center gap-2"><span className="w-3 h-3 rounded-sm bg-[#EE9B00]/30 border border-[#EE9B00]"></span> Correctif</span>
         <span className="flex items-center gap-2"><span className="w-3 h-3 rounded-sm bg-[#AE2012]/20 border border-[#AE2012]"></span> En retard</span>
         <span className="flex items-center gap-2"><span className="w-3 h-3 rounded-sm bg-[#0A9396]/30 border border-[#0A9396]"></span> Réalisé</span>
+        <span className="flex items-center gap-2"><span className="w-3 h-3 rounded-sm bg-[#7c3aed]/20 border border-[#7c3aed]"></span> Formation</span>
       </div>
 
       {/* Navigation */}
@@ -234,16 +236,18 @@ export default function Planning() {
                     {dayEvents.slice(0, 4).map(ev => (
                       <div
                         key={ev.id}
-                        draggable
-                        onDragStart={() => setDragId(ev.id)}
+                        draggable={ev.item_type !== 'formation'}
+                        onDragStart={() => { if (ev.item_type !== 'formation') setDragId(ev.id); }}
                         onClick={() => setSelectedEvent(ev)}
                         data-testid={`event-${ev.id}`}
                         title={ev.titre}
                         className={`text-[11px] leading-tight px-1.5 py-1 rounded border cursor-pointer truncate ${eventStyle(ev)}`}
                       >
-                        {ev.origine === 'reglementaire'
-                          ? <ShieldCheck className="w-3 h-3 inline mr-1" />
-                          : <Wrench className="w-3 h-3 inline mr-1" />}
+                        {ev.origine === 'formation'
+                          ? <GraduationCap className="w-3 h-3 inline mr-1" />
+                          : ev.origine === 'reglementaire'
+                            ? <ShieldCheck className="w-3 h-3 inline mr-1" />
+                            : <Wrench className="w-3 h-3 inline mr-1" />}
                         {ev.titre}
                       </div>
                     ))}
@@ -314,7 +318,7 @@ export default function Planning() {
               <DialogHeader>
                 <DialogTitle className="pr-6">{selectedEvent.titre}</DialogTitle>
                 <DialogDescription>
-                  {selectedEvent.origine === 'reglementaire' ? 'Contrôle réglementaire' : (selectedEvent.origine === 'corrective' ? 'Maintenance corrective' : 'Maintenance préventive')}
+                  {selectedEvent.origine === 'formation' ? 'Créneau de formation' : selectedEvent.origine === 'reglementaire' ? 'Contrôle réglementaire' : (selectedEvent.origine === 'corrective' ? 'Maintenance corrective' : 'Maintenance préventive')}
                 </DialogDescription>
               </DialogHeader>
               <div className="space-y-2 text-sm">

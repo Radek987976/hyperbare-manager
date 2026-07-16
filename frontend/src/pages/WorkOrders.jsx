@@ -86,6 +86,13 @@ const WorkOrders = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const _loc = useLocation();
   useEffect(() => { if (_loc.state?.q) setSearchTerm(_loc.state.q); }, [_loc.state]);
+  useEffect(() => {
+    const openId = _loc.state?.openId;
+    if (openId && workOrders.length) {
+      const wo = workOrders.find(w => w.id === openId);
+      if (wo) { setSelectedWorkOrder(wo); setShowDetailModal(true); }
+    }
+  }, [workOrders, _loc.state]);
   const [filterStatut, setFilterStatut] = useState('all');
   const [filterType, setFilterType] = useState('all');
   const [activeTab, setActiveTab] = useState('all');

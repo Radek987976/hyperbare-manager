@@ -13,9 +13,12 @@ import { Skeleton } from '../components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../components/ui/dialog';
 import { SearchableSelect } from '../components/ui/searchable-select';
-import { History, Plus, Search, Eye, Loader2, Clock, User, Package, Wrench, Activity } from 'lucide-react';
+import { History, Plus, Search, Eye, Loader2, Clock, User, Package, Wrench, Activity, FileText, Upload, Edit, Trash2, X } from 'lucide-react';
 
 function Interventions() {
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'admin';
+  const backendUrl = process.env.REACT_APP_BACKEND_URL;
   const [data, setData] = useState({
     interventions: [],
     workOrders: [],
@@ -31,6 +34,8 @@ function Interventions() {
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [selectedItem, setSelectedItem] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [editingId, setEditingId] = useState(null);
+  const [uploadingPdf, setUploadingPdf] = useState(false);
   const [partSelect, setPartSelect] = useState({ part: '', qty: '1' });
   const [showCustomTechnicien, setShowCustomTechnicien] = useState(false);
   
@@ -147,13 +152,79 @@ function Interventions() {
           quantite: p.quantite
         }))
       };
-      await interventionsAPI.create(payload);
+      if (editingId) {
+        await interventionsAPI.update(editingId, payload);
+      } else {
+        await interventionsAPI.create(payload);
+      }
       await loadData();
       setShowModal(false);
+      setEditingId(null);
     } catch (e) {
       alert(e.response?.data?.detail || 'Erreur');
     }
     setSaving(false);
+  }
+
+  function openEdit(item) {
+    setEditingId(item.id);
+    setFormData({
+      type_intervention: item.type_intervention || 'curative',
+      work_order_id: item.work_order_id || '',
+      maintenance_preventive_id: item.maintenance_preventive_id || '',
+      date_intervention: item.date_intervention || new Date().toISOString().split('T')[0],
+      technicien: item.technicien || '',
+      actions_realisees: item.actions_realisees || '',
+      observations: item.observations || '',
+      duree_minutes: item.duree_minutes?.toString() || '',
+      compteur_horaire: item.compteur_horaire?.toString() || '',
+      pieces_utilisees: (item.pieces_utilisees || []).map(p => ({
+        spare_part_id: p.spare_part_id,
+        quantite: p.quantite,
+        nom: getPartName(p.spare_part_id),
+      })),
+    });
+    setShowCustomTechnicien(false);
+    setShowDetailModal(false);
+    setShowModal(true);
+  }
+
+  function getPartName(id) {
+    const p = data.spareParts.find(sp => sp.id === id);
+    return p ? p.nom : id;
+  }
+
+  async function refreshSelected(id) {
+    try {
+      const res = await interventionsAPI.getById(id);
+      setSelectedItem(res.data);
+    } catch (e) { /* noop */ }
+  }
+
+  async function handlePdfUpload(e) {
+    const file = e.target.files[0];
+    if (!file || !selectedItem) return;
+    setUploadingPdf(true);
+    try {
+      await interventionsAPI.uploadDocument(selectedItem.id, file);
+      await refreshSelected(selectedItem.id);
+      await loadData();
+    } catch (err) {
+      alert(err.response?.data?.detail || "Erreur lors de l'ajout du PDF");
+    }
+    setUploadingPdf(false);
+    e.target.value = '';
+  }
+
+  async function handleDeletePdf(docUrl) {
+    if (!selectedItem) return;
+    try {
+      await interventionsAPI.deleteDocument(selectedItem.id, docUrl);
+      await refreshSelected(selectedItem.id);
+      await loadData();
+    } catch (err) {
+      alert('Erreur lors de la suppression');
+    }
   }
 
   function getWoTitle(id) {
@@ -252,7 +323,7 @@ function Interventions() {
 
       <Dialog open={showModal} onOpenChange={setShowModal}>
         <DialogContent className="max-w-2xl">
-          <DialogHeader><DialogTitle>Enregistrer une intervention</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>{editingId ? 'Modifier l\'intervention' : 'Enregistrer une intervention'}</DialogTitle></DialogHeader>
           <div className="space-y-4">
             {/* Type d'intervention */}
             <div>
@@ -439,15 +510,69 @@ function Interventions() {
       </Dialog>
 
       <Dialog open={showDetailModal} onOpenChange={setShowDetailModal}>
-        <DialogContent>
-          <DialogHeader><DialogTitle>Détails</DialogTitle></DialogHeader>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader><DialogTitle>Détails de l'intervention</DialogTitle></DialogHeader>
           {selectedItem && (
             <div className="space-y-3">
               <p><strong>Date:</strong> {formatDate(selectedItem.date_intervention)}</p>
               <p><strong>Technicien:</strong> {selectedItem.technicien}</p>
-              <p><strong>OT:</strong> {getWoTitle(selectedItem.work_order_id)}</p>
+              <p><strong>Maintenance:</strong> {selectedItem.type_intervention === 'preventive' ? getPreventiveTitle(selectedItem.maintenance_preventive_id) : getWoTitle(selectedItem.work_order_id)}</p>
               <p><strong>Actions:</strong> {selectedItem.actions_realisees}</p>
               {selectedItem.observations && <p><strong>Observations:</strong> {selectedItem.observations}</p>}
+              {selectedItem.duree_minutes ? <p><strong>Durée:</strong> {selectedItem.duree_minutes} min</p> : null}
+              {selectedItem.compteur_horaire != null && <p><strong>Compteur horaire:</strong> {selectedItem.compteur_horaire?.toLocaleString()} h</p>}
+
+              {/* Pièces utilisées */}
+              {(selectedItem.pieces_utilisees || []).length > 0 && (
+                <div className="border-t pt-3">
+                  <p className="font-semibold flex items-center gap-2 mb-2"><Package className="w-4 h-4" /> Pièces utilisées</p>
+                  <div className="space-y-1">
+                    {selectedItem.pieces_utilisees.map((p) => (
+                      <div key={p.spare_part_id} className="flex items-center justify-between text-sm p-2 bg-slate-50 rounded">
+                        <span>{getPartName(p.spare_part_id)}</span>
+                        <Badge variant="secondary" className="bg-[#005F73]/10 text-[#005F73]">Qté: {p.quantite}</Badge>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Documents PDF (PV) */}
+              <div className="border-t pt-3">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="font-semibold flex items-center gap-2"><FileText className="w-4 h-4" /> PV / Documents PDF</p>
+                  <label className="cursor-pointer">
+                    <input type="file" accept=".pdf" className="hidden" onChange={handlePdfUpload} disabled={uploadingPdf} data-testid="interv-pdf-input" />
+                    <Button variant="outline" size="sm" asChild>
+                      <span>{uploadingPdf ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4 mr-1" />}Ajouter un PDF</span>
+                    </Button>
+                  </label>
+                </div>
+                {(selectedItem.documents || []).length === 0 ? (
+                  <p className="text-sm text-slate-400">Aucun document</p>
+                ) : (
+                  <div className="space-y-2">
+                    {selectedItem.documents.map((doc) => (
+                      <div key={doc.url} className="flex items-center justify-between p-2 rounded border border-slate-200" data-testid="interv-pdf-item">
+                        <a href={`${backendUrl}${doc.url}`} target="_blank" rel="noreferrer" className="flex items-center gap-2 text-[#005F73] hover:underline text-sm truncate">
+                          <FileText className="w-4 h-4 shrink-0" /> {doc.filename}
+                        </a>
+                        <button onClick={() => handleDeletePdf(doc.url)} className="text-slate-400 hover:text-red-600 shrink-0" data-testid="interv-pdf-delete">
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {isAdmin && (
+                <div className="border-t pt-3 flex justify-end">
+                  <Button onClick={() => openEdit(selectedItem)} className="bg-[#005F73] hover:bg-[#004C5C]" data-testid="interv-edit-btn">
+                    <Edit className="w-4 h-4 mr-2" /> Rectifier cette intervention
+                  </Button>
+                </div>
+              )}
             </div>
           )}
         </DialogContent>

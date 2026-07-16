@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
-import { equipmentsAPI, caissonAPI, equipmentTypesAPI, reportsAPI } from '../lib/api';
+import { equipmentsAPI, caissonAPI, equipmentTypesAPI, reportsAPI, usersAPI } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
 import { 
   formatDate, 
@@ -75,6 +75,7 @@ const Equipments = () => {
   const { canCreate, canModify, canDelete } = useAuth();
   const [equipments, setEquipments] = useState([]);
   const [equipmentTypes, setEquipmentTypes] = useState([]);
+  const [technicians, setTechnicians] = useState([]);
   const [caisson, setCaisson] = useState(null);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -101,7 +102,8 @@ const Equipments = () => {
     date_installation: '',
     compteur_horaire: '',
     date_reforme: '',
-    motif_reforme: ''
+    motif_reforme: '',
+    technicien_reforme: ''
   });
 
   useEffect(() => {
@@ -151,6 +153,10 @@ const Equipments = () => {
       setEquipments(equipmentsRes.data || []);
       setCaisson(caissonRes.data);
       setEquipmentTypes(typesRes.data || []);
+      try {
+        const techRes = await usersAPI.getTechnicians();
+        setTechnicians(techRes.data || []);
+      } catch (e) { /* noop */ }
     } catch (error) {
       console.error('Erreur chargement:', error);
     } finally {
@@ -199,7 +205,8 @@ const Equipments = () => {
       date_installation: equipment.date_installation || '',
       compteur_horaire: equipment.compteur_horaire?.toString() || '',
       date_reforme: equipment.date_reforme || '',
-      motif_reforme: equipment.motif_reforme || ''
+      motif_reforme: equipment.motif_reforme || '',
+      technicien_reforme: equipment.technicien_reforme || ''
     });
     setShowModal(true);
   };
@@ -248,7 +255,8 @@ const Equipments = () => {
         date_installation: formData.date_installation || null,
         description: formData.description || null,
         date_reforme: formData.statut === 'reforme' ? (formData.date_reforme || null) : null,
-        motif_reforme: formData.statut === 'reforme' ? (formData.motif_reforme || null) : null
+        motif_reforme: formData.statut === 'reforme' ? (formData.motif_reforme || null) : null,
+        technicien_reforme: formData.statut === 'reforme' ? (formData.technicien_reforme || null) : null
       };
       
       if (selectedEquipment) {
@@ -667,6 +675,18 @@ const Equipments = () => {
                     ]}
                   />
                 </div>
+                <div className="space-y-2">
+                  <Label htmlFor="technicien_reforme">Technicien responsable</Label>
+                  <SearchableSelect
+                    value={formData.technicien_reforme}
+                    onValueChange={(v) => handleSelectChange('technicien_reforme', v)}
+                    allowCustom
+                    data-testid="select-technicien-reforme"
+                    placeholder="Sélectionner ou saisir un nom"
+                    searchPlaceholder="Rechercher ou saisir un nom..."
+                    options={technicians.map(t => ({ value: `${t.prenom} ${t.nom}`, label: `${t.prenom} ${t.nom}` }))}
+                  />
+                </div>
               </>
             )}
           </div>
@@ -744,6 +764,10 @@ const Equipments = () => {
                     <div data-testid="detail-motif-reforme">
                       <p className="text-xs text-slate-500 uppercase">Motif de réforme</p>
                       <p className="font-medium">{selectedEquipment.motif_reforme || '—'}</p>
+                    </div>
+                    <div data-testid="detail-technicien-reforme">
+                      <p className="text-xs text-slate-500 uppercase">Technicien responsable</p>
+                      <p className="font-medium">{selectedEquipment.technicien_reforme || '—'}</p>
                     </div>
                   </>
                 )}
@@ -889,6 +913,7 @@ const Equipments = () => {
                             </Badge>
                           </div>
                           {h.motif && <p className="text-slate-600 mt-1">Motif : {h.motif}</p>}
+                          {h.technicien_responsable && <p className="text-slate-600">Technicien : {h.technicien_responsable}</p>}
                           <p className="text-xs text-slate-400 mt-0.5">
                             {formatDate(h.date)}{h.utilisateur ? ` · par ${h.utilisateur}` : ''}
                           </p>

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { dashboardAPI, caissonAPI, alertsAPI } from '../lib/api';
 import { formatDate, daysUntil } from '../lib/utils';
 import { useAuth } from '../context/AuthContext';
@@ -8,6 +8,11 @@ import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
 import { Skeleton } from '../components/ui/skeleton';
 import { GlobalSearch } from '../components/GlobalSearch';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../components/ui/dialog';
+import { Input } from '../components/ui/input';
+import { Label } from '../components/ui/label';
+import { Textarea } from '../components/ui/textarea';
+import { SearchableSelect } from '../components/ui/searchable-select';
 import {
   Box,
   Settings2,
@@ -24,7 +29,10 @@ import {
   Mail,
   Loader2,
   Bell,
-  Wrench
+  Wrench,
+  GraduationCap,
+  Plus,
+  Trash2
 } from 'lucide-react';
 import {
   BarChart,
@@ -51,6 +59,57 @@ const Dashboard = () => {
   const [loading, setLoading] = useState(true);
   const [sendingAlerts, setSendingAlerts] = useState(false);
   const [alertResult, setAlertResult] = useState(null);
+  const navigate = useNavigate();
+  const isAdmin = user?.role === 'admin';
+  const [formations, setFormations] = useState([]);
+  const [technicians, setTechnicians] = useState([]);
+  const [showFormationModal, setShowFormationModal] = useState(false);
+  const [savingFormation, setSavingFormation] = useState(false);
+  const emptyFormation = { nom: '', technicien: '', date_debut: '', date_fin: '', description: '' };
+  const [formationForm, setFormationForm] = useState(emptyFormation);
+
+  const goToAlert = (a) => {
+    if (a.item_type === 'work_order') navigate('/ordres-travail', { state: { openId: a.item_id } });
+    else if (a.item_type === 'inspection') navigate('/controles');
+    else if (a.item_type === 'spare_part') navigate('/stock');
+    else if (a.item_type === 'equipment') navigate('/equipements', { state: { openId: a.item_id } });
+  };
+
+  const goToUpcoming = (wo) => {
+    if (wo.origine === 'controle_reglementaire') navigate('/controles');
+    else navigate('/ordres-travail', { state: { openId: wo.id } });
+  };
+
+  const saveFormation = async () => {
+    if (!formationForm.nom || !formationForm.technicien || !formationForm.date_debut || !formationForm.date_fin) return;
+    setSavingFormation(true);
+    try {
+      const selTech = technicians.find(t => t.id === formationForm.technicien);
+      const payload = {
+        nom: formationForm.nom,
+        technicien: selTech ? `${selTech.prenom} ${selTech.nom}` : formationForm.technicien,
+        technicien_id: selTech ? selTech.id : null,
+        date_debut: formationForm.date_debut,
+        date_fin: formationForm.date_fin,
+        description: formationForm.description || null,
+      };
+      await formationsAPI.create(payload);
+      setFormationForm(emptyFormation);
+      await loadDashboardData();
+    } catch (e) {
+      alert(e.response?.data?.detail || 'Erreur lors de la création de la formation');
+    }
+    setSavingFormation(false);
+  };
+
+  const deleteFormation = async (id) => {
+    try {
+      await formationsAPI.delete(id);
+      await loadDashboardData();
+    } catch (e) {
+      alert('Erreur lors de la suppression');
+    }
+  };
 
   useEffect(() => {
     loadDashboardData();
@@ -92,6 +151,14 @@ const Dashboard = () => {
       setCaisson(caissonRes.data);
       setCalendar(calendarRes.data || []);
       setCaisson(caissonRes.data);
+      try {
+        const [formRes, techRes] = await Promise.all([
+          formationsAPI.getAll(),
+          usersAPI.getTechnicians().catch(() => ({ data: [] })),
+        ]);
+        setFormations(formRes.data || []);
+        setTechnicians(techRes.data || []);
+      } catch (e) { /* noop */ }
     } catch (error) {
       console.error('Erreur chargement dashboard:', error);
     } finally {
@@ -478,7 +545,8 @@ const Dashboard = () => {
                 {alerts.slice(0, 5).map((alert, index) => (
                   <div
                     key={index}
-                    className={`alert-card ${alert.severity}`}
+                    onClick={() => goToAlert(alert)}
+                    className={`alert-card ${alert.severity} cursor-pointer hover:shadow-sm transition-shadow`}
                     data-testid={`alert-item-${index}`}
                   >
                     <div className="flex items-start gap-3">
@@ -523,7 +591,8 @@ const Dashboard = () => {
                 {upcoming.slice(0, 5).map((wo, index) => (
                   <div
                     key={wo.id}
-                    className={`p-3 rounded-md border ${
+                    onClick={() => goToUpcoming(wo)}
+                    className={`p-3 rounded-md border cursor-pointer hover:shadow-sm transition-shadow ${
                       wo.is_overdue ? 'border-[#AE2012]/30 bg-[#AE2012]/5' : 'border-slate-200'
                     }`}
                     data-testid={`upcoming-item-${index}`}
@@ -606,125 +675,158 @@ const Dashboard = () => {
         </Card>
       )}
 
-      {/* Calendrier de Maintenance 52 semaines */}
+      {/* Calendrier hebdomadaire */}
       <Card className="dashboard-widget" data-testid="maintenance-calendar">
-        <CardHeader>
+        <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle className="font-['Barlow_Condensed'] uppercase text-lg flex items-center gap-2">
             <Calendar className="w-5 h-5 text-[#005F73]" />
-            Calendrier de Maintenance (52 semaines)
+            Calendrier des maintenances (semaine par semaine)
           </CardTitle>
+          {isAdmin && (
+            <Button variant="outline" size="sm" onClick={() => setShowFormationModal(true)} data-testid="add-formation-btn"
+              className="border-[#7c3aed] text-[#7c3aed] hover:bg-[#7c3aed]/5">
+              <GraduationCap className="w-4 h-4 mr-1" /> Ajouter une formation
+            </Button>
+          )}
         </CardHeader>
         <CardContent>
-          <div className="overflow-x-auto">
-            <div className="min-w-[900px]">
-              {/* Légende */}
-              <div className="flex gap-4 mb-4 text-xs">
-                <div className="flex items-center gap-1">
-                  <div className="w-3 h-3 rounded bg-[#0A9396]"></div>
-                  <span>Préventive planifiée</span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <div className="w-3 h-3 rounded bg-[#EE9B00]"></div>
-                  <span>Corrective planifiée</span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <div className="w-3 h-3 rounded bg-[#94D2BD]"></div>
-                  <span>Terminée</span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <div className="w-3 h-3 rounded bg-[#AE2012]"></div>
-                  <span>En retard</span>
-                </div>
-              </div>
-              
-              {/* Grille des semaines */}
-              <div className="grid grid-cols-13 gap-1">
-                {/* En-têtes des mois */}
-                {['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Août', 'Sep', 'Oct', 'Nov', 'Déc', ''].map((month, idx) => (
-                  <div key={idx} className="text-xs text-center text-slate-500 font-medium py-1">
-                    {month}
-                  </div>
-                ))}
-                
-                {/* Semaines */}
-                {Array.from({ length: 52 }, (_, weekIdx) => {
-                  const currentWeek = new Date().getWeek();
-                  const weekNum = ((currentWeek + weekIdx - 1) % 52) + 1;
-                  const isCurrentWeek = weekIdx === 0;
-                  
-                  // Trouver les maintenances de cette semaine
-                  const weekMaintenances = calendar.filter(m => {
-                    const mDate = new Date(m.date_planifiee);
-                    const mWeek = mDate.getWeek();
-                    return mWeek === weekNum;
-                  });
-                  
-                  const hasPreventive = weekMaintenances.some(m => m.type_maintenance === 'preventive' && m.statut !== 'terminee');
-                  const hasCorrective = weekMaintenances.some(m => m.type_maintenance === 'corrective' && m.statut !== 'terminee');
-                  const hasCompleted = weekMaintenances.some(m => m.statut === 'terminee');
-                  const hasOverdue = weekMaintenances.some(m => {
-                    const mDate = new Date(m.date_planifiee);
-                    return mDate < new Date() && m.statut !== 'terminee';
-                  });
-                  
-                  let bgColor = 'bg-slate-100';
-                  if (hasOverdue) bgColor = 'bg-[#AE2012]';
-                  else if (hasCorrective) bgColor = 'bg-[#EE9B00]';
-                  else if (hasPreventive) bgColor = 'bg-[#0A9396]';
-                  else if (hasCompleted) bgColor = 'bg-[#94D2BD]';
-                  
+          <div className="flex flex-wrap gap-4 mb-4 text-xs">
+            <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-[#0A9396]"></span>Préventive</span>
+            <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-indigo-500"></span>Réglementaire</span>
+            <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-[#EE9B00]"></span>Corrective</span>
+            <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-[#AE2012]"></span>En retard</span>
+            <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-[#94D2BD]"></span>Terminée</span>
+            <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-[#7c3aed]"></span>Formation</span>
+          </div>
+          {(() => {
+            const today0 = new Date(); today0.setHours(0, 0, 0, 0);
+            const mondayOf = (dstr) => { const d = new Date(dstr); d.setHours(0, 0, 0, 0); const off = (d.getDay() + 6) % 7; d.setDate(d.getDate() - off); return d; };
+            const map = {};
+            (calendar || []).forEach(m => {
+              if (!m.date_planifiee) return;
+              const mon = mondayOf(m.date_planifiee);
+              const key = mon.toISOString().slice(0, 10);
+              if (!map[key]) map[key] = { monday: mon, items: [] };
+              map[key].items.push(m);
+            });
+            const weeks = Object.values(map)
+              .filter(w => { const sun = new Date(w.monday); sun.setDate(sun.getDate() + 6); return sun >= today0; })
+              .sort((a, b) => a.monday - b.monday)
+              .slice(0, 12);
+            if (weeks.length === 0) return <p className="text-sm text-slate-400 py-6 text-center">Aucune maintenance planifiée</p>;
+            const colorOf = (m) => {
+              const d = new Date(m.date_planifiee); d.setHours(0, 0, 0, 0);
+              const overdue = d < today0 && m.statut !== 'terminee' && !m.is_formation;
+              if (m.is_formation) return 'border-[#7c3aed] bg-[#7c3aed]/5';
+              if (m.statut === 'terminee') return 'border-[#94D2BD] bg-[#94D2BD]/10';
+              if (overdue) return 'border-[#AE2012] bg-[#AE2012]/5';
+              if (m.type_maintenance === 'corrective') return 'border-[#EE9B00] bg-[#EE9B00]/5';
+              if (m.type_maintenance === 'reglementaire') return 'border-indigo-500 bg-indigo-50';
+              return 'border-[#0A9396] bg-[#0A9396]/5';
+            };
+            return (
+              <div className="space-y-4" data-testid="weekly-agenda">
+                {weeks.map(w => {
+                  const sun = new Date(w.monday); sun.setDate(sun.getDate() + 6);
+                  const items = [...w.items].sort((a, b) => (a.date_planifiee || '').localeCompare(b.date_planifiee || ''));
                   return (
-                    <div
-                      key={weekIdx}
-                      className={`h-6 rounded ${bgColor} ${isCurrentWeek ? 'ring-2 ring-[#005F73]' : ''} 
-                        ${weekMaintenances.length > 0 ? 'cursor-pointer hover:opacity-80' : ''}`}
-                      title={weekMaintenances.length > 0 ? 
-                        `S${weekNum}: ${weekMaintenances.map(m => m.titre).join(', ')}` : 
-                        `S${weekNum}`
-                      }
-                    >
-                      {weekMaintenances.length > 0 && (
-                        <div className="text-[10px] text-white text-center leading-6 font-medium">
-                          {weekMaintenances.length}
-                        </div>
-                      )}
+                    <div key={w.monday.toISOString()} className="border border-slate-200 rounded-lg overflow-hidden">
+                      <div className="bg-slate-50 px-3 py-2 text-sm font-semibold text-slate-700">
+                        Semaine du {formatDate(w.monday.toISOString().slice(0, 10))} au {formatDate(sun.toISOString().slice(0, 10))}
+                        <span className="ml-2 text-xs font-normal text-slate-400">({items.length})</span>
+                      </div>
+                      <div className="divide-y divide-slate-100">
+                        {items.map(m => (
+                          <div key={`${m.id}-${m.date_planifiee}`}
+                            onClick={() => { if (!m.is_formation) navigate('/ordres-travail', { state: { openId: m.id } }); }}
+                            data-testid={`agenda-item-${m.id}`}
+                            className={`flex items-center justify-between gap-3 px-3 py-2 text-sm border-l-4 ${colorOf(m)} ${m.is_formation ? '' : 'cursor-pointer hover:bg-slate-50'}`}>
+                            <div className="flex items-center gap-2 min-w-0">
+                              {m.is_formation ? <GraduationCap className="w-4 h-4 text-[#7c3aed] shrink-0" /> : <Wrench className="w-4 h-4 text-slate-400 shrink-0" />}
+                              <span className="truncate">{m.titre}</span>
+                            </div>
+                            <span className="text-xs text-slate-500 whitespace-nowrap">
+                              {m.is_formation && m.date_fin ? `${formatDate(m.date_planifiee)} → ${formatDate(m.date_fin)}` : formatDate(m.date_planifiee)}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   );
                 })}
               </div>
-              
-              {/* Détail des maintenances du mois en cours */}
-              {calendar.length > 0 && (
-                <div className="mt-4 pt-4 border-t">
-                  <p className="text-sm font-medium text-slate-700 mb-2">Maintenances à venir (4 prochaines semaines)</p>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2">
-                    {calendar
-                      .filter(m => {
-                        const mDate = new Date(m.date_planifiee);
-                        const fourWeeksLater = new Date();
-                        fourWeeksLater.setDate(fourWeeksLater.getDate() + 28);
-                        return mDate >= new Date() && mDate <= fourWeeksLater && m.statut !== 'terminee';
-                      })
-                      .slice(0, 8)
-                      .map(m => (
-                        <div 
-                          key={m.id} 
-                          className={`p-2 rounded text-xs border-l-2 ${
-                            m.type_maintenance === 'preventive' ? 'border-[#0A9396] bg-[#0A9396]/5' : 'border-[#EE9B00] bg-[#EE9B00]/5'
-                          }`}
-                        >
-                          <p className="font-medium truncate">{m.titre}</p>
-                          <p className="text-slate-500">{formatDate(m.date_planifiee)}</p>
-                        </div>
-                      ))
-                    }
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
+            );
+          })()}
         </CardContent>
       </Card>
+
+      {/* Formation modal (admin) */}
+      <Dialog open={showFormationModal} onOpenChange={setShowFormationModal}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="font-['Barlow_Condensed'] uppercase flex items-center gap-2">
+              <GraduationCap className="w-5 h-5 text-[#7c3aed]" /> Créneaux de formation
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Nom de la formation *</Label>
+              <Input value={formationForm.nom} onChange={e => setFormationForm(p => ({ ...p, nom: e.target.value }))} placeholder="Ex: Recyclage sécurité hyperbare" data-testid="formation-nom" />
+            </div>
+            <div className="space-y-2">
+              <Label>Technicien *</Label>
+              <SearchableSelect
+                value={formationForm.technicien}
+                onValueChange={(v) => setFormationForm(p => ({ ...p, technicien: v }))}
+                allowCustom
+                placeholder="Sélectionner ou saisir un nom"
+                searchPlaceholder="Rechercher ou saisir..."
+                options={technicians.map(t => ({ value: t.id, label: `${t.prenom} ${t.nom}` }))}
+                data-testid="formation-technicien"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Du *</Label>
+                <Input type="date" value={formationForm.date_debut} onChange={e => setFormationForm(p => ({ ...p, date_debut: e.target.value }))} data-testid="formation-debut" />
+              </div>
+              <div className="space-y-2">
+                <Label>Au *</Label>
+                <Input type="date" value={formationForm.date_fin} onChange={e => setFormationForm(p => ({ ...p, date_fin: e.target.value }))} data-testid="formation-fin" />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Description</Label>
+              <Textarea value={formationForm.description} onChange={e => setFormationForm(p => ({ ...p, description: e.target.value }))} rows={2} />
+            </div>
+            <Button onClick={saveFormation} disabled={savingFormation || !formationForm.nom || !formationForm.technicien || !formationForm.date_debut || !formationForm.date_fin} className="w-full bg-[#7c3aed] hover:bg-[#6d28d9]" data-testid="formation-save">
+              {savingFormation ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Plus className="w-4 h-4 mr-2" />}Ajouter la formation
+            </Button>
+
+            {formations.length > 0 && (
+              <div className="border-t pt-3">
+                <p className="text-sm font-medium text-slate-700 mb-2">Formations enregistrées</p>
+                <div className="space-y-2 max-h-48 overflow-y-auto">
+                  {formations.map(f => (
+                    <div key={f.id} className="flex items-center justify-between p-2 bg-slate-50 rounded text-sm">
+                      <div className="min-w-0">
+                        <p className="font-medium truncate">{f.nom}</p>
+                        <p className="text-xs text-slate-500">{f.technicien} · {formatDate(f.date_debut)} → {formatDate(f.date_fin)}</p>
+                      </div>
+                      <button onClick={() => deleteFormation(f.id)} className="text-slate-400 hover:text-red-600 shrink-0" data-testid={`formation-delete-${f.id}`}>
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowFormationModal(false)}>Fermer</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

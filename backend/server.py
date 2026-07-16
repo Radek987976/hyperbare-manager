@@ -51,6 +51,7 @@ UPLOADS_DIR.mkdir(exist_ok=True)
 (UPLOADS_DIR / "subequipments").mkdir(exist_ok=True)
 (UPLOADS_DIR / "spareparts").mkdir(exist_ok=True)
 (UPLOADS_DIR / "workorders").mkdir(exist_ok=True)
+(UPLOADS_DIR / "interventions").mkdir(exist_ok=True)
 (UPLOADS_DIR / "contractors").mkdir(exist_ok=True)
 (UPLOADS_DIR / "gas_cylinders").mkdir(exist_ok=True)
 (UPLOADS_DIR / "contracts").mkdir(exist_ok=True)
@@ -389,11 +390,29 @@ class InterventionBase(BaseModel):
     duree_minutes: Optional[int] = None
     compteur_horaire: Optional[float] = None  # Compteur horaire au moment de l'intervention (pour compresseurs)
     equipment_id: Optional[str] = None  # Équipement concerné
+    documents: List[dict] = []  # PV / documents PDF [{filename, url, uploaded_at}]
 
 class InterventionCreate(InterventionBase):
     pass
 
 class Intervention(InterventionBase):
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+# Formation (Training slot) Model
+class FormationBase(BaseModel):
+    nom: str
+    technicien: str  # Nom affiché du technicien
+    technicien_id: Optional[str] = None  # ID utilisateur (pour filtrage par rôle)
+    date_debut: str  # YYYY-MM-DD
+    date_fin: str    # YYYY-MM-DD
+    description: Optional[str] = None
+
+class FormationCreate(FormationBase):
+    pass
+
+class Formation(FormationBase):
     model_config = ConfigDict(extra="ignore")
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
@@ -770,8 +789,11 @@ async def get_pending_users(admin: dict = Depends(require_admin)):
 
 @api_router.get("/users/technicians", response_model=List[dict])
 async def get_technicians(current_user: dict = Depends(get_current_user)):
-    """Get all active users (for technician dropdown)"""
-    users = await db.users.find({"is_active": True, "is_approved": True}, {"_id": 0, "password_hash": 0}).to_list(1000)
+    """Get active users for technician dropdown (admins excluded)."""
+    users = await db.users.find(
+        {"is_active": True, "is_approved": True, "role": {"$ne": "admin"}},
+        {"_id": 0, "password_hash": 0}
+    ).to_list(1000)
     return users
 
 # Admin create user
@@ -1094,6 +1116,7 @@ async def update_equipment(equipment_id: str, data: EquipmentCreate, current_use
             "ancien_statut": existing.get("statut"),
             "nouveau_statut": data.statut,
             "motif": data.motif_reforme if data.statut == "reforme" else None,
+            "technicien_responsable": data.technicien_reforme if data.statut == "reforme" else None,
             "utilisateur": current_user.get("email") or current_user.get("nom") or "inconnu",
         }
         update_ops["$push"] = {"historique_statut": entry}
@@ -1692,6 +1715,89 @@ async def get_intervention(intervention_id: str, current_user: dict = Depends(ge
         raise HTTPException(status_code=404, detail="Intervention non trouvée")
     return intervention
 
+@api_router.put("/interventions/{intervention_id}", response_model=Intervention)
+async def update_intervention(intervention_id: str, data: InterventionCreate, current_user: dict = Depends(require_admin)):
+    """Rectification d'une intervention (admin uniquement). Réajuste le stock des pièces."""
+    existing = await db.interventions.find_one({"id": intervention_id}, {"_id": 0})
+    if not existing:
+        raise HTTPException(status_code=404, detail="Intervention non trouvée")
+
+    # Réajustement du stock : re-créditer les anciennes pièces, redéduire les nouvelles
+    for old in existing.get("pieces_utilisees", []):
+        if old.get("spare_part_id"):
+            await db.spare_parts.update_one(
+                {"id": old["spare_part_id"]},
+                {"$inc": {"quantite_stock": int(old.get("quantite", 0))}}
+            )
+    for piece in data.pieces_utilisees:
+        sp = await db.spare_parts.find_one({"id": piece.get("spare_part_id")})
+        if sp:
+            new_qty = max(0, sp["quantite_stock"] - int(piece.get("quantite", 0)))
+            await db.spare_parts.update_one(
+                {"id": piece.get("spare_part_id")},
+                {"$set": {"quantite_stock": new_qty}}
+            )
+
+    update = data.model_dump()
+    # Conserver les champs non éditables via ce formulaire
+    update["documents"] = existing.get("documents", [])
+    update["equipment_id"] = data.equipment_id or existing.get("equipment_id")
+    update["pieces_utilisees"] = [
+        {"spare_part_id": p.get("spare_part_id"), "quantite": int(p.get("quantite", 0))}
+        for p in data.pieces_utilisees
+    ]
+    await db.interventions.update_one({"id": intervention_id}, {"$set": update})
+    updated = await db.interventions.find_one({"id": intervention_id}, {"_id": 0})
+    return updated
+
+@api_router.post("/interventions/{intervention_id}/documents")
+async def upload_intervention_document(
+    intervention_id: str,
+    file: UploadFile = File(...),
+    current_user: dict = Depends(get_current_user)
+):
+    """Ajoute un PV/document PDF à une intervention (même après enregistrement)."""
+    intervention = await db.interventions.find_one({"id": intervention_id})
+    if not intervention:
+        raise HTTPException(status_code=404, detail="Intervention non trouvée")
+
+    ext = Path(file.filename).suffix.lower()
+    if ext != ".pdf":
+        raise HTTPException(status_code=400, detail="Seuls les fichiers PDF sont acceptés")
+
+    unique_filename = f"{uuid.uuid4()}{ext}"
+    file_path = UPLOADS_DIR / "interventions" / unique_filename
+    with open(file_path, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+
+    doc_url = f"/api/uploads/interventions/{unique_filename}"
+    doc_info = {
+        "filename": file.filename,
+        "url": doc_url,
+        "uploaded_at": datetime.now(timezone.utc).isoformat()
+    }
+    await db.interventions.update_one(
+        {"id": intervention_id},
+        {"$push": {"documents": doc_info}}
+    )
+    return doc_info
+
+@api_router.delete("/interventions/{intervention_id}/documents")
+async def delete_intervention_document(
+    intervention_id: str,
+    doc_url: str,
+    current_user: dict = Depends(get_current_user)
+):
+    await db.interventions.update_one(
+        {"id": intervention_id},
+        {"$pull": {"documents": {"url": doc_url}}}
+    )
+    filename = doc_url.split("/")[-1]
+    file_path = UPLOADS_DIR / "interventions" / filename
+    if file_path.exists():
+        file_path.unlink()
+    return {"message": "Document supprimé"}
+
 # ==================== INSPECTION ROUTES ====================
 
 def calculate_next_date(date_realisation: str, periodicite: str) -> str:
@@ -2240,6 +2346,32 @@ async def get_maintenance_calendar(current_user: dict = Depends(get_current_user
                 "periodicite_heures": None,
             })
 
+    # Formations — une entrée par formation (à sa date de début), avec plage
+    role = current_user.get("role")
+    uid = current_user.get("id")
+    formations = await db.formations.find({}, {"_id": 0}).to_list(1000)
+    for f in formations:
+        if role != "admin" and f.get("technicien_id") != uid:
+            continue
+        try:
+            d0 = datetime.strptime(f["date_debut"], "%Y-%m-%d").date()
+        except (ValueError, TypeError, KeyError):
+            continue
+        if today - timedelta(weeks=4) <= d0 <= end_date:
+            calendar_data.append({
+                "id": f["id"],
+                "titre": f"Formation : {f.get('nom')} ({f.get('technicien')})",
+                "type_maintenance": "formation",
+                "date_planifiee": f["date_debut"],
+                "date_fin": f.get("date_fin"),
+                "statut": "planifiee",
+                "equipment_id": None,
+                "priorite": "normale",
+                "is_formation": True,
+                "week_number": d0.isocalendar()[1],
+                "year": d0.year,
+            })
+
     # Trier par date
     calendar_data.sort(key=lambda x: x["date_planifiee"])
     
@@ -2433,6 +2565,28 @@ async def get_planning_events(start: str, end: str, equipment_id: Optional[str] 
             "is_overdue": d < today,
         })
 
+    # Formations (créneaux de formation) — bande sur chaque jour couvert
+    role = current_user.get("role")
+    uid = current_user.get("id")
+    formations = await db.formations.find({}, {"_id": 0}).to_list(1000)
+    for f in formations:
+        if role != "admin" and f.get("technicien_id") != uid:
+            continue
+        for day in _formation_event_days(f, start_date, end_date):
+            ds = day.strftime("%Y-%m-%d")
+            events.append({
+                "id": f"formation-{f['id']}-{ds}",
+                "formation_id": f["id"],
+                "item_type": "formation",
+                "origine": "formation",
+                "titre": f"Formation : {f.get('nom')} ({f.get('technicien')})",
+                "date": ds,
+                "statut": "planifiee",
+                "equipment_id": None,
+                "priorite": "normale",
+                "is_overdue": False,
+            })
+
     events.sort(key=lambda x: x["date"])
     return events
 
@@ -2481,6 +2635,65 @@ async def get_planning_summary(year: int, equipment_id: Optional[str] = None, cu
                 months[d.month]["overdue"] += 1
 
     return {"year": year, "months": months}
+
+
+# ==================== FORMATIONS ROUTES ====================
+
+def _formation_event_days(f: dict, window_start=None, window_end=None):
+    """Génère la liste des jours (date) couverts par une formation, éventuellement bornée."""
+    try:
+        d0 = datetime.strptime(f["date_debut"], "%Y-%m-%d").date()
+        d1 = datetime.strptime(f["date_fin"], "%Y-%m-%d").date()
+    except (ValueError, TypeError, KeyError):
+        return []
+    if d1 < d0:
+        d0, d1 = d1, d0
+    if window_start:
+        d0 = max(d0, window_start)
+    if window_end:
+        d1 = min(d1, window_end)
+    days = []
+    cur = d0
+    while cur <= d1:
+        days.append(cur)
+        cur += timedelta(days=1)
+    return days
+
+
+@api_router.post("/formations", response_model=Formation)
+async def create_formation(data: FormationCreate, current_user: dict = Depends(require_admin)):
+    formation = Formation(**data.model_dump())
+    doc = formation.model_dump()
+    doc["created_at"] = doc["created_at"].isoformat()
+    await db.formations.insert_one(doc)
+    return formation
+
+
+@api_router.get("/formations", response_model=List[Formation])
+async def get_formations(current_user: dict = Depends(get_current_user)):
+    """Admin voit tout ; les autres ne voient que leurs propres formations."""
+    query = {}
+    if current_user.get("role") != "admin":
+        query = {"technicien_id": current_user.get("id")}
+    formations = await db.formations.find(query, {"_id": 0}).sort("date_debut", -1).to_list(1000)
+    return formations
+
+
+@api_router.put("/formations/{formation_id}", response_model=Formation)
+async def update_formation(formation_id: str, data: FormationCreate, current_user: dict = Depends(require_admin)):
+    result = await db.formations.update_one({"id": formation_id}, {"$set": data.model_dump()})
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Formation non trouvée")
+    formation = await db.formations.find_one({"id": formation_id}, {"_id": 0})
+    return formation
+
+
+@api_router.delete("/formations/{formation_id}")
+async def delete_formation(formation_id: str, current_user: dict = Depends(require_admin)):
+    result = await db.formations.delete_one({"id": formation_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Formation non trouvée")
+    return {"message": "Formation supprimée"}
 
 
 @api_router.get("/search")
@@ -2904,7 +3117,7 @@ async def delete_inspection_procedure(
 @api_router.get("/uploads/{folder}/{filename}")
 async def get_uploaded_file(folder: str, filename: str):
     """Serve uploaded files"""
-    if folder not in ["equipments", "inspections", "subequipments", "spareparts", "workorders"]:
+    if folder not in ["equipments", "inspections", "subequipments", "spareparts", "workorders", "interventions"]:
         raise HTTPException(status_code=404, detail="Dossier non trouvé")
     
     file_path = UPLOADS_DIR / folder / filename

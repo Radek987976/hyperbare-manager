@@ -169,6 +169,23 @@ export const interventionsAPI = {
   getAll: (params) => api.get('/interventions', { params }),
   getById: (id) => api.get(`/interventions/${id}`),
   create: (data) => api.post('/interventions', data),
+  update: (id, data) => api.put(`/interventions/${id}`, data),
+  uploadDocument: (id, file) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return api.post(`/interventions/${id}/documents`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    });
+  },
+  deleteDocument: (id, docUrl) => api.delete(`/interventions/${id}/documents?doc_url=${encodeURIComponent(docUrl)}`),
+};
+
+// Formations (créneaux de formation)
+export const formationsAPI = {
+  getAll: () => api.get('/formations'),
+  create: (data) => api.post('/formations', data),
+  update: (id, data) => api.put(`/formations/${id}`, data),
+  delete: (id) => api.delete(`/formations/${id}`),
 };
 
 // Inspections

@@ -1,0 +1,23 @@
+{
+  "summary": "Verified bug fix: 'Contrôle du niveau d'huile des compresseurs' preventive maintenance is now present and selectable in the Nouvelle intervention preventive dropdown for both BAUER 01 and BAUER 02.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Minor: DialogContent missing Description/aria-describedby (a11y warning in console) — non-blocking.",
+    "Recharts container width/height(-1) console warnings on Dashboard — cosmetic."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "N/A", "frontend": "100%"},
+  "test_credentials": "admin@hypermaint.fr / admin123",
+  "seed_data_creation": "None",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Interventions modal preventive dropdown uses cmdk; use [cmdk-input] and [cmdk-item] selectors. Data reactivation fix verified successful. 27 planifiee/en_cours preventive WOs available including 7 huile-related entries (BAUER 01, BAUER 02 for 'Contrôle du niveau d'huile', plus vidange and inspection variants). Selecting a compressor-linked maintenance shows 'Compteur horaire compresseur' field (Valeur actuelle: 7,002 h).",
+  "rca of the issue": "During historical import, past preventive work orders were marked 'terminee' without generating a next active occurrence, so recurring maintenances with no future planifiee/en_cours record disappeared from the Interventions.jsx preventiveWorkOrders filter (line 81-83). Fix: reactivated most recent occurrence (statut='planifiee') per preventive template lacking active WO. Verified via UI: huile entries now visible."
+}

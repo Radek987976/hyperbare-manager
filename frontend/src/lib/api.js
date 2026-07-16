@@ -36,6 +36,7 @@ export const authAPI = {
   login: (credentials) => api.post('/auth/login', credentials),
   register: (userData) => api.post('/auth/register', userData),
   getMe: () => api.get('/auth/me'),
+  forgotPassword: (email) => api.post('/auth/forgot-password', { email }),
 };
 
 // Users
@@ -55,6 +56,9 @@ export const usersAPI = {
     api.put('/users/me/change-password', { current_password: currentPassword, new_password: newPassword }),
   adminChangePassword: (userId, newPassword) => 
     api.put(`/users/${userId}/password`, { new_password: newPassword }),
+  getResetRequests: () => api.get('/users/reset-requests'),
+  sendTempPassword: (userId) => api.post(`/users/${userId}/send-temp-password`),
+  dismissResetRequest: (requestId) => api.delete(`/users/reset-requests/${requestId}`),
 };
 
 // Caisson

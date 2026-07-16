@@ -101,6 +101,15 @@ export const AuthProvider = ({ children }) => {
   const isAdmin = () => user?.role === 'admin';
   const isTechnicien = () => user?.role === 'technicien';
   const isInvite = () => user?.role === 'invite';
+
+  const clearMustChangePassword = () => {
+    setUser((prev) => {
+      if (!prev) return prev;
+      const updated = { ...prev, must_change_password: false };
+      localStorage.setItem('user', JSON.stringify(updated));
+      return updated;
+    });
+  };
   
   const canCreate = () => permissions.can_create;
   const canModify = () => permissions.can_modify;
@@ -133,6 +142,7 @@ export const AuthProvider = ({ children }) => {
     canExport,
     canManageUsers,
     getRoleLabel,
+    clearMustChangePassword,
     isAuthenticated: !!user,
   };
 

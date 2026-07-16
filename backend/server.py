@@ -14,6 +14,7 @@ import re
 import shutil
 import asyncio
 import resend
+import secrets
 from pathlib import Path
 from pydantic import BaseModel, Field, ConfigDict, EmailStr
 from typing import List, Optional, Dict, Any
@@ -168,6 +169,33 @@ async def send_access_rejected_email(user_email: str, user_name: str):
     <p>Si vous pensez qu'il s'agit d'une erreur, veuillez contacter l'administrateur.</p>
     """
     await send_email(user_email, "Demande d'accès refusée - HyperbareManager", email_template("Demande Refusée", content))
+
+async def send_password_reset_request_email(admin_email: str, requester_name: str, requester_email: str):
+    """Notify an admin that a user requested a password reset."""
+    content = f"""
+    <p>Bonjour,</p>
+    <p>L'utilisateur <strong>{requester_name}</strong> ({requester_email}) a demandé la réinitialisation de son mot de passe.</p>
+    <p>Connectez-vous à HyperbareManager, ouvrez la page <strong>Utilisateurs</strong>, puis cliquez sur
+    <strong>« Envoyer un mot de passe temporaire »</strong> pour lui transmettre de nouveaux identifiants.</p>
+    """
+    return await send_email(admin_email, "🔑 Demande de réinitialisation de mot de passe", email_template("Réinitialisation demandée", content))
+
+async def send_temp_password_email(user_email: str, user_name: str, temp_password: str):
+    """Send a temporary password to a user."""
+    content = f"""
+    <p>Bonjour <strong>{user_name}</strong>,</p>
+    <p>Un mot de passe temporaire vous a été attribué par l'administrateur.</p>
+    <table style="background-color: #f8f9fa; padding: 15px; border-radius: 5px; width: 100%;">
+        <tr>
+            <td style="padding: 10px;">
+                <strong>Email :</strong> {user_email}<br>
+                <strong>Mot de passe temporaire :</strong> <span style="font-family: monospace; font-size: 16px;">{temp_password}</span>
+            </td>
+        </tr>
+    </table>
+    <p style="margin-top: 20px; color: #AE2012;">Pour des raisons de sécurité, vous devrez définir un nouveau mot de passe dès votre prochaine connexion.</p>
+    """
+    return await send_email(user_email, "🔑 Mot de passe temporaire - HyperbareManager", email_template("Mot de passe temporaire", content))
 
 async def send_maintenance_reminder_email(to_email: str, maintenance_title: str, equipment_ref: str, date_planifiee: str, days_left: int):
     """Send maintenance reminder email"""
@@ -768,12 +796,54 @@ async def login(credentials: UserLogin):
     
     return TokenResponse(
         access_token=token,
-        user={"id": user["id"], "email": user["email"], "nom": user["nom"], "prenom": user["prenom"], "role": user["role"]}
+        user={"id": user["id"], "email": user["email"], "nom": user["nom"], "prenom": user["prenom"], "role": user["role"], "must_change_password": user.get("must_change_password", False)}
     )
 
 @api_router.get("/auth/me")
 async def get_me(current_user: dict = Depends(get_current_user)):
     return current_user
+
+class ForgotPasswordRequest(BaseModel):
+    email: str
+
+def generate_temp_password(length: int = 10) -> str:
+    """Generate a readable secure temporary password (no ambiguous chars)."""
+    alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789"
+    return "".join(secrets.choice(alphabet) for _ in range(length))
+
+@api_router.post("/auth/forgot-password")
+async def forgot_password(data: ForgotPasswordRequest):
+    """Public: a user requests a password reset. Admins are notified by email.
+    Returns a generic message to avoid leaking whether the account exists."""
+    email = (data.email or "").strip().lower()
+    generic = {"message": "Si un compte est associé à cet email, les administrateurs ont été notifiés."}
+    if not email:
+        return generic
+    user = await db.users.find_one({"email": email})
+    if not user:
+        return generic
+
+    now = datetime.now(timezone.utc).isoformat()
+    existing = await db.password_reset_requests.find_one({"user_id": user["id"], "statut": "pending"})
+    if existing:
+        await db.password_reset_requests.update_one({"id": existing["id"]}, {"$set": {"created_at": now}})
+    else:
+        await db.password_reset_requests.insert_one({
+            "id": str(uuid.uuid4()),
+            "user_id": user["id"],
+            "email": user["email"],
+            "nom": user.get("nom", ""),
+            "prenom": user.get("prenom", ""),
+            "statut": "pending",
+            "created_at": now,
+        })
+
+    requester_name = f"{user.get('prenom', '')} {user.get('nom', '')}".strip() or user["email"]
+    admins = await db.users.find({"role": "admin", "is_active": True}, {"_id": 0, "email": 1}).to_list(100)
+    for a in admins:
+        if a.get("email"):
+            await send_password_reset_request_email(a["email"], requester_name, user["email"])
+    return generic
 
 # ==================== USERS ROUTES (Admin only) ====================
 
@@ -937,7 +1007,7 @@ async def change_my_password(data: PasswordChange, current_user: dict = Depends(
     
     # Update password
     new_hash = pwd_context.hash(data.new_password)
-    await db.users.update_one({"id": current_user["id"]}, {"$set": {"password_hash": new_hash}})
+    await db.users.update_one({"id": current_user["id"]}, {"$set": {"password_hash": new_hash, "must_change_password": False}})
     
     return {"message": "Mot de passe modifié avec succès"}
 
@@ -954,6 +1024,46 @@ async def change_user_password(user_id: str, data: AdminPasswordChange, admin: d
     await db.users.update_one({"id": user_id}, {"$set": {"password_hash": new_hash}})
     
     return {"message": "Mot de passe modifié avec succès"}
+
+@api_router.get("/users/reset-requests")
+async def get_reset_requests(admin: dict = Depends(require_admin)):
+    """List pending password reset requests."""
+    reqs = await db.password_reset_requests.find({"statut": "pending"}, {"_id": 0}).sort("created_at", -1).to_list(200)
+    return reqs
+
+@api_router.post("/users/{user_id}/send-temp-password")
+async def send_temp_password(user_id: str, admin: dict = Depends(require_admin)):
+    """Admin: generate a temporary password, email it to the user, and force a change at next login."""
+    user = await db.users.find_one({"id": user_id})
+    if not user:
+        raise HTTPException(status_code=404, detail="Utilisateur non trouvé")
+    temp = generate_temp_password()
+    await db.users.update_one(
+        {"id": user_id},
+        {"$set": {"password_hash": hash_password(temp), "must_change_password": True}}
+    )
+    await db.password_reset_requests.update_many(
+        {"user_id": user_id, "statut": "pending"},
+        {"$set": {"statut": "resolved", "resolved_at": datetime.now(timezone.utc).isoformat(), "resolved_by": admin.get("email")}}
+    )
+    name = f"{user.get('prenom', '')} {user.get('nom', '')}".strip() or user["email"]
+    email_sent = await send_temp_password_email(user["email"], name, temp)
+    return {
+        "message": f"Mot de passe temporaire envoyé à {user['email']}",
+        "temp_password": temp,
+        "email_sent": email_sent,
+    }
+
+@api_router.delete("/users/reset-requests/{request_id}")
+async def dismiss_reset_request(request_id: str, admin: dict = Depends(require_admin)):
+    """Admin: dismiss (resolve) a reset request without action."""
+    result = await db.password_reset_requests.update_one(
+        {"id": request_id},
+        {"$set": {"statut": "resolved", "resolved_at": datetime.now(timezone.utc).isoformat(), "resolved_by": admin.get("email")}}
+    )
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Demande non trouvée")
+    return {"message": "Demande traitée"}
 
 @api_router.delete("/users/{user_id}")
 async def delete_user(user_id: str, admin: dict = Depends(require_admin)):

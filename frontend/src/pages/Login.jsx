@@ -6,15 +6,34 @@ import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { Alert, AlertDescription } from '../components/ui/alert';
-import { Gauge, AlertCircle, Loader2 } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '../components/ui/dialog';
+import { authAPI } from '../lib/api';
+import { Gauge, AlertCircle, Loader2, KeyRound, CheckCircle2 } from 'lucide-react';
 
 const Login = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showForgot, setShowForgot] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState('');
+  const [forgotLoading, setForgotLoading] = useState(false);
+  const [forgotSent, setForgotSent] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
+
+  const handleForgot = async (e) => {
+    e.preventDefault();
+    setForgotLoading(true);
+    try {
+      await authAPI.forgotPassword(forgotEmail.trim());
+      setForgotSent(true);
+    } catch (err) {
+      setForgotSent(true); // generic behaviour, never reveal existence
+    } finally {
+      setForgotLoading(false);
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -117,6 +136,16 @@ const Login = () => {
                   data-testid="login-password"
                   className="h-11"
                 />
+                <div className="text-right">
+                  <button
+                    type="button"
+                    onClick={() => { setShowForgot(true); setForgotEmail(email); setForgotSent(false); }}
+                    className="text-sm text-[#005F73] hover:underline font-medium"
+                    data-testid="forgot-password-link"
+                  >
+                    Mot de passe oublié ?
+                  </button>
+                </div>
               </div>
 
               <Button
@@ -151,6 +180,54 @@ const Login = () => {
           </CardContent>
         </Card>
       </div>
+
+      {/* Forgot password modal */}
+      <Dialog open={showForgot} onOpenChange={(o) => { setShowForgot(o); if (!o) setForgotSent(false); }}>
+        <DialogContent data-testid="forgot-password-modal">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 font-['Barlow_Condensed'] uppercase">
+              <KeyRound className="w-5 h-5 text-[#005F73]" /> Mot de passe oublié
+            </DialogTitle>
+            <DialogDescription>
+              Saisissez votre email. Les administrateurs seront notifiés et vous enverront un mot de passe temporaire.
+            </DialogDescription>
+          </DialogHeader>
+          {forgotSent ? (
+            <div className="py-6 text-center space-y-3" data-testid="forgot-success">
+              <CheckCircle2 className="w-12 h-12 text-green-600 mx-auto" />
+              <p className="text-sm text-slate-600">
+                Si un compte est associé à cet email, les administrateurs ont été notifiés.
+                Vous recevrez un mot de passe temporaire par email.
+              </p>
+              <Button className="bg-[#005F73] hover:bg-[#004C5C]" onClick={() => setShowForgot(false)} data-testid="forgot-close">
+                Fermer
+              </Button>
+            </div>
+          ) : (
+            <form onSubmit={handleForgot} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="forgot-email">Email</Label>
+                <Input
+                  id="forgot-email"
+                  type="email"
+                  placeholder="votre@email.com"
+                  value={forgotEmail}
+                  onChange={(e) => setForgotEmail(e.target.value)}
+                  required
+                  data-testid="forgot-email-input"
+                  className="h-11"
+                />
+              </div>
+              <DialogFooter>
+                <Button type="button" variant="outline" onClick={() => setShowForgot(false)}>Annuler</Button>
+                <Button type="submit" className="bg-[#005F73] hover:bg-[#004C5C]" disabled={forgotLoading} data-testid="forgot-submit">
+                  {forgotLoading ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Envoi...</> : 'Envoyer la demande'}
+                </Button>
+              </DialogFooter>
+            </form>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

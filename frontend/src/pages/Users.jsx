@@ -61,7 +61,9 @@ import {
   Loader2,
   Plus,
   UserPlus,
-  Key
+  Key,
+  KeyRound,
+  Mail
 } from 'lucide-react';
 
 const API_URL = process.env.REACT_APP_BACKEND_URL;
@@ -70,6 +72,8 @@ const UsersPage = () => {
   const { user: currentUser, getRoleLabel } = useAuth();
   const [users, setUsers] = useState([]);
   const [pendingUsers, setPendingUsers] = useState([]);
+  const [resetRequests, setResetRequests] = useState([]);
+  const [tempResult, setTempResult] = useState(null);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
@@ -125,16 +129,43 @@ const UsersPage = () => {
 
   const loadData = async () => {
     try {
-      const [usersRes, pendingRes] = await Promise.all([
+      const [usersRes, pendingRes, resetRes] = await Promise.all([
         usersAPI.getAll(),
-        usersAPI.getPending()
+        usersAPI.getPending(),
+        usersAPI.getResetRequests().catch(() => ({ data: [] }))
       ]);
       setUsers(usersRes.data || []);
       setPendingUsers(pendingRes.data || []);
+      setResetRequests(resetRes.data || []);
     } catch (error) {
       console.error('Erreur chargement:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleSendTempPassword = async (userId) => {
+    setActionLoading(userId);
+    try {
+      const res = await usersAPI.sendTempPassword(userId);
+      setTempResult(res.data);
+      await loadData();
+    } catch (error) {
+      alert(getErrorMessage(error, 'Erreur lors de l\'envoi du mot de passe temporaire'));
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleDismissRequest = async (requestId) => {
+    setActionLoading(requestId);
+    try {
+      await usersAPI.dismissResetRequest(requestId);
+      await loadData();
+    } catch (error) {
+      alert('Erreur lors du traitement de la demande');
+    } finally {
+      setActionLoading(null);
     }
   };
 
@@ -453,7 +484,95 @@ const UsersPage = () => {
         </Card>
       )}
 
-      {/* Search */}
+      {/* Password Reset Requests */}
+      {resetRequests.length > 0 && (
+        <Card className="border-[#005F73]/30 bg-[#005F73]/5" data-testid="reset-requests-card">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-lg flex items-center gap-2 text-[#005F73]">
+              <KeyRound className="w-5 h-5" />
+              {resetRequests.length} demande(s) de réinitialisation de mot de passe
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {resetRequests.map((req) => (
+                <div
+                  key={req.id}
+                  className="flex items-center justify-between bg-white p-3 rounded-lg border border-[#005F73]/20"
+                  data-testid={`reset-request-${req.user_id}`}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-[#005F73]/10 flex items-center justify-center text-[#005F73] font-medium">
+                      {req.prenom?.[0]}{req.nom?.[0]}
+                    </div>
+                    <div>
+                      <p className="font-medium">{req.prenom} {req.nom}</p>
+                      <p className="text-sm text-slate-500">{req.email}</p>
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleDismissRequest(req.id)}
+                      disabled={actionLoading === req.id || actionLoading === req.user_id}
+                      data-testid={`dismiss-reset-${req.user_id}`}
+                    >
+                      Ignorer
+                    </Button>
+                    <Button
+                      size="sm"
+                      className="bg-[#005F73] hover:bg-[#004C5C]"
+                      onClick={() => handleSendTempPassword(req.user_id)}
+                      disabled={actionLoading === req.user_id}
+                      data-testid={`send-temp-${req.user_id}`}
+                    >
+                      {actionLoading === req.user_id ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <>
+                          <Mail className="w-4 h-4 mr-1" />
+                          Envoyer un mot de passe temporaire
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Temp password result modal */}
+      <Dialog open={!!tempResult} onOpenChange={(o) => !o && setTempResult(null)}>
+        <DialogContent data-testid="temp-password-result">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <KeyRound className="w-5 h-5 text-[#005F73]" /> Mot de passe temporaire envoyé
+            </DialogTitle>
+          </DialogHeader>
+          {tempResult && (
+            <div className="space-y-3">
+              <p className="text-sm text-slate-600">{tempResult.message}</p>
+              <div className="p-3 bg-slate-50 rounded border">
+                <p className="text-xs text-slate-500 uppercase mb-1">Mot de passe temporaire</p>
+                <p className="font-mono text-lg font-semibold text-[#005F73]" data-testid="temp-password-value">{tempResult.temp_password}</p>
+              </div>
+              {!tempResult.email_sent && (
+                <p className="text-sm text-amber-600">
+                  ⚠️ L'email n'a pas pu être envoyé automatiquement. Communiquez ce mot de passe temporaire à l'utilisateur.
+                </p>
+              )}
+              <p className="text-xs text-slate-400">L'utilisateur devra définir un nouveau mot de passe à sa prochaine connexion.</p>
+            </div>
+          )}
+          <DialogFooter>
+            <Button className="bg-[#005F73] hover:bg-[#004C5C]" onClick={() => setTempResult(null)}>Fermer</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <Card>
         <CardContent className="p-4">
           <div className="relative">

@@ -1315,6 +1315,10 @@ async def delete_subequipment_document(
 
 @api_router.post("/work-orders", response_model=WorkOrder)
 async def create_work_order(data: WorkOrderCreate, current_user: dict = Depends(get_current_user)):
+    if data.type_maintenance == "preventive" and data.equipment_id:
+        eq = await db.equipments.find_one({"id": data.equipment_id}, {"_id": 0, "statut": 1})
+        if eq and eq.get("statut") == "reforme":
+            raise HTTPException(status_code=400, detail="Impossible de planifier une maintenance préventive sur un équipement réformé.")
     work_order = WorkOrder(**data.model_dump())
     doc = work_order.model_dump()
     doc["created_at"] = doc["created_at"].isoformat()
@@ -4347,6 +4351,51 @@ async def create_control_report(report: ControlReportCreate, current_user: dict 
     return doc
 
 # ==================== EXCEL IMPORT ROUTES ====================
+
+TEMPLATES = {
+    "equipements": {
+        "sheet": "Equipements",
+        "headers": ["REFERENCE", "TYPE", "MARQUE", "MODELE", "N_SERIE", "DATE_INSTALLATION", "CRITICITE", "STATUT", "LOCALISATION", "COMPTEUR_HORAIRE"],
+        "example": ["BAUER 01", "Compresseur", "Bauer", "Mariner 320", "150-11-5_5200-3227", "01/09/2000", "haute", "en_service", "Local compresseurs", "7002"],
+    },
+    "interventions": {
+        "sheet": "Interventions",
+        "headers": ["EQUIPEMENT", "N_SERIE", "TYPE", "DATE", "INTERVENANT", "ACTIONS_REALISEES", "OBSERVATION", "COMPTEUR_HORAIRE", "PIECES_UTILISEES"],
+        "example": ["BAUER 01", "", "preventive", "15/06/2026", "Radek T.", "Contrôle et appoint d'huile", "RAS", "7002", "Filtre à air x1"],
+    },
+}
+
+
+@api_router.get("/import/template/{import_type}")
+async def download_import_template(import_type: str, current_user: dict = Depends(get_current_user)):
+    """Télécharge un modèle Excel pré-formaté pour l'import."""
+    tpl = TEMPLATES.get(import_type)
+    if not tpl:
+        raise HTTPException(status_code=404, detail="Modèle indisponible pour ce type")
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, PatternFill
+    wb = Workbook()
+    ws = wb.active
+    ws.title = tpl["sheet"]
+    ws.append(tpl["headers"])
+    ws.append(tpl["example"])
+    header_fill = PatternFill(start_color="005F73", end_color="005F73", fill_type="solid")
+    for cell in ws[1]:
+        cell.font = Font(bold=True, color="FFFFFF")
+        cell.fill = header_fill
+    for i, h in enumerate(tpl["headers"], 1):
+        ws.column_dimensions[ws.cell(row=1, column=i).column_letter].width = max(16, len(h) + 4)
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+    filename = f"modele_import_{import_type}.xlsx"
+    return StreamingResponse(
+        buf,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f"attachment; filename={filename}"},
+    )
+
+
 
 @api_router.post("/import/excel")
 async def import_excel_file(

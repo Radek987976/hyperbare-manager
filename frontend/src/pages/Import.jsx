@@ -25,7 +25,8 @@ import {
   XCircle,
   Database,
   AlertTriangle,
-  Info
+  Info,
+  Download
 } from 'lucide-react';
 
 const IMPORT_TYPES = [
@@ -93,6 +94,27 @@ const Import = () => {
       setSelectedFile(file);
       setError('');
       setResult(null);
+    }
+  };
+
+  const downloadTemplate = async (type) => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/import/template/${type}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) throw new Error('Téléchargement impossible');
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `modele_import_${type}.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      setError('Impossible de télécharger le modèle.');
     }
   };
 
@@ -217,6 +239,19 @@ const Import = () => {
               <p className="text-sm text-gray-500">
                 {IMPORT_TYPES.find(t => t.value === selectedType)?.description}
               </p>
+            )}
+            {['equipements', 'interventions'].includes(selectedType) && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => downloadTemplate(selectedType)}
+                className="mt-2 border-[#005F73] text-[#005F73] hover:bg-[#005F73]/5"
+                data-testid="download-template-btn"
+              >
+                <Download className="w-4 h-4 mr-2" />
+                Télécharger le modèle (.xlsx)
+              </Button>
             )}
           </div>
 

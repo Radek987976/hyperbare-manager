@@ -593,8 +593,16 @@ const WorkOrders = () => {
                 onValueChange={(v) => handleSelectChange('equipment_id', v === "caisson" ? "" : v)}
                 data-testid="input-equipment"
                 placeholder="Caisson entier"
-                options={[{ value: 'caisson', label: 'Caisson entier' }, ...equipments.map(eq => ({ value: eq.id, label: `${getTypeLabel(eq.type)} - ${eq.reference}` }))]}
+                options={[
+                  { value: 'caisson', label: 'Caisson entier' },
+                  ...equipments
+                    .filter(eq => !(formData.type_maintenance === 'preventive' && eq.statut === 'reforme'))
+                    .map(eq => ({ value: eq.id, label: `${getTypeLabel(eq.type)} - ${eq.reference}` })),
+                ]}
               />
+              {formData.type_maintenance === 'preventive' && (
+                <p className="text-xs text-slate-500">Les équipements réformés ne sont pas proposés pour une maintenance préventive.</p>
+              )}
             </div>
             <div className="space-y-2">
               <Label htmlFor="date_planifiee">Date planifiée *</Label>

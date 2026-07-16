@@ -602,7 +602,7 @@ const Contracts = () => {
               </div>
               <div className="flex flex-wrap gap-2 mt-2">
                 {formData.prestations_incluses.map((p, i) => (
-                  <Badge key={i} variant="secondary" className="cursor-pointer" onClick={() => removePrestation(i)}>
+                  <Badge key={`${p}-${i}`} variant="secondary" className="cursor-pointer" onClick={() => removePrestation(i)}>
                     {p} ×
                   </Badge>
                 ))}

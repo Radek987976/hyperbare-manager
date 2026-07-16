@@ -645,8 +645,8 @@ const Inspections = () => {
                   <p className="text-sm text-slate-400">Aucun document</p>
                 ) : (
                   <div className="space-y-2">
-                    {selectedInspection.procedure_documents.map((doc, i) => (
-                      <div key={i} className="flex items-center justify-between p-2 rounded border border-slate-200" data-testid="pdf-doc-item">
+                    {selectedInspection.procedure_documents.map((doc) => (
+                      <div key={doc.url} className="flex items-center justify-between p-2 rounded border border-slate-200" data-testid="pdf-doc-item">
                         <a
                           href={`${process.env.REACT_APP_BACKEND_URL}${doc.url}`}
                           target="_blank"

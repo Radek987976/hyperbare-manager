@@ -3,6 +3,16 @@
 ## Énoncé du problème original
 Application web de GMAO (gestion de maintenance assistée par ordinateur) pour un caisson hyperbare unique contenant plusieurs équipements et sous-équipements.
 
+## Changelog (2026-06-16) — Préparation déploiement + revue de code (sécurité)
+- **Déploiement**: 2 blocages corrigés → `JWT_SECRET` généré aléatoirement dans `backend/.env` (plus de fallback codé en dur, `server.py` L70 = `os.environ['JWT_SECRET']`) ; `.gitignore` nettoyé (fichiers `.env` requis ne sont plus bloqués, lignes `-e` parasites retirées). deployment_agent → PASS. Login vérifié OK.
+- **Correctifs sécurité/qualité (faible risque)**:
+  - XSS impression PV: échappement HTML (`esc()`) de toutes les valeurs saisies dans `ControlReports.jsx` (fenêtre d'impression `document.write`).
+  - Identifiants de test sortis en variables d'env (`TEST_ADMIN_EMAIL`/`TEST_ADMIN_PASSWORD` avec fallback) dans les 4 fichiers `backend/tests/`.
+  - Clés React `index` → identifiants stables (`url`/`doc.url`) sur les listes photos/documents supprimables (Equipments, WorkOrders, SubEquipments, SpareParts, Inspections) + prestations Contracts + légende Dashboard.
+- **Faux positifs revue** (non modifiés): `is`/`==` (tous des `is None`, corrects) ; `import_real_data.py:113` (`token="Réf"` = mot-clé colonne, pas un secret) ; `key={index}` restants sur listes statiques.
+- **Non retenus** (risqués/sans valeur utilisateur, refusés): migration tokens localStorage→cookies httpOnly, découpage gros composants, dépendances de hooks, suppression des `console.error`.
+
+
 ## Changelog (2026-06-16) — Import historiques Apple Numbers
 - Import de 5 fichiers `.numbers` via `numbers-parser` (script `backend/import_numbers_history.py`, source="hist_numbers").
 - **2844 interventions historiques** importées et rattachées : BAUER 01 (506), Chambres Chronique/Urgence/SAS (~1185), Pupitre (388), ARI C1/C2 (419), Cuves (63), Extincteurs→Caisson (276), LUCHARD (7).

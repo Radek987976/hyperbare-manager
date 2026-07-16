@@ -417,8 +417,8 @@ const Dashboard = () => {
               </ResponsiveContainer>
             </div>
             <div className="flex justify-center gap-6 mt-4">
-              {equipmentChartData.map((item, index) => (
-                <div key={index} className="flex items-center gap-2">
+              {equipmentChartData.map((item) => (
+                <div key={item.name} className="flex items-center gap-2">
                   <div
                     className="w-3 h-3 rounded-full"
                     style={{ backgroundColor: item.color }}

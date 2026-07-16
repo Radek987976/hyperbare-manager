@@ -194,13 +194,14 @@ const ControlReports = () => {
   const printReport = (report) => {
     const template = templates.find(t => t.id === report.template_id);
     const equipment = equipments.find(e => e.id === report.equipment_id);
-    
+    const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
     const printWindow = window.open('', '_blank');
     printWindow.document.write(`
       <!DOCTYPE html>
       <html>
       <head>
-        <title>PV de Contrôle - ${report.numero_pv}</title>
+        <title>PV de Contrôle - ${esc(report.numero_pv)}</title>
         <style>
           body { font-family: Arial, sans-serif; padding: 40px; max-width: 800px; margin: 0 auto; }
           h1 { text-align: center; color: #005F73; border-bottom: 2px solid #005F73; padding-bottom: 10px; }
@@ -223,20 +224,20 @@ const ControlReports = () => {
         </style>
       </head>
       <body>
-        <h1>${template?.nom || 'PV de Contrôle'}</h1>
+        <h1>${esc(template?.nom || 'PV de Contrôle')}</h1>
         
         <div class="info-box">
-          <div class="field"><span class="field-label">N° PV:</span><span class="field-value">${report.numero_pv}</span></div>
-          <div class="field"><span class="field-label">Date du contrôle:</span><span class="field-value">${formatDate(report.date_controle)}</span></div>
-          <div class="field"><span class="field-label">Contrôleur:</span><span class="field-value">${report.controleur}</span></div>
-          ${report.organisme ? `<div class="field"><span class="field-label">Organisme:</span><span class="field-value">${report.organisme}</span></div>` : ''}
-          ${equipment ? `<div class="field"><span class="field-label">Équipement:</span><span class="field-value">${equipment.type} - ${equipment.reference}</span></div>` : ''}
+          <div class="field"><span class="field-label">N° PV:</span><span class="field-value">${esc(report.numero_pv)}</span></div>
+          <div class="field"><span class="field-label">Date du contrôle:</span><span class="field-value">${esc(formatDate(report.date_controle))}</span></div>
+          <div class="field"><span class="field-label">Contrôleur:</span><span class="field-value">${esc(report.controleur)}</span></div>
+          ${report.organisme ? `<div class="field"><span class="field-label">Organisme:</span><span class="field-value">${esc(report.organisme)}</span></div>` : ''}
+          ${equipment ? `<div class="field"><span class="field-label">Équipement:</span><span class="field-value">${esc(equipment.type)} - ${esc(equipment.reference)}</span></div>` : ''}
         </div>
 
         ${template?.normes_reference?.length > 0 ? `
           <h2>Normes de référence</h2>
           <ul>
-            ${template.normes_reference.map(n => `<li>${n}</li>`).join('')}
+            ${template.normes_reference.map(n => `<li>${esc(n)}</li>`).join('')}
           </ul>
         ` : ''}
 
@@ -255,9 +256,9 @@ const ControlReports = () => {
               const critere = template.criteres_conformite?.find(c => c.parametre === champ.nom);
               return `
                 <tr>
-                  <td>${champ.nom.replace(/_/g, ' ')}</td>
-                  <td>${champ.type === 'checkbox' ? (valeur ? '✓ OK' : '✗ NON') : (valeur || '-')} ${champ.unite || ''}</td>
-                  ${template?.criteres_conformite?.length > 0 ? `<td>${critere ? `Max: ${critere.valeur_max} ${critere.unite || ''}` : '-'}</td>` : ''}
+                  <td>${esc(champ.nom.replace(/_/g, ' '))}</td>
+                  <td>${champ.type === 'checkbox' ? (valeur ? '✓ OK' : '✗ NON') : esc(valeur || '-')} ${esc(champ.unite || '')}</td>
+                  ${template?.criteres_conformite?.length > 0 ? `<td>${critere ? `Max: ${esc(critere.valeur_max)} ${esc(critere.unite || '')}` : '-'}</td>` : ''}
                 </tr>
               `;
             }).join('') || ''}
@@ -269,12 +270,12 @@ const ControlReports = () => {
         
         ${report.observations ? `
           <h2>Observations</h2>
-          <p>${report.observations}</p>
+          <p>${esc(report.observations)}</p>
         ` : ''}
 
         ${report.validite_jusqua ? `
           <div class="info-box">
-            <div class="field"><span class="field-label">Validité jusqu'au:</span><span class="field-value">${formatDate(report.validite_jusqua)}</span></div>
+            <div class="field"><span class="field-label">Validité jusqu'au:</span><span class="field-value">${esc(formatDate(report.validite_jusqua))}</span></div>
           </div>
         ` : ''}
 

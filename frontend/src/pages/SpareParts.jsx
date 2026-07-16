@@ -753,8 +753,8 @@ const SpareParts = () => {
                   )}
                 </div>
                 <div className="grid grid-cols-3 gap-2">
-                  {(selectedPart.photos || []).map((url, i) => (
-                    <div key={i} className="relative group">
+                  {(selectedPart.photos || []).map((url) => (
+                    <div key={url} className="relative group">
                       <img
                         src={`${backendUrl}${url}`}
                         alt=""
@@ -801,8 +801,8 @@ const SpareParts = () => {
                   )}
                 </div>
                 <div className="space-y-2">
-                  {(selectedPart.documents || []).map((doc, i) => (
-                    <div key={i} className="flex items-center justify-between p-2 bg-slate-50 rounded">
+                  {(selectedPart.documents || []).map((doc) => (
+                    <div key={doc.url} className="flex items-center justify-between p-2 bg-slate-50 rounded">
                       <a
                         href={`${backendUrl}${doc.url}`}
                         target="_blank"

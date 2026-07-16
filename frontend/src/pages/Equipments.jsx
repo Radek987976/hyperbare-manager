@@ -794,8 +794,8 @@ const Equipments = () => {
                   )}
                 </div>
                 <div className="grid grid-cols-3 gap-2">
-                  {(selectedEquipment.photos || []).map((url, i) => (
-                    <div key={i} className="relative group">
+                  {(selectedEquipment.photos || []).map((url) => (
+                    <div key={url} className="relative group">
                       <img
                         src={`${API_URL}${url}`}
                         alt=""
@@ -842,8 +842,8 @@ const Equipments = () => {
                   )}
                 </div>
                 <div className="space-y-2">
-                  {(selectedEquipment.documents || []).map((doc, i) => (
-                    <div key={i} className="flex items-center justify-between p-2 bg-slate-50 rounded">
+                  {(selectedEquipment.documents || []).map((doc) => (
+                    <div key={doc.url} className="flex items-center justify-between p-2 bg-slate-50 rounded">
                       <a
                         href={`${API_URL}${doc.url}`}
                         target="_blank"

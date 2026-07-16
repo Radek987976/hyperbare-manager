@@ -93,19 +93,22 @@ def map_cuves(loc, ref):
 
 
 def map_extincteur(loc, equip, detail, ref):
-    e = (equip or "").upper()
-    l = (loc or "").upper()
-    blob = f"{equip} {detail}".upper()
-    if "ARI C1" in e:
+    key = " ".join((equip or "").upper().replace("-", " ").split())
+    if "ARI C1" in key:
         return ref.get("ARI C1")
-    if "ARI C2" in e:
+    if "ARI C2" in key:
         return ref.get("ARI C2")
-    if "A.R.I" in l or l == "ARI" or "ARI" in e:
-        return ref.get("ARI C1") or ref.get("ARI (parc)")
-    for cx, rid in (("0198-0016", "Extincteur CX0198-0016"), ("0219-0018", "Extincteur CX0219-0018"),
-                    ("0219-0024", "Extincteur CX0219-0024"), ("0219-0082", "Extincteur CX0219-0082")):
-        if cx.replace("-", "") in blob.replace("-", ""):
-            return ref.get(rid)
+    # Ventilation par n° CX (demande utilisateur)
+    if "0219 0018" in key:
+        return ref.get("Chambre Urgence")
+    if "0198 0016" in key:
+        return ref.get("Chambre SAS")
+    if "0219 0024" in key:
+        return ref.get("Chambre Chronique")
+    if "0219 0082" in key:
+        return ref.get("Pupitre de commande")
+    if "A.R.I" in (loc or "").upper() or "ARI" in key:
+        return ref.get("ARI C1")
     return map_chambre(loc, ref)
 
 

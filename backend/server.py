@@ -1351,7 +1351,7 @@ async def _build_maintenance_history(entity_id: str):
     is_reformed = bool(eq and eq.get("statut") == "reforme")
 
     # Interventions réalisées
-    interventions = await db.interventions.find({"equipment_id": entity_id}, {"_id": 0}).to_list(1000)
+    interventions = await db.interventions.find({"equipment_id": entity_id}, {"_id": 0}).to_list(5000)
     for it in interventions:
         historique.append({
             "source": "intervention",
@@ -1672,7 +1672,7 @@ async def get_interventions(
     if work_order_id:
         query["work_order_id"] = work_order_id
     
-    interventions = await db.interventions.find(query, {"_id": 0}).to_list(1000)
+    interventions = await db.interventions.find(query, {"_id": 0}).sort("date_intervention", -1).to_list(10000)
     return interventions
 
 @api_router.get("/interventions/{intervention_id}", response_model=Intervention)

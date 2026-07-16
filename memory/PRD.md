@@ -3,6 +3,15 @@
 ## Énoncé du problème original
 Application web de GMAO (gestion de maintenance assistée par ordinateur) pour un caisson hyperbare unique contenant plusieurs équipements et sous-équipements.
 
+## Changelog (2026-06-16) — Import historiques Apple Numbers
+- Import de 5 fichiers `.numbers` via `numbers-parser` (script `backend/import_numbers_history.py`, source="hist_numbers").
+- **2844 interventions historiques** importées et rattachées : BAUER 01 (506), Chambres Chronique/Urgence/SAS (~1185), Pupitre (388), ARI C1/C2 (419), Cuves (63), Extincteurs→Caisson (276), LUCHARD (7).
+- **Compteurs horaires** (fichier compresseur, dernier relevé) : **BAUER 01 = 7002 h** (246 relevés), **LUCHARD = 780 h** (4 relevés). BAUER 02 volontairement exclu (non demandé).
+- Fix backend : détection compresseur insensible à la casse ; limites de requête interventions relevées (10000 liste / 5000 par équipement).
+- Nettoyage cosmétique : préfixes de tri "Y_/Z_/X_" retirés (16 interventions, 34 OT).
+- Total interventions en base ≈ 2961.
+
+
 ## Changelog (2026-06-15) — Migration historique
 - **Interventions historiques** : les 114 maintenances préventives à date passée ont été converties en interventions "terminées" (script `backend/migrate_history.py`), et les OT marqués `terminee`. Historique des interventions = 117 au total, visibles dans la page Interventions ET dans la fiche équipement/sous-équipement (endpoint `/equipments/{id}/history`).
 - **Sous-équipements** : 76 créés (52 manomètres + 24 soupapes) dans la collection `subequipments`, rattachés par emplacement (Chronique/SAS/Urgence, sinon Caisson général). Réformés → statut hors_service.

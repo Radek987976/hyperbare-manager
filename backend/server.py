@@ -1098,6 +1098,12 @@ async def update_equipment(equipment_id: str, data: EquipmentCreate, current_use
         }
         update_ops["$push"] = {"historique_statut": entry}
     await db.equipments.update_one({"id": equipment_id}, update_ops)
+    # Si l'équipement passe en réformé : annuler ses maintenances préventives actives
+    if data.statut == "reforme" and existing.get("statut") != "reforme":
+        await db.work_orders.update_many(
+            {"equipment_id": equipment_id, "type_maintenance": "preventive", "statut": {"$in": ["planifiee", "en_cours"]}},
+            {"$set": {"statut": "annulee"}}
+        )
     equipment = await db.equipments.find_one({"id": equipment_id}, {"_id": 0})
     return equipment
 
@@ -1623,8 +1629,10 @@ async def create_intervention(data: InterventionCreate, current_user: dict = Dep
                 {"$set": {"statut": "terminee"}}
             )
             
-            # Si périodicité définie, créer automatiquement la prochaine maintenance
-            if work_order.get("periodicite_jours") or work_order.get("periodicite_heures"):
+            # Si périodicité définie ET équipement non réformé, créer la prochaine maintenance
+            eq_wo = await db.equipments.find_one({"id": work_order.get("equipment_id")}) if work_order.get("equipment_id") else None
+            is_reformed = bool(eq_wo and eq_wo.get("statut") == "reforme")
+            if not is_reformed and (work_order.get("periodicite_jours") or work_order.get("periodicite_heures")):
                 from datetime import timedelta
                 
                 # Calculer la prochaine date
@@ -1636,11 +1644,9 @@ async def create_intervention(data: InterventionCreate, current_user: dict = Dep
                 
                 # Calculer le prochain compteur de déclenchement si basé sur les heures
                 next_compteur = None
-                if work_order.get("periodicite_heures"):
-                    equipment = await db.equipments.find_one({"id": work_order.get("equipment_id")})
-                    if equipment:
-                        current_compteur = equipment.get("compteur_horaire", 0)
-                        next_compteur = current_compteur + work_order["periodicite_heures"]
+                if work_order.get("periodicite_heures") and eq_wo:
+                    current_compteur = eq_wo.get("compteur_horaire", 0)
+                    next_compteur = current_compteur + work_order["periodicite_heures"]
                 
                 # Créer le nouveau work order
                 new_wo = WorkOrder(

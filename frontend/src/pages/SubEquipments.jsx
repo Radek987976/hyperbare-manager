@@ -334,7 +334,7 @@ const SubEquipments = () => {
             </TableHeader>
             <TableBody>
               {filtered.map((item) => (
-                <TableRow key={item.id}>
+                <TableRow key={item.id} className={item.statut === 'hors_service' ? 'opacity-50 grayscale' : ''}>
                   <TableCell className="font-medium">{item.nom}</TableCell>
                   <TableCell>{item.reference}</TableCell>
                   <TableCell>{getParentName(item.parent_equipment_id)}</TableCell>

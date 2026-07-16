@@ -476,7 +476,7 @@ const Equipments = () => {
                   </TableRow>
                 ) : (
                   filteredEquipments.map((equipment) => (
-                    <TableRow key={equipment.id} data-testid={`equipment-row-${equipment.id}`}>
+                    <TableRow key={equipment.id} data-testid={`equipment-row-${equipment.id}`} className={equipment.statut === 'reforme' ? 'opacity-50 grayscale' : ''}>
                       <TableCell className="font-medium">
                         {getTypeLabel(equipment.type)}
                       </TableCell>

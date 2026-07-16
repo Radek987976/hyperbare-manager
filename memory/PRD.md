@@ -3,6 +3,13 @@
 ## Énoncé du problème original
 Application web de GMAO (gestion de maintenance assistée par ordinateur) pour un caisson hyperbare unique contenant plusieurs équipements et sous-équipements.
 
+## Changelog (2026-06-16) — Imports Excel (sous-équipements, maintenance préventive, contrôles) + modèles
+- Nouveaux imports rows-based (testés E2E) : `import_subequipments_from_rows` (soupapes/manomètres/déverseurs → subequipments, rattachés par PARENT_EQUIPEMENT), `import_maintenance_from_rows` (maintenances préventives → work_orders preventive), `import_controls_from_rows` (contrôles réglementaires → inspections, date_validite auto-calculée via PERIODICITES). Dispatcher `/api/import/excel` mis à jour.
+- Modèles `/api/import/template/{type}` ajoutés pour : sous-equipements, maintenance, controles (equipements & interventions existaient). Bouton « Télécharger le modèle » activé pour les 5 types dans Import.jsx ; nouveau type « Sous-équipements » dans la liste.
+- Fichiers Excel générés dans `frontend/public/templates/` : modele_equipements/sous-equipements/interventions/maintenance/controles.xlsx + modele_import_GMAO_complet.xlsx (5 feuilles).
+- ⚠️ Ces imports ne fonctionneront en PRODUCTION qu'après redéploiement (nouveau code backend). Ordre d'import : équipements → sous-équipements → maintenance/contrôles/interventions.
+
+
 ## Changelog (2026-06-16) — Dashboard : clic → intervention
 - Sur le Tableau de bord, cliquer une **alerte active** (type ordre de travail), une **maintenance à venir** ou un item de l'**agenda hebdomadaire** ouvre désormais le **formulaire d'intervention pré-rempli** (page Interventions) avec la maintenance correspondante : préventive → OT préventif (`maintenance_preventive_id`), corrective → OT correctif (`work_order_id`).
 - Les **contrôles réglementaires** continuent de renvoyer vers la page Contrôles ; les alertes stock/gaz/équipement gardent leur navigation dédiée ; une formation ne déclenche rien.

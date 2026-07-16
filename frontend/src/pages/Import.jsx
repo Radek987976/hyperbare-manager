@@ -50,14 +50,14 @@ const IMPORT_TYPES = [
   },
   { 
     value: 'maintenance', 
-    label: 'Maintenances & Interventions', 
-    description: 'Importer l\'historique des maintenances et interventions',
+    label: 'Maintenances préventives', 
+    description: 'Importer les maintenances préventives récurrentes. Colonnes : EQUIPEMENT, TITRE, DESCRIPTION, PERIODICITE_JOURS, PERIODICITE_HEURES, DATE_PLANIFIEE, PRIORITE, TECHNICIEN.',
     icon: '🔧'
   },
   { 
     value: 'controles', 
     label: 'Contrôles périodiques', 
-    description: 'Importer le suivi des contrôles périodiques des organes de sécurité',
+    description: 'Importer les contrôles réglementaires. Colonnes : EQUIPEMENT, TITRE, TYPE_CONTROLE, PERIODICITE (annuel/biannuel...), DATE_REALISATION, ORGANISME, RESULTAT, OBSERVATIONS.',
     icon: '📋'
   },
   {
@@ -65,6 +65,12 @@ const IMPORT_TYPES = [
     label: 'Équipements',
     description: 'Importer une base d\'équipements (REFERENCE, TYPE, N_SERIE, CRITICITE, STATUT...). Colonnes en 1re ligne.',
     icon: '🛠️'
+  },
+  {
+    value: 'sous-equipements',
+    label: 'Sous-équipements (soupapes, manomètres, déverseurs)',
+    description: 'Importer les sous-équipements rattachés à un équipement parent. Colonnes : PARENT_EQUIPEMENT, NOM, REFERENCE, N_SERIE, DATE_INSTALLATION, STATUT, DESCRIPTION.',
+    icon: '⚙️'
   },
   {
     value: 'interventions',
@@ -240,7 +246,7 @@ const Import = () => {
                 {IMPORT_TYPES.find(t => t.value === selectedType)?.description}
               </p>
             )}
-            {['equipements', 'interventions'].includes(selectedType) && (
+            {['equipements', 'sous-equipements', 'interventions', 'maintenance', 'controles'].includes(selectedType) && (
               <Button
                 type="button"
                 variant="outline"

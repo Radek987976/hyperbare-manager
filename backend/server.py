@@ -4687,6 +4687,21 @@ TEMPLATES = {
         "headers": ["EQUIPEMENT", "N_SERIE", "TYPE", "DATE", "INTERVENANT", "ACTIONS_REALISEES", "OBSERVATION", "COMPTEUR_HORAIRE", "PIECES_UTILISEES"],
         "example": ["BAUER 01", "", "preventive", "15/06/2026", "Radek T.", "Contrôle et appoint d'huile", "RAS", "7002", "Filtre à air x1"],
     },
+    "sous-equipements": {
+        "sheet": "Sous-equipements",
+        "headers": ["PARENT_EQUIPEMENT", "NOM", "REFERENCE", "N_SERIE", "DATE_INSTALLATION", "STATUT", "DESCRIPTION"],
+        "example": ["Pupitre de commande", "Manomètre HP CHPF", "MANO-CHPF-01", "", "01/09/2000", "en_service", "Manomètre haute pression (soupape/déverseur/manomètre)"],
+    },
+    "maintenance": {
+        "sheet": "Maintenances",
+        "headers": ["EQUIPEMENT", "TITRE", "DESCRIPTION", "PERIODICITE_JOURS", "PERIODICITE_HEURES", "DATE_PLANIFIEE", "PRIORITE", "TECHNICIEN"],
+        "example": ["BAUER 01", "Vidange huile compresseur", "Vidange + remplacement des filtres", "365", "1000", "15/09/2026", "haute", "Radek T."],
+    },
+    "controles": {
+        "sheet": "Controles",
+        "headers": ["EQUIPEMENT", "TITRE", "TYPE_CONTROLE", "PERIODICITE", "DATE_REALISATION", "ORGANISME", "RESULTAT", "OBSERVATIONS"],
+        "example": ["Caisson hyperbare", "Requalification périodique", "reglementaire", "biannuel", "10/03/2025", "APAVE", "conforme", "RAS"],
+    },
 }
 
 
@@ -4754,9 +4769,11 @@ async def import_excel_file(
         elif import_type == "budget":
             result = await import_budget_from_excel(temp_path)
         elif import_type == "maintenance":
-            result = await import_maintenance_from_excel(temp_path)
+            result = await import_maintenance_from_rows(_read_tabular_rows(temp_path, ext))
         elif import_type == "controles":
-            result = await import_controls_from_excel(temp_path)
+            result = await import_controls_from_rows(_read_tabular_rows(temp_path, ext))
+        elif import_type == "sous-equipements":
+            result = await import_subequipments_from_rows(_read_tabular_rows(temp_path, ext))
         elif import_type == "equipements":
             result = await import_equipements_from_rows(_read_tabular_rows(temp_path, ext))
         elif import_type == "interventions":
@@ -4941,6 +4958,147 @@ async def import_interventions_from_rows(rows: list) -> dict:
         await db.interventions.insert_many(docs)
         imported = len(docs)
     return {"imported": imported, "errors": errors, "type": "interventions"}
+
+
+async def import_subequipments_from_rows(rows: list) -> dict:
+    """Import des sous-équipements (soupapes, manomètres, déverseurs...) rattachés à un équipement parent."""
+    imported, updated, errors = 0, 0, []
+    by_ref = {}
+    async for e in db.equipments.find({}, {"_id": 0, "id": 1, "reference": 1, "numero_serie": 1}):
+        if e.get("reference"):
+            by_ref[e["reference"].strip().lower()] = e["id"]
+        if e.get("numero_serie"):
+            by_ref.setdefault(str(e["numero_serie"]).strip().lower(), e["id"])
+    for i, row in enumerate(rows):
+        parent = _cell(row, "PARENT_EQUIPEMENT", "PARENT", "EQUIPEMENT")
+        nom = _cell(row, "NOM", "DESIGNATION", "DÉSIGNATION")
+        if not parent or not nom:
+            errors.append(f"Ligne {i + 2}: PARENT_EQUIPEMENT et NOM obligatoires")
+            continue
+        pid = by_ref.get(parent.strip().lower())
+        if not pid:
+            errors.append(f"Ligne {i + 2}: équipement parent introuvable ('{parent}')")
+            continue
+        ref = _cell(row, "REFERENCE", "RÉFÉRENCE", "REF") or nom
+        statut = (_cell(row, "STATUT") or "en_service").lower()
+        fields = {
+            "nom": nom,
+            "reference": ref,
+            "numero_serie": _cell(row, "N_SERIE", "NUMERO_SERIE"),
+            "parent_equipment_id": pid,
+            "description": _cell(row, "DESCRIPTION", "TYPE"),
+            "date_installation": _parse_date(_cell(row, "DATE_INSTALLATION", "DATE INSTALLATION")),
+            "statut": statut if statut in ("en_service", "maintenance", "hors_service") else "en_service",
+        }
+        clean = {k: v for k, v in fields.items() if v is not None}
+        existing = await db.subequipments.find_one({"reference": ref, "parent_equipment_id": pid}, {"_id": 0, "id": 1})
+        if existing:
+            await db.subequipments.update_one({"id": existing["id"]}, {"$set": clean})
+            updated += 1
+        else:
+            clean["id"] = str(uuid.uuid4())
+            clean["photos"] = []
+            clean["documents"] = []
+            clean["created_at"] = datetime.now(timezone.utc).isoformat()
+            await db.subequipments.insert_one(clean)
+            imported += 1
+    return {"imported": imported, "updated": updated, "errors": errors, "type": "sous-equipements"}
+
+
+async def import_maintenance_from_rows(rows: list) -> dict:
+    """Import des maintenances préventives (ordres de travail préventifs récurrents)."""
+    imported, errors = 0, []
+    by_ref = {}
+    async for e in db.equipments.find({}, {"_id": 0, "id": 1, "reference": 1, "numero_serie": 1, "caisson_id": 1}):
+        if e.get("reference"):
+            by_ref[e["reference"].strip().lower()] = e
+        if e.get("numero_serie"):
+            by_ref.setdefault(str(e["numero_serie"]).strip().lower(), e)
+    docs = []
+    for i, row in enumerate(rows):
+        titre = _cell(row, "TITRE", "INTITULE", "DESIGNATION", "DETAIL INTERVENTIONS")
+        if not titre:
+            errors.append(f"Ligne {i + 2}: TITRE obligatoire")
+            continue
+        eqref = _cell(row, "EQUIPEMENT", "EQUIPMENT")
+        eq = by_ref.get(eqref.strip().lower()) if eqref else None
+        if eqref and not eq:
+            errors.append(f"Ligne {i + 2}: équipement introuvable ('{eqref}')")
+            continue
+        prio = (_cell(row, "PRIORITE", "PRIORITÉ") or "normale").lower()
+        pj = _to_float(_cell(row, "PERIODICITE_JOURS", "PÉRIODICITÉ_JOURS", "PERIODICITE JOURS"))
+        ph = _to_float(_cell(row, "PERIODICITE_HEURES", "PÉRIODICITÉ_HEURES", "PERIODICITE HEURES"))
+        docs.append({
+            "id": str(uuid.uuid4()),
+            "titre": titre,
+            "description": _cell(row, "DESCRIPTION", "OBSERVATION") or titre,
+            "type_maintenance": "preventive",
+            "priorite": prio if prio in ("urgente", "haute", "normale", "basse") else "normale",
+            "statut": "planifiee",
+            "caisson_id": eq.get("caisson_id") if eq else None,
+            "equipment_id": eq["id"] if eq else None,
+            "date_planifiee": _parse_date(_cell(row, "DATE_PLANIFIEE", "DATE PLANIFIEE", "DATE")) or datetime.now(timezone.utc).strftime("%Y-%m-%d"),
+            "periodicite_jours": int(pj) if pj else None,
+            "periodicite_heures": int(ph) if ph else None,
+            "technicien_assigne": _cell(row, "TECHNICIEN", "INTERVENANT"),
+            "photos": [],
+            "documents": [],
+            "created_at": datetime.now(timezone.utc).isoformat(),
+        })
+    if docs:
+        await db.work_orders.insert_many(docs)
+        imported = len(docs)
+    return {"imported": imported, "errors": errors, "type": "maintenance"}
+
+
+async def import_controls_from_rows(rows: list) -> dict:
+    """Import des contrôles périodiques réglementaires (inspections)."""
+    imported, errors = 0, []
+    by_ref = {}
+    async for e in db.equipments.find({}, {"_id": 0, "id": 1, "reference": 1, "numero_serie": 1, "caisson_id": 1}):
+        if e.get("reference"):
+            by_ref[e["reference"].strip().lower()] = e
+        if e.get("numero_serie"):
+            by_ref.setdefault(str(e["numero_serie"]).strip().lower(), e)
+    docs = []
+    for i, row in enumerate(rows):
+        titre = _cell(row, "TITRE", "CONTROLE", "CONTRÔLE", "DESIGNATION")
+        if not titre:
+            errors.append(f"Ligne {i + 2}: TITRE obligatoire")
+            continue
+        eqref = _cell(row, "EQUIPEMENT", "EQUIPMENT")
+        eq = by_ref.get(eqref.strip().lower()) if eqref else None
+        if eqref and not eq:
+            errors.append(f"Ligne {i + 2}: équipement introuvable ('{eqref}')")
+            continue
+        per = (_cell(row, "PERIODICITE", "PÉRIODICITÉ") or "annuel").lower()
+        per = per if per in PERIODICITES else "annuel"
+        date_real = _parse_date(_cell(row, "DATE_REALISATION", "DATE REALISATION", "DATE"))
+        date_val = None
+        if date_real:
+            try:
+                date_val = (datetime.strptime(date_real, "%Y-%m-%d") + timedelta(days=PERIODICITES[per])).strftime("%Y-%m-%d")
+            except Exception:
+                pass
+        docs.append({
+            "id": str(uuid.uuid4()),
+            "titre": titre,
+            "type_controle": _cell(row, "TYPE_CONTROLE", "TYPE") or "reglementaire",
+            "periodicite": per,
+            "caisson_id": eq.get("caisson_id") if eq else None,
+            "equipment_id": eq["id"] if eq else None,
+            "date_realisation": date_real,
+            "date_validite": date_val,
+            "organisme_certificateur": _cell(row, "ORGANISME", "ORGANISME_CERTIFICATEUR"),
+            "resultat": _cell(row, "RESULTAT", "RÉSULTAT"),
+            "observations": _cell(row, "OBSERVATIONS", "OBSERVATION"),
+            "procedure_documents": [],
+            "created_at": datetime.now(timezone.utc).isoformat(),
+        })
+    if docs:
+        await db.inspections.insert_many(docs)
+        imported = len(docs)
+    return {"imported": imported, "errors": errors, "type": "controles"}
 
 
 

@@ -869,6 +869,36 @@ const Equipments = () => {
                 </div>
               </div>
 
+              {/* Historique des changements de statut (réformes) */}
+              {(selectedEquipment.historique_statut || []).length > 0 && (
+                <div className="border border-slate-200 rounded-lg p-4" data-testid="statut-history-section">
+                  <h4 className="font-['Barlow_Condensed'] uppercase text-sm font-semibold text-slate-700 mb-3 flex items-center gap-2">
+                    <Activity className="w-4 h-4 text-[#005F73]" />
+                    Historique des réformes / changements de statut
+                  </h4>
+                  <div className="space-y-2">
+                    {[...selectedEquipment.historique_statut].reverse().map((h, i) => (
+                      <div key={i} className="flex items-start gap-3 text-sm p-2 bg-slate-50 rounded" data-testid={`statut-history-item-${i}`}>
+                        <Clock className="w-4 h-4 text-slate-400 mt-0.5 shrink-0" />
+                        <div className="flex-1">
+                          <div className="flex flex-wrap items-center gap-1">
+                            <Badge variant="outline" className="text-xs">{statusLabels[h.ancien_statut] || h.ancien_statut || '—'}</Badge>
+                            <span className="text-slate-400">→</span>
+                            <Badge className={h.nouveau_statut === 'reforme' ? 'bg-red-100 text-red-700 text-xs' : 'bg-emerald-100 text-emerald-700 text-xs'}>
+                              {statusLabels[h.nouveau_statut] || h.nouveau_statut}
+                            </Badge>
+                          </div>
+                          {h.motif && <p className="text-slate-600 mt-1">Motif : {h.motif}</p>}
+                          <p className="text-xs text-slate-400 mt-0.5">
+                            {formatDate(h.date)}{h.utilisateur ? ` · par ${h.utilisateur}` : ''}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {/* Historique & maintenances futures */}
               <MaintenanceHistory entityId={selectedEquipment.id} entityType="equipment" />
             </div>

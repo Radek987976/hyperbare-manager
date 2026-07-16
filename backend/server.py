@@ -3504,11 +3504,28 @@ async def generate_equipment_pdf(equipment_id: str, current_user: dict = Depends
         elements.append(Paragraph(equipment.get('description'), styles['PDFNormal']))
         elements.append(Spacer(1, 15))
     
-    # Get interventions for this equipment
-    work_orders = await db.work_orders.find({"equipment_id": equipment_id}, {"_id": 0}).to_list(100)
-    wo_ids = [w['id'] for w in work_orders]
-    interventions = await db.interventions.find({"work_order_id": {"$in": wo_ids}}, {"_id": 0}).to_list(100)
-    
+    # Get interventions rattachées directement à l'équipement
+    work_orders = await db.work_orders.find({"equipment_id": equipment_id}, {"_id": 0}).to_list(200)
+    interventions = await db.interventions.find({"equipment_id": equipment_id}, {"_id": 0}).sort("date_intervention", -1).to_list(1000)
+
+    # Historique des réformes / changements de statut
+    hist_statut = equipment.get('historique_statut') or []
+    if hist_statut:
+        elements.append(Paragraph("Historique des Réformes / Changements de Statut", styles['SectionHeader']))
+        statut_data = [["Date", "Ancien", "Nouveau", "Motif", "Par"]]
+        for h in reversed(hist_statut):
+            statut_data.append([
+                (h.get('date') or '')[:10],
+                h.get('ancien_statut') or '-',
+                h.get('nouveau_statut') or '-',
+                (h.get('motif') or '-')[:22],
+                (h.get('utilisateur') or '-')[:20],
+            ])
+        t = Table(statut_data, colWidths=[2.3*cm, 2.6*cm, 2.6*cm, 5*cm, 4.5*cm])
+        t.setStyle(create_table_style())
+        elements.append(t)
+        elements.append(Spacer(1, 20))
+
     # Maintenance history
     elements.append(Paragraph("Historique des Maintenances", styles['SectionHeader']))
     
@@ -3532,22 +3549,25 @@ async def generate_equipment_pdf(equipment_id: str, current_user: dict = Depends
     
     # Interventions history
     elements.append(Paragraph("Historique des Interventions", styles['SectionHeader']))
-    
+
     if interventions:
-        int_data = [["Date", "Description", "Technicien"]]
-        users = await db.users.find({}, {"_id": 0}).to_list(100)
-        user_map = {u['id']: f"{u.get('prenom', '')} {u.get('nom', '')}" for u in users}
-        
-        for inter in interventions[:20]:
+        int_data = [["Date", "Type", "Actions réalisées", "Technicien"]]
+        for inter in interventions[:60]:
             int_data.append([
-                inter.get('date_realisation', 'N/A')[:10] if inter.get('date_realisation') else 'N/A',
-                inter.get('description', 'N/A')[:40],
-                user_map.get(inter.get('technicien_id'), 'N/A')
+                (inter.get('date_intervention') or 'N/A')[:10],
+                'Préventive' if inter.get('type_intervention') == 'preventive' else 'Curative',
+                (inter.get('actions_realisees') or 'N/A')[:45],
+                (inter.get('technicien') or 'N/A')[:18],
             ])
-        
-        t = Table(int_data, colWidths=[3*cm, 9*cm, 4*cm])
+
+        t = Table(int_data, colWidths=[2.3*cm, 2.2*cm, 8*cm, 3.5*cm])
         t.setStyle(create_table_style())
         elements.append(t)
+        if len(interventions) > 60:
+            elements.append(Spacer(1, 8))
+            elements.append(Paragraph(
+                f"... et {len(interventions) - 60} autre(s) intervention(s). Voir l'application pour l'historique complet.",
+                styles['PDFNormal']))
     else:
         elements.append(Paragraph("Aucune intervention enregistrée.", styles['PDFNormal']))
     

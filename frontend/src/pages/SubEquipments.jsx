@@ -60,6 +60,7 @@ const SubEquipments = () => {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterParent, setFilterParent] = useState('all');
+  const [filterParentType, setFilterParentType] = useState('all');
   
   const [showModal, setShowModal] = useState(false);
   const [showDetailModal, setShowDetailModal] = useState(false);
@@ -250,12 +251,20 @@ const SubEquipments = () => {
     return parent ? `${parent.type} - ${parent.reference}` : '-';
   };
 
+  const parentTypeOf = (item) => {
+    const p = equipments.find(e => e.id === item.parent_equipment_id);
+    return p ? p.type : null;
+  };
+  const parentTypes = [...new Set(equipments.map(e => e.type).filter(Boolean))]
+    .sort((a, b) => a.localeCompare(b, 'fr', { sensitivity: 'base' }));
+
   const filtered = subEquipments.filter(item => {
     const matchSearch = item.nom.toLowerCase().includes(searchTerm.toLowerCase()) ||
                        item.reference.toLowerCase().includes(searchTerm.toLowerCase());
     const matchParent = filterParent === 'all' || item.parent_equipment_id === filterParent;
-    return matchSearch && matchParent;
-  });
+    const matchParentType = filterParentType === 'all' || parentTypeOf(item) === filterParentType;
+    return matchSearch && matchParent && matchParentType;
+  }).sort((a, b) => (a.nom || '').localeCompare(b.nom || '', 'fr', { sensitivity: 'base', numeric: true }));
 
   if (loading) {
     return (
@@ -301,6 +310,14 @@ const SubEquipments = () => {
                 />
               </div>
             </div>
+            <SearchableSelect
+              value={filterParentType}
+              onValueChange={setFilterParentType}
+              className="w-[220px]"
+              data-testid="filter-parent-type"
+              placeholder="Filtrer par type parent"
+              options={[{ value: 'all', label: 'Tous les types' }, ...parentTypes.map(t => ({ value: t, label: t }))]}
+            />
             <SearchableSelect
               value={filterParent}
               onValueChange={setFilterParent}

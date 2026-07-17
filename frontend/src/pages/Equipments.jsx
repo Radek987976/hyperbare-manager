@@ -359,7 +359,7 @@ const Equipments = () => {
     const matchesCriticite = filterCriticite === 'all' || eq.criticite === filterCriticite;
     
     return matchesSearch && matchesType && matchesStatut && matchesCriticite;
-  });
+  }).sort((a, b) => (a.reference || '').localeCompare(b.reference || '', 'fr', { sensitivity: 'base', numeric: true }));
 
   const clearFilters = () => {
     setSearchTerm('');

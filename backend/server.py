@@ -482,6 +482,7 @@ class InspectionBase(BaseModel):
     resultat: Optional[str] = None
     observations: Optional[str] = None
     procedure_documents: List[dict] = []  # Liste des procédures PDF [{filename, url, uploaded_at}]
+    historique_controles: List[dict] = []  # Historique des réalisations passées (traçabilité)
 
 class InspectionCreate(InspectionBase):
     pass
@@ -1961,6 +1962,7 @@ async def get_inspection(inspection_id: str, current_user: dict = Depends(get_cu
 @api_router.put("/inspections/{inspection_id}", response_model=Inspection)
 async def update_inspection(inspection_id: str, data: InspectionCreate, current_user: dict = Depends(get_current_user)):
     data_dict = data.model_dump()
+    data_dict.pop("historique_controles", None)  # ne pas écraser l'historique via une simple modification
     # Recalculer la date de validité si date_realisation ou periodicite change
     data_dict["date_validite"] = calculate_next_date(data_dict.get("date_realisation"), data_dict.get("periodicite", "annuel"))
     
@@ -1969,6 +1971,46 @@ async def update_inspection(inspection_id: str, data: InspectionCreate, current_
         raise HTTPException(status_code=404, detail="Contrôle non trouvé")
     inspection = await db.inspections.find_one({"id": inspection_id}, {"_id": 0})
     return inspection
+
+class RenewInspectionRequest(BaseModel):
+    date_realisation: str
+    resultat: Optional[str] = None
+    organisme_certificateur: Optional[str] = None
+    observations: Optional[str] = None
+
+@api_router.post("/inspections/{inspection_id}/renew", response_model=Inspection)
+async def renew_inspection(inspection_id: str, data: RenewInspectionRequest, current_user: dict = Depends(get_current_user)):
+    """Enregistre le renouvellement d'un contrôle : archive la réalisation courante dans l'historique
+    (traçabilité) puis met à jour la date de réalisation et recalcule l'échéance."""
+    insp = await db.inspections.find_one({"id": inspection_id}, {"_id": 0})
+    if not insp:
+        raise HTTPException(status_code=404, detail="Contrôle non trouvé")
+
+    ops = {"$set": {}}
+    # Archiver la réalisation courante si elle existe
+    if insp.get("date_realisation"):
+        ops["$push"] = {"historique_controles": {
+            "date_realisation": insp.get("date_realisation"),
+            "date_validite": insp.get("date_validite"),
+            "resultat": insp.get("resultat"),
+            "organisme_certificateur": insp.get("organisme_certificateur"),
+            "observations": insp.get("observations"),
+            "archived_at": datetime.now(timezone.utc).isoformat(),
+            "archived_by": current_user.get("email"),
+        }}
+
+    ops["$set"]["date_realisation"] = data.date_realisation
+    ops["$set"]["date_validite"] = calculate_next_date(data.date_realisation, insp.get("periodicite", "annuel"))
+    if data.resultat is not None:
+        ops["$set"]["resultat"] = data.resultat
+    if data.organisme_certificateur is not None:
+        ops["$set"]["organisme_certificateur"] = data.organisme_certificateur
+    if data.observations is not None:
+        ops["$set"]["observations"] = data.observations
+
+    await db.inspections.update_one({"id": inspection_id}, ops)
+    updated = await db.inspections.find_one({"id": inspection_id}, {"_id": 0})
+    return updated
 
 @api_router.delete("/inspections/{inspection_id}")
 async def delete_inspection(inspection_id: str, current_user: dict = Depends(get_current_user)):

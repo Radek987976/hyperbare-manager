@@ -1,0 +1,25 @@
+{
+  "summary": "Verified inspection renew feature end-to-end. Backend POST /api/inspections/{id}/renew archives previous realization into historique_controles, sets new date_realisation and recomputes date_validite. Frontend quick-renew, renew-modal, controle-history, detail-renew-btn all work. Nouveau contrôle form has input-titre and input-type dropdowns and an editable date_realisation.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_details": {
+    "backend_pytest": "5/5 passed: test_renew_archives_history_and_updates_dates, test_get_returns_persisted_history, test_second_renew_appends_history, test_update_does_not_wipe_history (PUT preserves historique), test_renew_nonexistent_returns_404",
+    "frontend_quick_renew": "Created expired inspection via API, quick-renew-<id> button visible on Contrôles page, click opens data-testid='renew-modal'. Submit updates DB: date_realisation=today, date_validite=today+30d (mensuel), historique_controles length=1. UI badge transitions from 'Expiré' to 'Valide' (verified visually).",
+    "frontend_detail_modal": "Voir détails -> data-testid='controle-history' present with archived entry 'Réalisé le 08/04/2026 · Échéance 08/05/2026 · Résultat conforme · Organisme OrgA'. data-testid='detail-renew-btn' present and opens data-testid='renew-modal'.",
+    "regression_new_form": "Nouveau contrôle modal has data-testid='input-titre' and 'input-type'. Date de réalisation input is editable (default=today, changed to 2026-05-01 successfully). Prochaine échéance banner shows 'sera calculée automatiquement'."
+  },
+  "test_report_links": ["/app/backend/tests/test_inspection_renew.py", "/app/test_reports/pytest/inspection_renew.xml"],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "server.py is very large (5490 lines); consider splitting per-domain routers.",
+    "renew endpoint does not enforce role permissions (any authenticated user can renew); consider require_technicien_or_admin if that matches business rules.",
+    "Frontend detail modal has DialogContent missing DialogDescription (a11y warning, from previous iteration)."
+  ],
+  "updated_files": ["/app/backend/tests/test_inspection_renew.py"],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "test_credentials": "admin@hypermaint.fr / admin123",
+  "seed_data_creation": "Created and DELETED test inspections prefixed TEST_UI_Renew / TEST_UI_Renew2 during both pytest and playwright runs. All cleaned.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Backend renew endpoint at POST /api/inspections/{id}/renew — body: {date_realisation, resultat, organisme_certificateur, observations}. PUT /api/inspections/{id} intentionally strips historique_controles from payload to prevent overwrite. Frontend Inspections.jsx: quick-renew-<id> shown only when expired or <=30d until date_validite. Renewed insp keeps 'Renouveler' action + row badge switches from 'Expiré' (red) to 'Valide' (green) or 'Nj restants' (amber) depending on new date_validite."
+}

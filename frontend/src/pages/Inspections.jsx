@@ -24,6 +24,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
   DialogFooter,
 } from '../components/ui/dialog';
 import { SearchableSelect } from '../components/ui/searchable-select';
@@ -57,7 +58,9 @@ import {
   XCircle,
   Calendar,
   FileText,
-  Upload
+  Upload,
+  RotateCw,
+  History
 } from 'lucide-react';
 
 const PERIODICITES = ['hebdomadaire', 'mensuel', 'trimestriel', 'semestriel', 'annuel', 'biannuel', 'triennal', 'quinquennal', 'decennal'];
@@ -75,6 +78,38 @@ const Inspections = () => {
   const [showModal, setShowModal] = useState(false);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [showRenewModal, setShowRenewModal] = useState(false);
+  const [renewTarget, setRenewTarget] = useState(null);
+  const [savingRenew, setSavingRenew] = useState(false);
+  const emptyRenew = { date_realisation: new Date().toISOString().split('T')[0], resultat: '', organisme_certificateur: '', observations: '' };
+  const [renewForm, setRenewForm] = useState(emptyRenew);
+
+  const openRenewModal = (inspection) => {
+    setRenewTarget(inspection);
+    setRenewForm({
+      date_realisation: new Date().toISOString().split('T')[0],
+      resultat: '',
+      organisme_certificateur: inspection.organisme_certificateur || '',
+      observations: '',
+    });
+    setShowDetailModal(false);
+    setShowRenewModal(true);
+  };
+
+  const handleRenew = async () => {
+    if (!renewTarget || !renewForm.date_realisation) return;
+    setSavingRenew(true);
+    try {
+      await inspectionsAPI.renew(renewTarget.id, renewForm);
+      setShowRenewModal(false);
+      setRenewTarget(null);
+      await loadData();
+    } catch (e) {
+      alert(getErrorMessage(e, 'Erreur lors du renouvellement'));
+    } finally {
+      setSavingRenew(false);
+    }
+  };
   const [selectedInspection, setSelectedInspection] = useState(null);
   const [saving, setSaving] = useState(false);
   const [uploadingPdf, setUploadingPdf] = useState(false);
@@ -397,7 +432,22 @@ const Inspections = () => {
                           {formatDate(inspection.date_validite)}
                         </div>
                       </TableCell>
-                      <TableCell>{getStatusBadge(inspection.date_validite)}</TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          {getStatusBadge(inspection.date_validite)}
+                          {canModify() && (daysUntil(inspection.date_validite) ?? 9999) < 30 && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-7 px-2 border-[#0A9396] text-[#0A9396] hover:bg-[#0A9396]/5"
+                              onClick={() => openRenewModal(inspection)}
+                              data-testid={`quick-renew-${inspection.id}`}
+                            >
+                              <RotateCw className="w-3.5 h-3.5 mr-1" /> Renouveler
+                            </Button>
+                          )}
+                        </div>
+                      </TableCell>
                       <TableCell>{inspection.organisme_certificateur || '-'}</TableCell>
                       <TableCell>
                         <DropdownMenu>
@@ -414,6 +464,12 @@ const Inspections = () => {
                               <Eye className="w-4 h-4 mr-2" />
                               Voir détails
                             </DropdownMenuItem>
+                            {canModify() && (
+                              <DropdownMenuItem onClick={() => openRenewModal(inspection)} data-testid={`renew-${inspection.id}`}>
+                                <RotateCw className="w-4 h-4 mr-2" />
+                                Renouveler
+                              </DropdownMenuItem>
+                            )}
                             {canModify() && (
                               <DropdownMenuItem onClick={() => openEditModal(inspection)}>
                                 <Edit className="w-4 h-4 mr-2" />
@@ -675,8 +731,109 @@ const Inspections = () => {
                   </div>
                 )}
               </div>
+
+              {/* Historique des contrôles (traçabilité) */}
+              <div className="border-t pt-4">
+                <p className="font-semibold flex items-center gap-2 mb-2">
+                  <History className="w-4 h-4" /> Historique des contrôles
+                </p>
+                {(selectedInspection.historique_controles || []).length === 0 ? (
+                  <p className="text-sm text-slate-400">Aucun renouvellement enregistré. La réalisation courante est la première.</p>
+                ) : (
+                  <div className="space-y-2" data-testid="controle-history">
+                    {[...selectedInspection.historique_controles].reverse().map((h, i) => (
+                      <div key={i} className="text-sm p-2 bg-slate-50 rounded border border-slate-100">
+                        <div className="flex justify-between">
+                          <span>Réalisé le <strong>{formatDate(h.date_realisation)}</strong></span>
+                          <span className="text-slate-500">Échéance : {formatDate(h.date_validite)}</span>
+                        </div>
+                        {(h.resultat || h.organisme_certificateur) && (
+                          <p className="text-slate-500 text-xs mt-1">
+                            {h.resultat ? `Résultat : ${h.resultat}` : ''}{h.resultat && h.organisme_certificateur ? ' · ' : ''}{h.organisme_certificateur ? `Organisme : ${h.organisme_certificateur}` : ''}
+                          </p>
+                        )}
+                        {h.observations && <p className="text-slate-500 text-xs mt-1">{h.observations}</p>}
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {canModify() && (
+                  <Button
+                    className="mt-3 bg-[#0A9396] hover:bg-[#087f81]"
+                    onClick={() => openRenewModal(selectedInspection)}
+                    data-testid="detail-renew-btn"
+                  >
+                    <RotateCw className="w-4 h-4 mr-2" /> Enregistrer un renouvellement
+                  </Button>
+                )}
+              </div>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Renewal Modal */}
+      <Dialog open={showRenewModal} onOpenChange={setShowRenewModal}>
+        <DialogContent data-testid="renew-modal">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <RotateCw className="w-5 h-5 text-[#0A9396]" /> Renouveler le contrôle
+            </DialogTitle>
+            <DialogDescription>
+              {renewTarget?.titre} — la réalisation actuelle sera archivée dans l'historique et l'échéance recalculée.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Date de réalisation *</Label>
+              <Input
+                type="date"
+                value={renewForm.date_realisation}
+                onChange={(e) => setRenewForm(p => ({ ...p, date_realisation: e.target.value }))}
+                data-testid="renew-date"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Résultat</Label>
+                <Input
+                  value={renewForm.resultat}
+                  onChange={(e) => setRenewForm(p => ({ ...p, resultat: e.target.value }))}
+                  placeholder="conforme, non conforme..."
+                  data-testid="renew-resultat"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Organisme</Label>
+                <Input
+                  value={renewForm.organisme_certificateur}
+                  onChange={(e) => setRenewForm(p => ({ ...p, organisme_certificateur: e.target.value }))}
+                  data-testid="renew-organisme"
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Observations</Label>
+              <Textarea
+                value={renewForm.observations}
+                onChange={(e) => setRenewForm(p => ({ ...p, observations: e.target.value }))}
+                rows={2}
+                data-testid="renew-observations"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowRenewModal(false)}>Annuler</Button>
+            <Button
+              className="bg-[#0A9396] hover:bg-[#087f81]"
+              onClick={handleRenew}
+              disabled={savingRenew || !renewForm.date_realisation}
+              data-testid="renew-submit"
+            >
+              {savingRenew ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <RotateCw className="w-4 h-4 mr-2" />}
+              Enregistrer le renouvellement
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 

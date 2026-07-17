@@ -456,8 +456,19 @@ PERIODICITES = {
     "biannuel": 730,
     "triennal": 1095,
     "quinquennal": 1825,
-    "decennal": 3650
+    "decennal": 3650,
+    "journalier": 1,
+    "quotidien": 1,
 }
+
+def _norm_periodicite(value: str) -> str:
+    """Normalise une périodicité saisie (accents, casse) vers une clé valide de PERIODICITES."""
+    if not value:
+        return "annuel"
+    import unicodedata
+    s = unicodedata.normalize("NFKD", str(value).strip().lower())
+    s = "".join(c for c in s if not unicodedata.combining(c))
+    return s if s in PERIODICITES else "annuel"
 
 class InspectionBase(BaseModel):
     titre: str
@@ -5071,8 +5082,7 @@ async def import_controls_from_rows(rows: list) -> dict:
         if eqref and not eq:
             errors.append(f"Ligne {i + 2}: équipement introuvable ('{eqref}')")
             continue
-        per = (_cell(row, "PERIODICITE", "PÉRIODICITÉ") or "annuel").lower()
-        per = per if per in PERIODICITES else "annuel"
+        per = _norm_periodicite(_cell(row, "PERIODICITE", "PÉRIODICITÉ", "PERIODICITE_JOURS"))
         date_real = _parse_date(_cell(row, "DATE_REALISATION", "DATE REALISATION", "DATE"))
         date_val = None
         if date_real:
@@ -5083,7 +5093,7 @@ async def import_controls_from_rows(rows: list) -> dict:
         docs.append({
             "id": str(uuid.uuid4()),
             "titre": titre,
-            "type_controle": _cell(row, "TYPE_CONTROLE", "TYPE") or "reglementaire",
+            "type_controle": _cell(row, "TYPE_CONTROLE", "TYPE", "DESCRIPTION") or "reglementaire",
             "periodicite": per,
             "caisson_id": eq.get("caisson_id") if eq else None,
             "equipment_id": eq["id"] if eq else None,

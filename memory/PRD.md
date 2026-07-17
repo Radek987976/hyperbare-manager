@@ -3,7 +3,12 @@
 ## Énoncé du problème original
 Application web de GMAO (gestion de maintenance assistée par ordinateur) pour un caisson hyperbare unique contenant plusieurs équipements et sous-équipements.
 
-## Changelog (2026-06-17d) — Bouton admin « Réinitialiser l'historique »
+## Changelog (2026-06-17e) — Bouton reset "à usage unique"
+- `GET /api/admin/reset-history-status` : renvoie `{done}` (flag `app_meta.history_reset` OU détection paresseuse si les 4 collections d'historique sont vides → pose le flag). `reset-history` pose le flag après exécution et renvoie 409 si déjà fait.
+- Frontend Import : le bouton « Réinitialiser l'historique » est masqué (remplacé par « ✓ Déjà effectuée ») quand `done:true`. Vérifié preview (done:true, ré-appel 409).
+- ⚠️ Observation : historique preview vide = identique à la prod → preview et prod semblent partager la même base MongoDB (à confirmer avec support).
+
+
 - `POST /api/admin/reset-history?confirm=RESET` (admin) : supprime `interventions`, `work_orders`, `inspections`, `formations` et vide `historique_statut`/`historique_compteur` des équipements. Conserve équipements, sous-équipements, bouteilles, prestataires, utilisateurs. Garde-fou : `confirm=RESET` obligatoire (sinon 400).
 - UI : bouton rouge « Réinitialiser l'historique » dans page Import (carte Maintenance des données) + AlertDialog avec saisie « RESET » obligatoire. `importAPI.resetHistory`.
 - Testé : garde-fou vérifié (400 sans confirmation), frontend compile. NON exécuté sur preview pour préserver les données. À lancer une seule fois en prod après sauvegarde.

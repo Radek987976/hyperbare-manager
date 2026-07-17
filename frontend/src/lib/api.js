@@ -387,6 +387,7 @@ export const importAPI = {
   },
   initDefaultData: () => api.post('/init/default-data'),
   resetHistory: () => api.post('/admin/reset-history?confirm=RESET'),
+  resetHistoryStatus: () => api.get('/admin/reset-history-status'),
 };
 
 export default api;

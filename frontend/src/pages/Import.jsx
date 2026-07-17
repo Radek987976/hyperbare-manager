@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { importAPI, interventionsAPI } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
 import { getErrorMessage } from '../lib/utils';
@@ -94,6 +94,15 @@ const Import = () => {
   const [isResetDialogOpen, setIsResetDialogOpen] = useState(false);
   const [resetConfirmText, setResetConfirmText] = useState('');
   const [isResetting, setIsResetting] = useState(false);
+  const [historyResetDone, setHistoryResetDone] = useState(true); // masqué par défaut tant que le statut n'est pas connu
+
+  useEffect(() => {
+    if (user?.role === 'admin') {
+      importAPI.resetHistoryStatus()
+        .then(res => setHistoryResetDone(!!res.data.done))
+        .catch(() => setHistoryResetDone(false));
+    }
+  }, [user]);
 
   const handleResetHistory = async () => {
     setIsResetting(true);
@@ -108,6 +117,7 @@ const Import = () => {
       });
       setIsResetDialogOpen(false);
       setResetConfirmText('');
+      setHistoryResetDone(true);
     } catch (err) {
       setError(getErrorMessage(err));
     } finally {
@@ -287,11 +297,17 @@ const Import = () => {
               <p className="font-medium text-red-700">Réinitialiser tout l'historique (irréversible)</p>
               <p>Supprime interventions, ordres de travail, contrôles et formations, et vide les sous-historiques des équipements. Conserve équipements, sous-équipements, bouteilles, prestataires et utilisateurs. <strong>Faites un export de sauvegarde avant.</strong></p>
             </div>
-            <Button variant="outline" onClick={() => { setResetConfirmText(''); setIsResetDialogOpen(true); }}
-              className="text-white bg-red-600 border-red-600 hover:bg-red-700 shrink-0" data-testid="reset-history-btn">
-              <Trash2 className="h-4 w-4 mr-2" />
-              Réinitialiser l'historique
-            </Button>
+            {historyResetDone ? (
+              <div className="flex items-center gap-2 text-sm text-green-700 shrink-0" data-testid="reset-history-done">
+                <CheckCircle className="h-4 w-4" /> Déjà effectuée
+              </div>
+            ) : (
+              <Button variant="outline" onClick={() => { setResetConfirmText(''); setIsResetDialogOpen(true); }}
+                className="text-white bg-red-600 border-red-600 hover:bg-red-700 shrink-0" data-testid="reset-history-btn">
+                <Trash2 className="h-4 w-4 mr-2" />
+                Réinitialiser l'historique
+              </Button>
+            )}
           </div>
         </CardContent>
       </Card>

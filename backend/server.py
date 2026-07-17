@@ -1892,13 +1892,35 @@ async def delete_intervention(intervention_id: str, current_user: dict = Depends
     await db.interventions.delete_one({"id": intervention_id})
     return {"success": True, "id": intervention_id}
 
+@api_router.get("/admin/reset-history-status")
+async def reset_history_status(current_user: dict = Depends(require_admin)):
+    """Indique si la réinitialisation de l'historique a déjà été effectuée (bouton à usage unique)."""
+    flag = await db.app_meta.find_one({"key": "history_reset"})
+    if flag and flag.get("done"):
+        return {"done": True, "done_at": flag.get("done_at")}
+    # Détection paresseuse : si aucun historique n'existe, on considère l'opération déjà faite
+    counts = 0
+    for coll in ["interventions", "work_orders", "inspections", "formations"]:
+        counts += await db[coll].count_documents({})
+    if counts == 0:
+        await db.app_meta.update_one(
+            {"key": "history_reset"},
+            {"$set": {"key": "history_reset", "done": True, "done_at": datetime.now(timezone.utc).isoformat(), "done_by": "auto"}},
+            upsert=True,
+        )
+        return {"done": True, "done_at": None}
+    return {"done": False}
+
 @api_router.post("/admin/reset-history")
 async def reset_history(confirm: str = "", current_user: dict = Depends(require_admin)):
     """DESTRUCTIF — Réinitialise tout l'historique métier (interventions, ordres de travail, contrôles,
     formations) et vide les sous-historiques des équipements. Conserve équipements, sous-équipements,
-    bouteilles, prestataires, utilisateurs. Nécessite confirm=RESET."""
+    bouteilles, prestataires, utilisateurs. Nécessite confirm=RESET. À usage unique."""
     if confirm != "RESET":
         raise HTTPException(status_code=400, detail="Confirmation requise (confirm=RESET)")
+    flag = await db.app_meta.find_one({"key": "history_reset"})
+    if flag and flag.get("done"):
+        raise HTTPException(status_code=409, detail="La réinitialisation a déjà été effectuée")
     deleted = {}
     for coll in ["interventions", "work_orders", "inspections", "formations"]:
         res = await db[coll].delete_many({})
@@ -1906,6 +1928,12 @@ async def reset_history(confirm: str = "", current_user: dict = Depends(require_
     # Vider les sous-historiques intégrés aux équipements
     eq_res = await db.equipments.update_many(
         {}, {"$set": {"historique_statut": [], "historique_compteur": []}}
+    )
+    # Marquer l'opération comme effectuée (bouton à usage unique)
+    await db.app_meta.update_one(
+        {"key": "history_reset"},
+        {"$set": {"key": "history_reset", "done": True, "done_at": datetime.now(timezone.utc).isoformat(), "done_by": current_user.get("email", "admin")}},
+        upsert=True,
     )
     return {
         "success": True,

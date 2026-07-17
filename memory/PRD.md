@@ -3,7 +3,13 @@
 ## Énoncé du problème original
 Application web de GMAO (gestion de maintenance assistée par ordinateur) pour un caisson hyperbare unique contenant plusieurs équipements et sous-équipements.
 
-## Changelog (2026-06-17) — Interventions curatives directes + nettoyage Dashboard
+## Changelog (2026-06-17b) — Nettoyage données + badge type + suppression intervention
+- **Nettoyage** : `POST /api/admin/cleanup-fake-corrective` (admin) supprime les faux ordres correctifs pollués (« Formation CAH », « Y_Dépannage », « Y_Mise en service »). Bouton « Nettoyer » ajouté dans page Import (carte « Maintenance des données »). Exécuté sur preview : 4 « Formation CAH » supprimés.
+- **Badge type** : liste des interventions affiche une pastille colorée « Curative » (ambre) / « Préventive » (turquoise) dans la colonne Objet.
+- **Suppression intervention** : `DELETE /api/interventions/{id}` (admin) supprime l'intervention et re-crédite le stock des pièces. Bouton « Supprimer » (avec confirmation) ajouté dans la modale de détail (testid `interv-delete-btn`). `interventionsAPI.delete` + `cleanupFakeCorrective`.
+- Description de l'import « Interventions » enrichie (DESIGNATION/MOTIF, rattachement sous-équipement).
+
+
 - **Interventions curatives découplées des ordres de travail** : une intervention curative se saisit désormais en choisissant directement **Équipement** (obligatoire) + **Sous-équipement** (optionnel, filtré par équipement) + **Motif/désignation** texte libre. Plus besoin de créer un ordre correctif au préalable ; `work_order_id` n'est plus utilisé pour le curatif. Le préventif reste inchangé (rattaché à une maintenance planifiée).
 - **Backend** : `InterventionBase` a 2 champs optionnels `titre` et `sous_equipement_id`. `_build_maintenance_history` agrège les interventions via `$or {equipment_id, sous_equipement_id}` → une intervention sur un sous-équipement apparaît dans l'historique du sous-équipement ET de l'équipement parent. Vérifié via API.
 - **Import interventions amélioré** (pour données « Y_Dépannage ») : accepte `DESIGNATION`/`DÉSIGNATION`/`MOTIF`/`TITRE` comme motif (fallback actions), rattache automatiquement au sous-équipement (et à son parent) si la référence/nom correspond à un sous-équipement.

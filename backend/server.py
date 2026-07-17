@@ -1877,6 +1877,30 @@ async def update_intervention(intervention_id: str, data: InterventionCreate, cu
     updated = await db.interventions.find_one({"id": intervention_id}, {"_id": 0})
     return updated
 
+@api_router.delete("/interventions/{intervention_id}")
+async def delete_intervention(intervention_id: str, current_user: dict = Depends(require_admin)):
+    """Supprime une intervention (admin uniquement) et re-crédite le stock des pièces utilisées."""
+    existing = await db.interventions.find_one({"id": intervention_id}, {"_id": 0})
+    if not existing:
+        raise HTTPException(status_code=404, detail="Intervention non trouvée")
+    for old in existing.get("pieces_utilisees", []):
+        if old.get("spare_part_id"):
+            await db.spare_parts.update_one(
+                {"id": old["spare_part_id"]},
+                {"$inc": {"quantite_stock": int(old.get("quantite", 0))}}
+            )
+    await db.interventions.delete_one({"id": intervention_id})
+    return {"success": True, "id": intervention_id}
+
+@api_router.post("/admin/cleanup-fake-corrective")
+async def cleanup_fake_corrective(current_user: dict = Depends(require_admin)):
+    """Supprime les faux ordres de travail correctifs pollués (Formation CAH, Y_Dépannage, Y_Mise en service...)."""
+    rx = {"$regex": r"formation\s*CAH|Y[_\s]*D[ée]pannage|Y[_\s]*Mise\s*en\s*service", "$options": "i"}
+    query = {"type_maintenance": "corrective", "titre": rx}
+    to_delete = await db.work_orders.find(query, {"_id": 0, "titre": 1}).to_list(1000)
+    result = await db.work_orders.delete_many(query)
+    return {"success": True, "deleted": result.deleted_count, "titres": [d.get("titre") for d in to_delete]}
+
 @api_router.post("/interventions/{intervention_id}/documents")
 async def upload_intervention_document(
     intervention_id: str,

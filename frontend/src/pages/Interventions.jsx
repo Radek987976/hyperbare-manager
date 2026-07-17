@@ -232,6 +232,18 @@ function Interventions() {
     return p ? p.nom : id;
   }
 
+  async function handleDelete(item) {
+    if (!window.confirm('Supprimer définitivement cette intervention ? Le stock des pièces utilisées sera re-crédité.')) return;
+    try {
+      await interventionsAPI.delete(item.id);
+      setShowDetailModal(false);
+      setSelectedItem(null);
+      await loadData();
+    } catch (e) {
+      alert(e.response?.data?.detail || 'Erreur lors de la suppression');
+    }
+  }
+
   async function refreshSelected(id) {
     try {
       const res = await interventionsAPI.getById(id);
@@ -364,8 +376,8 @@ function Interventions() {
                   <TableCell>{formatDate(item.date_intervention)}</TableCell>
                   <TableCell>
                     {item.type_intervention === 'preventive' 
-                      ? <><Wrench className="w-4 h-4 inline mr-1 text-green-600" />{getPreventiveTitle(item.maintenance_preventive_id)}</>
-                      : <><Activity className="w-4 h-4 inline mr-1 text-[#EE9B00]" />{getInterventionLabel(item)}</>}
+                      ? <span className="inline-flex items-center gap-2"><Badge variant="outline" className="bg-[#0A9396]/10 text-[#0A9396] border-[#0A9396]/30">Préventive</Badge>{getPreventiveTitle(item.maintenance_preventive_id)}</span>
+                      : <span className="inline-flex items-center gap-2"><Badge variant="outline" className="bg-[#EE9B00]/10 text-[#EE9B00] border-[#EE9B00]/30">Curative</Badge>{getInterventionLabel(item)}</span>}
                   </TableCell>
                   <TableCell><User className="w-4 h-4 inline mr-1 text-slate-400" />{item.technicien}</TableCell>
                   <TableCell className="max-w-xs truncate">{item.actions_realisees}</TableCell>
@@ -657,7 +669,10 @@ function Interventions() {
               </div>
 
               {isAdmin && (
-                <div className="border-t pt-3 flex justify-end">
+                <div className="border-t pt-3 flex justify-between">
+                  <Button variant="outline" onClick={() => handleDelete(selectedItem)} className="text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700" data-testid="interv-delete-btn">
+                    <Trash2 className="w-4 h-4 mr-2" /> Supprimer
+                  </Button>
                   <Button onClick={() => openEdit(selectedItem)} className="bg-[#005F73] hover:bg-[#004C5C]" data-testid="interv-edit-btn">
                     <Edit className="w-4 h-4 mr-2" /> Rectifier cette intervention
                   </Button>

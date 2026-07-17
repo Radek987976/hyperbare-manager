@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { importAPI } from '../lib/api';
+import { importAPI, interventionsAPI } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
 import { getErrorMessage } from '../lib/utils';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/card';
@@ -75,7 +75,7 @@ const IMPORT_TYPES = [
   {
     value: 'interventions',
     label: 'Interventions (base de données)',
-    description: 'Importer l\'historique complet des interventions, rattachées par EQUIPEMENT ou N_SERIE. Colonnes: EQUIPEMENT, TYPE, DATE, INTERVENANT, ACTIONS_REALISEES...',
+    description: 'Importer l\'historique complet des interventions, rattachées par EQUIPEMENT ou N_SERIE (ou nom d\'un sous-équipement). Colonnes: EQUIPEMENT, TYPE (curative/preventive), DATE, INTERVENANT, DESIGNATION/MOTIF, ACTIONS_REALISEES, OBSERVATION, PIECES_UTILISEES, COMPTEUR_HORAIRE.',
     icon: '📝'
   },
 ];
@@ -89,6 +89,21 @@ const Import = () => {
   const [error, setError] = useState('');
   const [isInitDialogOpen, setIsInitDialogOpen] = useState(false);
   const [isInitializing, setIsInitializing] = useState(false);
+  const [isCleaning, setIsCleaning] = useState(false);
+
+  const handleCleanupFakeCorrective = async () => {
+    if (!window.confirm('Supprimer les faux ordres correctifs pollués (« Formation CAH », « Y_Dépannage », « Y_Mise en service ») ? Les interventions réelles ne sont pas touchées.')) return;
+    setIsCleaning(true);
+    setError('');
+    try {
+      const res = await interventionsAPI.cleanupFakeCorrective();
+      setResult({ type: 'cleanup', message: `${res.data.deleted} faux ordre(s) correctif(s) supprimé(s).`, imported: res.data.deleted });
+    } catch (err) {
+      setError(getErrorMessage(err));
+    } finally {
+      setIsCleaning(false);
+    }
+  };
 
   const handleFileChange = (e) => {
     const file = e.target.files[0];
@@ -215,6 +230,31 @@ const Import = () => {
             <Button onClick={() => setIsInitDialogOpen(true)}>
               <Database className="h-4 w-4 mr-2" />
               Initialiser
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Nettoyage des données */}
+      <Card className="border-red-100">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <AlertTriangle className="h-5 w-5 text-red-500" />
+            Maintenance des données
+          </CardTitle>
+          <CardDescription>
+            Supprimer les faux ordres de travail correctifs issus d'anciens imports (« Formation CAH », « Y_Dépannage », « Y_Mise en service »)
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center justify-between gap-4">
+            <p className="text-sm text-gray-600">
+              Les formations ne sont pas des maintenances : cette action retire uniquement les ordres correctifs parasites. Vos interventions réelles restent intactes.
+            </p>
+            <Button variant="outline" onClick={handleCleanupFakeCorrective} disabled={isCleaning}
+              className="text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700 shrink-0" data-testid="cleanup-fake-corrective-btn">
+              {isCleaning ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <XCircle className="h-4 w-4 mr-2" />}
+              Nettoyer
             </Button>
           </div>
         </CardContent>

@@ -174,6 +174,8 @@ export const interventionsAPI = {
   getById: (id) => api.get(`/interventions/${id}`),
   create: (data) => api.post('/interventions', data),
   update: (id, data) => api.put(`/interventions/${id}`, data),
+  delete: (id) => api.delete(`/interventions/${id}`),
+  cleanupFakeCorrective: () => api.post('/admin/cleanup-fake-corrective'),
   uploadDocument: (id, file) => {
     const formData = new FormData();
     formData.append('file', file);

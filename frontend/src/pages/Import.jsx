@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { importAPI, interventionsAPI } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
 import { getErrorMessage } from '../lib/utils';
@@ -26,8 +26,7 @@ import {
   Database,
   AlertTriangle,
   Info,
-  Download,
-  Trash2
+  Download
 } from 'lucide-react';
 
 const IMPORT_TYPES = [
@@ -91,39 +90,6 @@ const Import = () => {
   const [isInitDialogOpen, setIsInitDialogOpen] = useState(false);
   const [isInitializing, setIsInitializing] = useState(false);
   const [isCleaning, setIsCleaning] = useState(false);
-  const [isResetDialogOpen, setIsResetDialogOpen] = useState(false);
-  const [resetConfirmText, setResetConfirmText] = useState('');
-  const [isResetting, setIsResetting] = useState(false);
-  const [historyResetDone, setHistoryResetDone] = useState(true); // masqué par défaut tant que le statut n'est pas connu
-
-  useEffect(() => {
-    if (user?.role === 'admin') {
-      importAPI.resetHistoryStatus()
-        .then(res => setHistoryResetDone(!!res.data.done))
-        .catch(() => setHistoryResetDone(false));
-    }
-  }, [user]);
-
-  const handleResetHistory = async () => {
-    setIsResetting(true);
-    setError('');
-    try {
-      const res = await importAPI.resetHistory();
-      const d = res.data.deleted || {};
-      setResult({
-        type: 'reset',
-        message: `Historique réinitialisé : ${d.interventions || 0} intervention(s), ${d.work_orders || 0} ordre(s) de travail, ${d.inspections || 0} contrôle(s), ${d.formations || 0} formation(s) supprimé(s). Sous-historiques équipements vidés (${res.data.equipments_history_cleared || 0}).`,
-        imported: (d.interventions || 0) + (d.work_orders || 0) + (d.inspections || 0) + (d.formations || 0),
-      });
-      setIsResetDialogOpen(false);
-      setResetConfirmText('');
-      setHistoryResetDone(true);
-    } catch (err) {
-      setError(getErrorMessage(err));
-    } finally {
-      setIsResetting(false);
-    }
-  };
 
   const handleCleanupFakeCorrective = async () => {
     if (!window.confirm('Supprimer les faux ordres correctifs pollués (« Formation CAH », « Y_Dépannage », « Y_Mise en service ») ? Les interventions réelles ne sont pas touchées.')) return;
@@ -290,24 +256,6 @@ const Import = () => {
               {isCleaning ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <XCircle className="h-4 w-4 mr-2" />}
               Nettoyer
             </Button>
-          </div>
-
-          <div className="mt-4 pt-4 border-t border-red-100 flex items-center justify-between gap-4">
-            <div className="text-sm text-gray-600">
-              <p className="font-medium text-red-700">Réinitialiser tout l'historique (irréversible)</p>
-              <p>Supprime interventions, ordres de travail, contrôles et formations, et vide les sous-historiques des équipements. Conserve équipements, sous-équipements, bouteilles, prestataires et utilisateurs. <strong>Faites un export de sauvegarde avant.</strong></p>
-            </div>
-            {historyResetDone ? (
-              <div className="flex items-center gap-2 text-sm text-green-700 shrink-0" data-testid="reset-history-done">
-                <CheckCircle className="h-4 w-4" /> Déjà effectuée
-              </div>
-            ) : (
-              <Button variant="outline" onClick={() => { setResetConfirmText(''); setIsResetDialogOpen(true); }}
-                className="text-white bg-red-600 border-red-600 hover:bg-red-700 shrink-0" data-testid="reset-history-btn">
-                <Trash2 className="h-4 w-4 mr-2" />
-                Réinitialiser l'historique
-              </Button>
-            )}
           </div>
         </CardContent>
       </Card>
@@ -513,41 +461,6 @@ const Import = () => {
               ) : (
                 'Initialiser'
               )}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      {/* Reset History Dialog */}
-      <AlertDialog open={isResetDialogOpen} onOpenChange={(o) => { setIsResetDialogOpen(o); if (!o) setResetConfirmText(''); }}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle className="text-red-700">Réinitialiser tout l'historique ?</AlertDialogTitle>
-            <AlertDialogDescription asChild>
-              <div className="space-y-3">
-                <p>Cette action est <strong>irréversible</strong>. Seront définitivement supprimés :</p>
-                <ul className="list-disc list-inside text-sm">
-                  <li>Toutes les interventions</li>
-                  <li>Tous les ordres de travail / maintenances</li>
-                  <li>Tous les contrôles réglementaires</li>
-                  <li>Toutes les formations</li>
-                  <li>Les sous-historiques des équipements (statut, compteur)</li>
-                </ul>
-                <p className="text-sm">Conservés : équipements, sous-équipements, bouteilles, prestataires, utilisateurs.</p>
-                <p className="text-sm font-medium">Tapez <strong>RESET</strong> pour confirmer :</p>
-                <Input value={resetConfirmText} onChange={(e) => setResetConfirmText(e.target.value)} placeholder="RESET" data-testid="reset-confirm-input" />
-              </div>
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Annuler</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={(e) => { e.preventDefault(); handleResetHistory(); }}
-              disabled={resetConfirmText !== 'RESET' || isResetting}
-              className="bg-red-600 hover:bg-red-700"
-              data-testid="reset-history-confirm-btn"
-            >
-              {isResetting ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Suppression...</> : 'Réinitialiser définitivement'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

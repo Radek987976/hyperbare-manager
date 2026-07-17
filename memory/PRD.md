@@ -3,6 +3,13 @@
 ## Énoncé du problème original
 Application web de GMAO (gestion de maintenance assistée par ordinateur) pour un caisson hyperbare unique contenant plusieurs équipements et sous-équipements.
 
+## Changelog (2026-06-16) — Contrôles : renouvellement + historique + dropdowns
+- **Renouvellement de contrôle** : `POST /api/inspections/{id}/renew` archive la réalisation courante dans `historique_controles` (traçabilité) puis met à jour date_realisation et recalcule date_validite → le contrôle repasse « Valide ». `PUT /inspections/{id}` ne touche plus à l'historique (pop + recalcul date_validite).
+- **UI Inspections** : bouton « Renouveler » (rapide dans la liste quand expiré/≤30j, menu ⋯, et détail), modal de renouvellement (date éditable + résultat/organisme/observations), section « Historique des contrôles » dans le détail. `inspectionsAPI.renew`.
+- **Nouveau contrôle** : Titre et Type de contrôle passés en listes déroulantes searchable + saisie libre ; date de réalisation éditable (non figée). PDF après enregistrement déjà présent.
+- Testé 100% backend+frontend (iteration_16), tests pytest ajoutés (test_inspection_renew.py).
+
+
 ## Changelog (2026-06-16) — Imports Excel (sous-équipements, maintenance préventive, contrôles) + modèles
 - Nouveaux imports rows-based (testés E2E) : `import_subequipments_from_rows` (soupapes/manomètres/déverseurs → subequipments, rattachés par PARENT_EQUIPEMENT), `import_maintenance_from_rows` (maintenances préventives → work_orders preventive), `import_controls_from_rows` (contrôles réglementaires → inspections, date_validite auto-calculée via PERIODICITES). Dispatcher `/api/import/excel` mis à jour.
 - Modèles `/api/import/template/{type}` ajoutés pour : sous-equipements, maintenance, controles (equipements & interventions existaient). Bouton « Télécharger le modèle » activé pour les 5 types dans Import.jsx ; nouveau type « Sous-équipements » dans la liste.

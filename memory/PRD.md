@@ -3,6 +3,12 @@
 ## Énoncé du problème original
 Application web de GMAO (gestion de maintenance assistée par ordinateur) pour un caisson hyperbare unique contenant plusieurs équipements et sous-équipements.
 
+## Changelog (2026-06-17) — Export Excel (remplace CSV) + anti-duplication imports
+- **Export par collection en Excel** : `GET /api/export/xlsx/{collection}` remplace `/export/csv/{collection}`. Les 5 boutons (Équipements, Ordres de travail, Interventions, Contrôles, Pièces détachées) téléchargent désormais des fichiers `.xlsx` (openpyxl via pandas), plus de CSV. SQL et JSON conservés tels quels. Front: `exportAPI.collectionXlsx`, `handleExportCollection`, testids `export-xlsx-*`.
+- **Anti-duplication imports** : `import_maintenance_from_rows` et `import_controls_from_rows` font maintenant un upsert par (equipment_id + titre) — mise à jour au lieu d'insérer un doublon si le même fichier est ré-importé. Réponse enrichie de `updated`.
+- Testé backend (curl, 5 exports = xlsx valides via openpyxl).
+
+
 ## Changelog (2026-06-16) — Contrôles : renouvellement + historique + dropdowns
 - **Renouvellement de contrôle** : `POST /api/inspections/{id}/renew` archive la réalisation courante dans `historique_controles` (traçabilité) puis met à jour date_realisation et recalcule date_validite → le contrôle repasse « Valide ». `PUT /inspections/{id}` ne touche plus à l'historique (pop + recalcul date_validite).
 - **UI Inspections** : bouton « Renouveler » (rapide dans la liste quand expiré/≤30j, menu ⋯, et détail), modal de renouvellement (date éditable + résultat/organisme/observations), section « Historique des contrôles » dans le détail. `inspectionsAPI.renew`.

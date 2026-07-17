@@ -2924,14 +2924,20 @@ async def global_search(q: str, current_user: dict = Depends(get_current_user)):
 
 # ==================== EXPORT ROUTES ====================
 
-@api_router.get("/export/csv/{collection}")
-async def export_csv(collection: str, current_user: dict = Depends(get_current_user)):
+@api_router.get("/export/xlsx/{collection}")
+async def export_collection_xlsx(collection: str, current_user: dict = Depends(get_current_user)):
     # Check permission
     if not can_export(current_user):
         raise HTTPException(status_code=403, detail="Accès réservé aux administrateurs et techniciens")
     
-    valid_collections = ["equipments", "work_orders", "interventions", "inspections", "spare_parts"]
-    if collection not in valid_collections:
+    sheet_names = {
+        "equipments": "Equipements",
+        "work_orders": "Ordres_Travail",
+        "interventions": "Interventions",
+        "inspections": "Controles",
+        "spare_parts": "Pieces_Detachees",
+    }
+    if collection not in sheet_names:
         raise HTTPException(status_code=400, detail="Collection invalide")
     
     data = await db[collection].find({}, {"_id": 0}).to_list(10000)
@@ -2939,16 +2945,16 @@ async def export_csv(collection: str, current_user: dict = Depends(get_current_u
     if not data:
         raise HTTPException(status_code=404, detail="Aucune donnée à exporter")
     
-    output = io.StringIO()
-    writer = csv.DictWriter(output, fieldnames=data[0].keys())
-    writer.writeheader()
-    writer.writerows(data)
-    
+    output = io.BytesIO()
+    df = pd.DataFrame(data)
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+        df.to_excel(writer, sheet_name=sheet_names[collection], index=False)
     output.seek(0)
+    
     return StreamingResponse(
-        iter([output.getvalue()]),
-        media_type="text/csv",
-        headers={"Content-Disposition": f"attachment; filename={collection}.csv"}
+        output,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f"attachment; filename={collection}.xlsx"}
     )
 
 @api_router.get("/export/sql")
@@ -5098,10 +5104,22 @@ async def import_maintenance_from_rows(rows: list) -> dict:
             "documents": [],
             "created_at": datetime.now(timezone.utc).isoformat(),
         })
-    if docs:
-        await db.work_orders.insert_many(docs)
-        imported = len(docs)
-    return {"imported": imported, "errors": errors, "type": "maintenance"}
+    updated = 0
+    for doc in docs:
+        # Anti-duplication: match by (equipment_id, titre)
+        existing = await db.work_orders.find_one({
+            "equipment_id": doc["equipment_id"],
+            "titre": doc["titre"],
+            "type_maintenance": "preventive",
+        })
+        if existing:
+            upd = {k: v for k, v in doc.items() if k not in ("id", "created_at", "photos", "documents")}
+            await db.work_orders.update_one({"id": existing["id"]}, {"$set": upd})
+            updated += 1
+        else:
+            await db.work_orders.insert_one(doc)
+            imported += 1
+    return {"imported": imported, "updated": updated, "errors": errors, "type": "maintenance"}
 
 
 async def import_controls_from_rows(rows: list) -> dict:
@@ -5147,10 +5165,21 @@ async def import_controls_from_rows(rows: list) -> dict:
             "procedure_documents": [],
             "created_at": datetime.now(timezone.utc).isoformat(),
         })
-    if docs:
-        await db.inspections.insert_many(docs)
-        imported = len(docs)
-    return {"imported": imported, "errors": errors, "type": "controles"}
+    updated = 0
+    for doc in docs:
+        # Anti-duplication: match by (equipment_id, titre)
+        existing = await db.inspections.find_one({
+            "equipment_id": doc["equipment_id"],
+            "titre": doc["titre"],
+        })
+        if existing:
+            upd = {k: v for k, v in doc.items() if k not in ("id", "created_at", "procedure_documents")}
+            await db.inspections.update_one({"id": existing["id"]}, {"$set": upd})
+            updated += 1
+        else:
+            await db.inspections.insert_one(doc)
+            imported += 1
+    return {"imported": imported, "updated": updated, "errors": errors, "type": "controles"}
 
 
 

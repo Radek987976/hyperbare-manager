@@ -17,13 +17,13 @@ const Export = () => {
   const [exporting, setExporting] = useState({});
   const [success, setSuccess] = useState({});
 
-  const handleExportCSV = async (collection, label) => {
+  const handleExportCollection = async (collection, label) => {
     setExporting({ ...exporting, [collection]: true });
     setSuccess({ ...success, [collection]: false });
     
     try {
-      const response = await exportAPI.csv(collection);
-      downloadBlob(response.data, `${collection}.csv`);
+      const response = await exportAPI.collectionXlsx(collection);
+      downloadBlob(response.data, `${collection}.xlsx`);
       setSuccess({ ...success, [collection]: true });
       setTimeout(() => setSuccess({ ...success, [collection]: false }), 3000);
     } catch (error) {
@@ -106,15 +106,15 @@ const Export = () => {
         </p>
       </div>
 
-      {/* CSV Exports */}
+      {/* Excel Exports par collection */}
       <Card>
         <CardHeader>
           <CardTitle className="font-['Barlow_Condensed'] uppercase flex items-center gap-2">
-            <FileText className="w-5 h-5 text-[#005F73]" />
-            Export CSV
+            <FileSpreadsheet className="w-5 h-5 text-[#005F73]" />
+            Export Excel
           </CardTitle>
           <CardDescription>
-            Exportez chaque collection de données au format CSV (tableur)
+            Exportez chaque collection de données au format Excel (.xlsx)
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -126,9 +126,9 @@ const Export = () => {
                   <Button 
                     variant="outline" 
                     size="sm"
-                    onClick={() => handleExportCSV(collection, label)}
+                    onClick={() => handleExportCollection(collection, label)}
                     disabled={exporting[collection]}
-                    data-testid={`export-csv-${collection}`}
+                    data-testid={`export-xlsx-${collection}`}
                   >
                     {exporting[collection] ? (
                       <Loader2 className="w-4 h-4 animate-spin" />
@@ -137,7 +137,7 @@ const Export = () => {
                     ) : (
                       <>
                         <Download className="w-4 h-4 mr-2" />
-                        CSV
+                        Excel
                       </>
                     )}
                   </Button>
@@ -273,7 +273,8 @@ const Export = () => {
         <CardContent className="p-6">
           <h3 className="font-semibold mb-2">À propos des exports</h3>
           <ul className="text-sm text-slate-600 space-y-1 list-disc list-inside">
-            <li><strong>CSV</strong> : Format tableur compatible avec Excel, LibreOffice, Google Sheets</li>
+            <li><strong>Excel</strong> : Un fichier .xlsx par collection, compatible Excel, LibreOffice, Google Sheets</li>
+            <li><strong>Excel (Audit)</strong> : Export complet multi-feuilles de toutes les données</li>
             <li><strong>SQL</strong> : Instructions SQL pour recréer les tables et insérer les données</li>
             <li><strong>JSON</strong> : Format structuré pour l'intégration API et développement</li>
           </ul>

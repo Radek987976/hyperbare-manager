@@ -3,7 +3,12 @@
 ## Énoncé du problème original
 Application web de GMAO (gestion de maintenance assistée par ordinateur) pour un caisson hyperbare unique contenant plusieurs équipements et sous-équipements.
 
-## Changelog (2026-06-17b) — Nettoyage données + badge type + suppression intervention
+## Changelog (2026-06-17c) — Code couleur des types de gaz (bouteilles)
+- Nouveau type de gaz **« air_respirable »** ajouté (backend `GAS_TYPES` + normalisation import « respirable »).
+- Code couleur des badges/pastilles dans la page Bouteilles : Air Médical = fond noir/texte blanc ; Oxygène (O2) = fond blanc/texte noir (bordure) ; Héliox = fond marron (#795548)/texte blanc ; Nitrox = fond gris/texte blanc ; Air Respirable = fond hachuré noir & blanc (repeating-linear-gradient)/texte blanc.
+- Grille des stats passée à 5 colonnes ; l'icône de chaque carte reprend la couleur/style du type. Testé : backend accepte le nouveau type (création OK), frontend compile.
+
+
 - **Nettoyage** : `POST /api/admin/cleanup-fake-corrective` (admin) supprime les faux ordres correctifs pollués (« Formation CAH », « Y_Dépannage », « Y_Mise en service »). Bouton « Nettoyer » ajouté dans page Import (carte « Maintenance des données »). Exécuté sur preview : 4 « Formation CAH » supprimés.
 - **Badge type** : liste des interventions affiche une pastille colorée « Curative » (ambre) / « Préventive » (turquoise) dans la colonne Objet.
 - **Suppression intervention** : `DELETE /api/interventions/{id}` (admin) supprime l'intervention et re-crédite le stock des pièces. Bouton « Supprimer » (avec confirmation) ajouté dans la modale de détail (testid `interv-delete-btn`). `interventionsAPI.delete` + `cleanupFakeCorrective`.

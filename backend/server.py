@@ -546,7 +546,7 @@ class Contractor(ContractorBase):
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 # Bouteille de Gaz Model
-GAS_TYPES = ["O2", "air_medicale", "heliox", "nitrox"]
+GAS_TYPES = ["O2", "air_medicale", "heliox", "nitrox", "air_respirable"]
 
 class GasCylinderBase(BaseModel):
     numero_bouteille: str
@@ -5273,6 +5273,8 @@ async def import_gas_cylinders_from_excel(file_path: Path) -> dict:
                 # Normalize gas type
                 if 'o2' in type_gaz or 'oxygène' in type_gaz or 'oxygene' in type_gaz:
                     type_gaz = 'O2'
+                elif 'respirable' in type_gaz:
+                    type_gaz = 'air_respirable'
                 elif 'air' in type_gaz and 'méd' in type_gaz:
                     type_gaz = 'air_medicale'
                 elif 'héliox' in type_gaz or 'heliox' in type_gaz:

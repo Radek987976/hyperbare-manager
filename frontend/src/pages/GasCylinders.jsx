@@ -62,10 +62,11 @@ import {
 } from 'lucide-react';
 
 const GAS_TYPES = [
-  { value: 'O2', label: 'Oxygène (O2)', color: 'bg-blue-100 text-blue-800' },
-  { value: 'air_medicale', label: 'Air Médical', color: 'bg-green-100 text-green-800' },
-  { value: 'heliox', label: 'Héliox', color: 'bg-purple-100 text-purple-800' },
-  { value: 'nitrox', label: 'Nitrox', color: 'bg-orange-100 text-orange-800' },
+  { value: 'air_medicale', label: 'Air Médical', color: 'bg-black text-white border border-black hover:bg-black' },
+  { value: 'O2', label: 'Oxygène (O2)', color: 'bg-white text-black border border-slate-400 hover:bg-white' },
+  { value: 'heliox', label: 'Héliox', color: 'text-white border border-[#4e342e] hover:opacity-90', style: { backgroundColor: '#795548' } },
+  { value: 'nitrox', label: 'Nitrox', color: 'bg-gray-500 text-white border border-gray-600 hover:bg-gray-500' },
+  { value: 'air_respirable', label: 'Air Respirable', color: 'border border-slate-500', style: { background: 'repeating-linear-gradient(45deg,#111 0,#111 5px,#fff 5px,#fff 10px)', color: '#fff', textShadow: '0 0 3px #000,0 0 3px #000' } },
 ];
 
 const VOLUMES = ['B5', 'B50', 'B57'];
@@ -79,6 +80,7 @@ const STATUTS = [
 
 const getGasTypeLabel = (type) => GAS_TYPES.find(t => t.value === type)?.label || type;
 const getGasTypeColor = (type) => GAS_TYPES.find(t => t.value === type)?.color || 'bg-gray-100 text-gray-800';
+const getGasTypeStyle = (type) => GAS_TYPES.find(t => t.value === type)?.style;
 const getStatutColor = (statut) => STATUTS.find(s => s.value === statut)?.color || 'bg-gray-100 text-gray-800';
 const getStatutLabel = (statut) => STATUTS.find(s => s.value === statut)?.label || statut;
 
@@ -302,7 +304,7 @@ const GasCylinders = () => {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Bouteilles de Gaz</h1>
-          <p className="text-gray-500">Suivi des bouteilles O2, Air Médical, Héliox, Nitrox</p>
+          <p className="text-gray-500">Suivi des bouteilles O2, Air Médical, Héliox, Nitrox, Air Respirable</p>
         </div>
         {canCreate && (
           <Button onClick={() => { resetForm(); setIsDialogOpen(true); }}>
@@ -335,13 +337,13 @@ const GasCylinders = () => {
       )}
 
       {/* Stats by Type */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
         {statsByType.map((type) => (
           <Card key={type.value}>
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className={`p-2 rounded-lg ${type.color.replace('text-', 'bg-').split(' ')[0]}`}>
+                  <div className={`p-2 rounded-lg ${type.color}`} style={type.style}>
                     <Cylinder className="h-5 w-5" />
                   </div>
                   <div>
@@ -430,7 +432,7 @@ const GasCylinders = () => {
                       <TableRow key={cylinder.id}>
                         <TableCell className="font-medium">{cylinder.numero_bouteille}</TableCell>
                         <TableCell>
-                          <Badge className={getGasTypeColor(cylinder.type_gaz)}>
+                          <Badge className={getGasTypeColor(cylinder.type_gaz)} style={getGasTypeStyle(cylinder.type_gaz)}>
                             {getGasTypeLabel(cylinder.type_gaz)}
                           </Badge>
                         </TableCell>

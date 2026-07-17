@@ -3,7 +3,12 @@
 ## Énoncé du problème original
 Application web de GMAO (gestion de maintenance assistée par ordinateur) pour un caisson hyperbare unique contenant plusieurs équipements et sous-équipements.
 
-## Changelog (2026-06-17c) — Code couleur des types de gaz (bouteilles)
+## Changelog (2026-06-17d) — Bouton admin « Réinitialiser l'historique »
+- `POST /api/admin/reset-history?confirm=RESET` (admin) : supprime `interventions`, `work_orders`, `inspections`, `formations` et vide `historique_statut`/`historique_compteur` des équipements. Conserve équipements, sous-équipements, bouteilles, prestataires, utilisateurs. Garde-fou : `confirm=RESET` obligatoire (sinon 400).
+- UI : bouton rouge « Réinitialiser l'historique » dans page Import (carte Maintenance des données) + AlertDialog avec saisie « RESET » obligatoire. `importAPI.resetHistory`.
+- Testé : garde-fou vérifié (400 sans confirmation), frontend compile. NON exécuté sur preview pour préserver les données. À lancer une seule fois en prod après sauvegarde.
+
+
 - Nouveau type de gaz **« air_respirable »** ajouté (backend `GAS_TYPES` + normalisation import « respirable »).
 - Code couleur des badges/pastilles dans la page Bouteilles : Air Médical = fond noir/texte blanc ; Oxygène (O2) = fond blanc/texte noir (bordure) ; Héliox = fond marron (#795548)/texte blanc ; Nitrox = fond gris/texte blanc ; Air Respirable = fond hachuré noir & blanc (repeating-linear-gradient)/texte blanc.
 - Grille des stats passée à 5 colonnes ; l'icône de chaque carte reprend la couleur/style du type. Testé : backend accepte le nouveau type (création OK), frontend compile.

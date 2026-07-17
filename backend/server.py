@@ -1892,6 +1892,27 @@ async def delete_intervention(intervention_id: str, current_user: dict = Depends
     await db.interventions.delete_one({"id": intervention_id})
     return {"success": True, "id": intervention_id}
 
+@api_router.post("/admin/reset-history")
+async def reset_history(confirm: str = "", current_user: dict = Depends(require_admin)):
+    """DESTRUCTIF — Réinitialise tout l'historique métier (interventions, ordres de travail, contrôles,
+    formations) et vide les sous-historiques des équipements. Conserve équipements, sous-équipements,
+    bouteilles, prestataires, utilisateurs. Nécessite confirm=RESET."""
+    if confirm != "RESET":
+        raise HTTPException(status_code=400, detail="Confirmation requise (confirm=RESET)")
+    deleted = {}
+    for coll in ["interventions", "work_orders", "inspections", "formations"]:
+        res = await db[coll].delete_many({})
+        deleted[coll] = res.deleted_count
+    # Vider les sous-historiques intégrés aux équipements
+    eq_res = await db.equipments.update_many(
+        {}, {"$set": {"historique_statut": [], "historique_compteur": []}}
+    )
+    return {
+        "success": True,
+        "deleted": deleted,
+        "equipments_history_cleared": eq_res.modified_count,
+    }
+
 @api_router.post("/admin/cleanup-fake-corrective")
 async def cleanup_fake_corrective(current_user: dict = Depends(require_admin)):
     """Supprime les faux ordres de travail correctifs pollués (Formation CAH, Y_Dépannage, Y_Mise en service...)."""

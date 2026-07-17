@@ -455,24 +455,30 @@ const Inspections = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2 md:col-span-2">
               <Label htmlFor="titre">Titre *</Label>
-              <Input
-                id="titre"
-                name="titre"
+              <SearchableSelect
                 value={formData.titre}
-                onChange={handleChange}
-                placeholder="Ex: Contrôle annuel de sécurité"
+                onValueChange={(v) => handleSelectChange('titre', v)}
+                allowCustom
                 data-testid="input-titre"
+                placeholder="Sélectionner ou saisir un titre"
+                searchPlaceholder="Rechercher ou saisir un titre..."
+                options={[...new Set(inspections.map(i => i.titre).filter(Boolean))]
+                  .sort((a, b) => a.localeCompare(b, 'fr', { sensitivity: 'base' }))
+                  .map(t => ({ value: t, label: t }))}
               />
             </div>
             <div className="space-y-2">
               <Label htmlFor="type_controle">Type de contrôle *</Label>
-              <Input
-                id="type_controle"
-                name="type_controle"
+              <SearchableSelect
                 value={formData.type_controle}
-                onChange={handleChange}
-                placeholder="Ex: Inspection réglementaire"
+                onValueChange={(v) => handleSelectChange('type_controle', v)}
+                allowCustom
                 data-testid="input-type"
+                placeholder="Sélectionner ou saisir un type"
+                searchPlaceholder="Rechercher ou saisir un type..."
+                options={[...new Set([...inspections.map(i => i.type_controle), 'reglementaire', 'constructeur'].filter(Boolean))]
+                  .sort((a, b) => a.localeCompare(b, 'fr', { sensitivity: 'base' }))
+                  .map(t => ({ value: t, label: t }))}
               />
             </div>
             <div className="space-y-2">

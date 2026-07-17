@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
-import { interventionsAPI, workOrdersAPI, sparePartsAPI, usersAPI, equipmentsAPI } from '../lib/api';
+import { interventionsAPI, workOrdersAPI, sparePartsAPI, usersAPI, equipmentsAPI, subEquipmentsAPI } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
 import { formatDate } from '../lib/utils';
 import { Card, CardContent } from '../components/ui/card';
@@ -24,7 +24,8 @@ function Interventions() {
     workOrders: [],
     spareParts: [],
     technicians: [],
-    equipments: []
+    equipments: [],
+    subEquipments: []
   });
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -43,6 +44,9 @@ function Interventions() {
     type_intervention: 'curative',
     work_order_id: '',
     maintenance_preventive_id: '',
+    equipment_id: '',
+    sous_equipement_id: '',
+    titre: '',
     date_intervention: new Date().toISOString().split('T')[0],
     technicien: '',
     actions_realisees: '',
@@ -68,8 +72,9 @@ function Interventions() {
         setFormData({
           ...emptyForm,
           type_intervention: isPreventive ? 'preventive' : 'curative',
-          work_order_id: isPreventive ? '' : wo.id,
           maintenance_preventive_id: isPreventive ? wo.id : '',
+          equipment_id: isPreventive ? '' : (wo.equipment_id || ''),
+          titre: isPreventive ? '' : (wo.titre || ''),
         });
         setShowCustomTechnicien(false);
         setShowModal(true);
@@ -80,19 +85,21 @@ function Interventions() {
 
   async function loadData() {
     try {
-      const [r1, r2, r3, r4, r5] = await Promise.all([
+      const [r1, r2, r3, r4, r5, r6] = await Promise.all([
         interventionsAPI.getAll(),
         workOrdersAPI.getAll(),
         sparePartsAPI.getAll(),
         usersAPI.getTechnicians(),
-        equipmentsAPI.getAll()
+        equipmentsAPI.getAll(),
+        subEquipmentsAPI.getAll()
       ]);
       setData({
         interventions: r1.data || [],
         workOrders: r2.data || [],
         spareParts: r3.data || [],
         technicians: r4.data || [],
-        equipments: r5.data || []
+        equipments: r5.data || [],
+        subEquipments: r6.data || []
       });
     } catch (e) {
       console.error(e);
@@ -100,10 +107,7 @@ function Interventions() {
     setLoading(false);
   }
 
-  // Filtrer les work orders par type
-  const curativeWorkOrders = data.workOrders.filter(wo => 
-    wo.type_maintenance === 'corrective' && (wo.statut === 'planifiee' || wo.statut === 'en_cours')
-  );
+  // Maintenances préventives disponibles pour rattachement
   const preventiveWorkOrders = data.workOrders.filter(wo => 
     wo.type_maintenance === 'preventive' && (wo.statut === 'planifiee' || wo.statut === 'en_cours')
   );
@@ -142,9 +146,13 @@ function Interventions() {
     }));
   }
 
-  // Récupérer l'équipement concerné par le work order sélectionné
+  // Récupérer l'équipement concerné
   function getSelectedEquipment() {
-    let woId = formData.type_intervention === 'curative' ? formData.work_order_id : formData.maintenance_preventive_id;
+    if (formData.type_intervention === 'curative') {
+      if (!formData.equipment_id) return null;
+      return data.equipments.find(e => e.id === formData.equipment_id) || null;
+    }
+    const woId = formData.maintenance_preventive_id;
     if (!woId) return null;
     const wo = data.workOrders.find(w => w.id === woId);
     if (!wo || !wo.equipment_id) return null;
@@ -153,21 +161,27 @@ function Interventions() {
 
   const selectedEquipment = getSelectedEquipment();
   const isCompressor = (selectedEquipment?.type || '').toLowerCase() === 'compresseur';
+  // Sous-équipements rattachés à l'équipement sélectionné (pour le curatif)
+  const availableSubEquipments = formData.equipment_id
+    ? data.subEquipments.filter(s => s.parent_equipment_id === formData.equipment_id)
+    : [];
 
   async function handleSave() {
     setSaving(true);
     try {
       const payload = {
         type_intervention: formData.type_intervention,
-        work_order_id: formData.type_intervention === 'curative' ? formData.work_order_id : null,
+        work_order_id: null,
         maintenance_preventive_id: formData.type_intervention === 'preventive' ? formData.maintenance_preventive_id : null,
+        titre: formData.type_intervention === 'curative' ? formData.titre : null,
+        equipment_id: formData.type_intervention === 'curative' ? formData.equipment_id : (selectedEquipment?.id || null),
+        sous_equipement_id: formData.type_intervention === 'curative' ? (formData.sous_equipement_id || null) : null,
         date_intervention: formData.date_intervention,
         technicien: formData.technicien,
         actions_realisees: formData.actions_realisees,
         observations: formData.observations,
         duree_minutes: formData.duree_minutes ? parseInt(formData.duree_minutes) : null,
         compteur_horaire: formData.compteur_horaire ? parseFloat(formData.compteur_horaire) : null,
-        equipment_id: selectedEquipment?.id || null,
         pieces_utilisees: formData.pieces_utilisees.map(p => ({
           spare_part_id: p.spare_part_id,
           quantite: p.quantite
@@ -193,6 +207,9 @@ function Interventions() {
       type_intervention: item.type_intervention || 'curative',
       work_order_id: item.work_order_id || '',
       maintenance_preventive_id: item.maintenance_preventive_id || '',
+      equipment_id: item.equipment_id || '',
+      sous_equipement_id: item.sous_equipement_id || '',
+      titre: item.titre || '',
       date_intervention: item.date_intervention || new Date().toISOString().split('T')[0],
       technicien: item.technicien || '',
       actions_realisees: item.actions_realisees || '',
@@ -257,13 +274,36 @@ function Interventions() {
     const wo = data.workOrders.find(w => w.id === id);
     return wo ? wo.titre : '-';
   }
+
+  function getEquipmentName(id) {
+    const e = data.equipments.find(x => x.id === id);
+    return e ? (e.reference || e.type) : null;
+  }
+
+  function getSubEquipmentName(id) {
+    const s = data.subEquipments.find(x => x.id === id);
+    return s ? (s.nom || s.reference) : null;
+  }
+
+  // Libellé affiché dans la liste / le détail
+  function getInterventionLabel(item) {
+    if (item.type_intervention === 'preventive') {
+      return getPreventiveTitle(item.maintenance_preventive_id);
+    }
+    const parts = [];
+    if (item.titre) parts.push(item.titre);
+    const eq = getEquipmentName(item.equipment_id);
+    const sub = getSubEquipmentName(item.sous_equipement_id);
+    const loc = [eq, sub].filter(Boolean).join(' › ');
+    if (loc) parts.push(loc);
+    return parts.join(' — ') || (item.work_order_id ? getWoTitle(item.work_order_id) : '-');
+  }
   
   const filtered = data.interventions.filter(i => {
     const term = searchTerm.toLowerCase();
-    return i.technicien.toLowerCase().includes(term) || 
-           i.actions_realisees.toLowerCase().includes(term) ||
-           getWoTitle(i.work_order_id).toLowerCase().includes(term) ||
-           getPreventiveTitle(i.maintenance_preventive_id).toLowerCase().includes(term);
+    return (i.technicien || '').toLowerCase().includes(term) || 
+           (i.actions_realisees || '').toLowerCase().includes(term) ||
+           getInterventionLabel(i).toLowerCase().includes(term);
   });
 
   if (loading) {
@@ -304,7 +344,7 @@ function Interventions() {
             <TableHeader>
               <TableRow className="bg-slate-50">
                 <TableHead>Date</TableHead>
-                <TableHead>Ordre de travail</TableHead>
+                <TableHead>Objet</TableHead>
                 <TableHead>Technicien</TableHead>
                 <TableHead>Actions</TableHead>
                 <TableHead>Durée</TableHead>
@@ -325,7 +365,7 @@ function Interventions() {
                   <TableCell>
                     {item.type_intervention === 'preventive' 
                       ? <><Wrench className="w-4 h-4 inline mr-1 text-green-600" />{getPreventiveTitle(item.maintenance_preventive_id)}</>
-                      : getWoTitle(item.work_order_id)}
+                      : <><Activity className="w-4 h-4 inline mr-1 text-[#EE9B00]" />{getInterventionLabel(item)}</>}
                   </TableCell>
                   <TableCell><User className="w-4 h-4 inline mr-1 text-slate-400" />{item.technicien}</TableCell>
                   <TableCell className="max-w-xs truncate">{item.actions_realisees}</TableCell>
@@ -365,17 +405,43 @@ function Interventions() {
 
             <div className="grid grid-cols-2 gap-4">
               {formData.type_intervention === 'curative' ? (
-                <div>
-                  <Label>Maintenance corrective</Label>
-                  <SearchableSelect
-                    value={formData.work_order_id}
-                    onValueChange={v => setFormData(p => ({ ...p, work_order_id: v }))}
-                    placeholder="Sélectionner"
-                    options={curativeWorkOrders.map(wo => ({ value: wo.id, label: wo.titre }))}
-                    emptyText="Aucune maintenance corrective en attente"
-                    data-testid="interv-wo-select"
-                  />
-                </div>
+                <>
+                  <div>
+                    <Label>Équipement *</Label>
+                    <SearchableSelect
+                      value={formData.equipment_id}
+                      onValueChange={v => setFormData(p => ({ ...p, equipment_id: v, sous_equipement_id: '' }))}
+                      placeholder="Sélectionner un équipement"
+                      searchPlaceholder="Rechercher un équipement..."
+                      options={[...data.equipments]
+                        .sort((a, b) => (a.reference || '').localeCompare(b.reference || ''))
+                        .map(e => ({ value: e.id, label: `${e.reference}${e.type ? ` (${e.type})` : ''}` }))}
+                      data-testid="interv-equipment-select"
+                    />
+                  </div>
+                  <div>
+                    <Label>Sous-équipement</Label>
+                    <SearchableSelect
+                      value={formData.sous_equipement_id}
+                      onValueChange={v => setFormData(p => ({ ...p, sous_equipement_id: v }))}
+                      placeholder={formData.equipment_id ? 'Optionnel' : 'Choisir un équipement d\'abord'}
+                      searchPlaceholder="Rechercher un sous-équipement..."
+                      options={availableSubEquipments.map(s => ({ value: s.id, label: s.nom || s.reference }))}
+                      emptyText="Aucun sous-équipement"
+                      data-testid="interv-subequipment-select"
+                    />
+                  </div>
+                  <div className="col-span-2">
+                    <Label>Motif / désignation *</Label>
+                    <Input
+                      name="titre"
+                      value={formData.titre}
+                      onChange={handleChange}
+                      placeholder="Ex: Dépannage, remplacement soupape..."
+                      data-testid="interv-titre-input"
+                    />
+                  </div>
+                </>
               ) : (
                 <div>
                   <Label>Maintenance préventive</Label>
@@ -523,7 +589,7 @@ function Interventions() {
             <Button 
               onClick={handleSave} 
               disabled={saving || !formData.technicien || 
-                (formData.type_intervention === 'curative' && !formData.work_order_id) ||
+                (formData.type_intervention === 'curative' && (!formData.equipment_id || !formData.titre)) ||
                 (formData.type_intervention === 'preventive' && !formData.maintenance_preventive_id)} 
               className="bg-[#005F73]"
             >
@@ -540,7 +606,7 @@ function Interventions() {
             <div className="space-y-3">
               <p><strong>Date:</strong> {formatDate(selectedItem.date_intervention)}</p>
               <p><strong>Technicien:</strong> {selectedItem.technicien}</p>
-              <p><strong>Maintenance:</strong> {selectedItem.type_intervention === 'preventive' ? getPreventiveTitle(selectedItem.maintenance_preventive_id) : getWoTitle(selectedItem.work_order_id)}</p>
+              <p><strong>Objet:</strong> {getInterventionLabel(selectedItem)}</p>
               <p><strong>Actions:</strong> {selectedItem.actions_realisees}</p>
               {selectedItem.observations && <p><strong>Observations:</strong> {selectedItem.observations}</p>}
               {selectedItem.duree_minutes ? <p><strong>Durée:</strong> {selectedItem.duree_minutes} min</p> : null}

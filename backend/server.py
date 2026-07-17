@@ -408,9 +408,10 @@ class WorkOrder(WorkOrderBase):
 
 # Intervention Model
 class InterventionBase(BaseModel):
-    work_order_id: Optional[str] = None  # Pour maintenance curative (ordre de travail)
+    work_order_id: Optional[str] = None  # Pour maintenance curative (ordre de travail) — désormais optionnel
     maintenance_preventive_id: Optional[str] = None  # Pour maintenance préventive (inspection)
     type_intervention: str = Field(default="curative", description="curative ou preventive")
+    titre: Optional[str] = None  # Motif / désignation de l'intervention curative
     date_intervention: str
     technicien: str
     actions_realisees: str
@@ -419,6 +420,7 @@ class InterventionBase(BaseModel):
     duree_minutes: Optional[int] = None
     compteur_horaire: Optional[float] = None  # Compteur horaire au moment de l'intervention (pour compresseurs)
     equipment_id: Optional[str] = None  # Équipement concerné
+    sous_equipement_id: Optional[str] = None  # Sous-équipement concerné (optionnel)
     documents: List[dict] = []  # PV / documents PDF [{filename, url, uploaded_at}]
 
 class InterventionCreate(InterventionBase):
@@ -1506,13 +1508,15 @@ async def _build_maintenance_history(entity_id: str):
     eq = await db.equipments.find_one({"id": entity_id}, {"_id": 0, "statut": 1})
     is_reformed = bool(eq and eq.get("statut") == "reforme")
 
-    # Interventions réalisées
-    interventions = await db.interventions.find({"equipment_id": entity_id}, {"_id": 0}).to_list(5000)
+    # Interventions réalisées (rattachées à l'équipement OU au sous-équipement)
+    interventions = await db.interventions.find(
+        {"$or": [{"equipment_id": entity_id}, {"sous_equipement_id": entity_id}]}, {"_id": 0}
+    ).to_list(5000)
     for it in interventions:
         historique.append({
             "source": "intervention",
             "type": "Intervention " + (it.get("type_intervention") or ""),
-            "titre": it.get("actions_realisees") or "Intervention",
+            "titre": it.get("titre") or it.get("actions_realisees") or "Intervention",
             "date": it.get("date_intervention"),
             "statut": "terminee",
             "acteur": it.get("technicien"),
@@ -4970,26 +4974,34 @@ async def import_interventions_from_rows(rows: list) -> dict:
             by_ref[e["reference"].strip().lower()] = e["id"]
         if e.get("numero_serie"):
             by_serie[str(e["numero_serie"]).strip().lower()] = e["id"]
-    async for s in db.subequipments.find({}, {"_id": 0, "id": 1, "reference": 1, "numero_serie": 1, "nom": 1}):
+    # Sous-équipements : garder l'id du sous-équipement ET l'id de l'équipement parent
+    sub_map = {}
+    async for s in db.subequipments.find({}, {"_id": 0, "id": 1, "reference": 1, "numero_serie": 1, "nom": 1, "parent_equipment_id": 1}):
         for key in (s.get("reference"), s.get("numero_serie"), s.get("nom")):
             if key:
-                by_ref.setdefault(str(key).strip().lower(), s["id"])
+                sub_map.setdefault(str(key).strip().lower(), {"sub_id": s["id"], "parent_id": s.get("parent_equipment_id")})
     docs = []
     for i, row in enumerate(rows):
         eqref = _cell(row, "EQUIPEMENT", "EQUIPEMENT ", "EQUIPMENT")
         serie = _cell(row, "N_SERIE", "NUMERO_SERIE")
-        eqid = None
+        eqid, subid = None, None
+        key_lc = (eqref or serie or "").strip().lower()
         if eqref:
             eqid = by_ref.get(eqref.strip().lower())
         if not eqid and serie:
-            eqid = by_serie.get(serie.strip().lower()) or by_ref.get(serie.strip().lower())
-        if not eqid:
+            eqid = by_serie.get(serie.strip().lower())
+        # Rattachement à un sous-équipement (par référence/nom/série)
+        if not eqid and key_lc in sub_map:
+            subid = sub_map[key_lc]["sub_id"]
+            eqid = sub_map[key_lc]["parent_id"]
+        if not eqid and not subid:
             errors.append(f"Ligne {i + 2}: équipement introuvable (EQUIPEMENT='{eqref}', N_SERIE='{serie}')")
             continue
         date = _parse_date(_cell(row, "DATE"))
-        actions = _cell(row, "ACTIONS_REALISEES", "ACTIONS REALISEES", "ACTIONS RÉALISÉES", "INTERVENTIONS", "ACTIONS")
+        titre = _cell(row, "TITRE", "DESIGNATION", "DÉSIGNATION", "MOTIF")
+        actions = _cell(row, "ACTIONS_REALISEES", "ACTIONS REALISEES", "ACTIONS RÉALISÉES", "INTERVENTIONS", "ACTIONS") or titre
         if not date or not actions:
-            errors.append(f"Ligne {i + 2}: DATE et ACTIONS_REALISEES obligatoires")
+            errors.append(f"Ligne {i + 2}: DATE et ACTIONS_REALISEES (ou DESIGNATION) obligatoires")
             continue
         typ = (_cell(row, "TYPE") or "curative").lower()
         typ = "preventive" if typ.startswith("prev") or typ.startswith("prév") else "curative"
@@ -5002,6 +5014,7 @@ async def import_interventions_from_rows(rows: list) -> dict:
             "work_order_id": None,
             "maintenance_preventive_id": None,
             "type_intervention": typ,
+            "titre": titre or actions,
             "date_intervention": date,
             "technicien": _cell(row, "INTERVENANT", "INTERVENANTS", "TECHNICIEN") or "Import",
             "actions_realisees": actions,
@@ -5010,6 +5023,7 @@ async def import_interventions_from_rows(rows: list) -> dict:
             "duree_minutes": None,
             "compteur_horaire": _to_float(_cell(row, "COMPTEUR_HORAIRE", "COMPTEUR HORAIRE")),
             "equipment_id": eqid,
+            "sous_equipement_id": subid,
             "source": "import_excel",
             "created_at": datetime.now(timezone.utc).isoformat(),
         })

@@ -3,7 +3,14 @@
 ## Énoncé du problème original
 Application web de GMAO (gestion de maintenance assistée par ordinateur) pour un caisson hyperbare unique contenant plusieurs équipements et sous-équipements.
 
-## Changelog (2026-06-17) — Export Excel (remplace CSV) + anti-duplication imports
+## Changelog (2026-06-17) — Interventions curatives directes + nettoyage Dashboard
+- **Interventions curatives découplées des ordres de travail** : une intervention curative se saisit désormais en choisissant directement **Équipement** (obligatoire) + **Sous-équipement** (optionnel, filtré par équipement) + **Motif/désignation** texte libre. Plus besoin de créer un ordre correctif au préalable ; `work_order_id` n'est plus utilisé pour le curatif. Le préventif reste inchangé (rattaché à une maintenance planifiée).
+- **Backend** : `InterventionBase` a 2 champs optionnels `titre` et `sous_equipement_id`. `_build_maintenance_history` agrège les interventions via `$or {equipment_id, sous_equipement_id}` → une intervention sur un sous-équipement apparaît dans l'historique du sous-équipement ET de l'équipement parent. Vérifié via API.
+- **Import interventions amélioré** (pour données « Y_Dépannage ») : accepte `DESIGNATION`/`DÉSIGNATION`/`MOTIF`/`TITRE` comme motif (fallback actions), rattache automatiquement au sous-équipement (et à son parent) si la référence/nom correspond à un sous-équipement.
+- **Dashboard nettoyé** : suppression des graphiques « État des équipements » et « Ordres de travail », et de la 2e section compteurs horaires « Compteurs horaires des compresseurs ». Conservés : bandeau compteur horaire en haut, 4 cartes stats, alertes, maintenances à venir, calendrier hebdo.
+- Formations = purement indicatives (créées par l'admin, affichées dans les calendriers/planning), ne sont ni interventions ni maintenances. À noter : d'anciens ordres correctifs pollués (« formation CAH », « Y_Dépannage ») peuvent subsister en base — nettoyage à confirmer par l'utilisateur.
+
+
 - **Export par collection en Excel** : `GET /api/export/xlsx/{collection}` remplace `/export/csv/{collection}`. Les 5 boutons (Équipements, Ordres de travail, Interventions, Contrôles, Pièces détachées) téléchargent désormais des fichiers `.xlsx` (openpyxl via pandas), plus de CSV. SQL et JSON conservés tels quels. Front: `exportAPI.collectionXlsx`, `handleExportCollection`, testids `export-xlsx-*`.
 - **Anti-duplication imports** : `import_maintenance_from_rows` et `import_controls_from_rows` font maintenant un upsert par (equipment_id + titre) — mise à jour au lieu d'insérer un doublon si le même fichier est ré-importé. Réponse enrichie de `updated`.
 - Testé backend (curl, 5 exports = xlsx valides via openpyxl).

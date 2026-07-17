@@ -34,20 +34,6 @@ import {
   Plus,
   Trash2
 } from 'lucide-react';
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  PieChart,
-  Pie,
-  Cell
-} from 'recharts';
-
-const COLORS = ['#0A9396', '#EE9B00', '#AE2012'];
 
 const Dashboard = () => {
   const { user } = useAuth();
@@ -165,18 +151,6 @@ const Dashboard = () => {
       setLoading(false);
     }
   };
-
-  const equipmentChartData = stats ? [
-    { name: 'En service', value: stats.equipment_stats.en_service, color: '#0A9396' },
-    { name: 'Maintenance', value: stats.equipment_stats.maintenance, color: '#EE9B00' },
-    { name: 'Hors service', value: stats.equipment_stats.hors_service, color: '#AE2012' }
-  ] : [];
-
-  const workOrderChartData = stats ? [
-    { name: 'Planifiées', value: stats.work_order_stats.planifiee },
-    { name: 'En cours', value: stats.work_order_stats.en_cours },
-    { name: 'Terminées', value: stats.work_order_stats.terminee }
-  ] : [];
 
   const getSeverityIcon = (severity) => {
     switch (severity) {
@@ -453,75 +427,6 @@ const Dashboard = () => {
         </Card>
       </div>
 
-      {/* Charts Row */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Equipment Status Chart */}
-        <Card className="dashboard-widget" data-testid="equipment-chart">
-          <CardHeader>
-            <CardTitle className="font-['Barlow_Condensed'] uppercase text-lg">
-              État des équipements
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="h-64">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={equipmentChartData}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={60}
-                    outerRadius={90}
-                    paddingAngle={2}
-                    dataKey="value"
-                  >
-                    {equipmentChartData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
-            <div className="flex justify-center gap-6 mt-4">
-              {equipmentChartData.map((item) => (
-                <div key={item.name} className="flex items-center gap-2">
-                  <div
-                    className="w-3 h-3 rounded-full"
-                    style={{ backgroundColor: item.color }}
-                  />
-                  <span className="text-sm text-slate-600">
-                    {item.name} ({item.value})
-                  </span>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Work Orders Chart */}
-        <Card className="dashboard-widget" data-testid="work-orders-chart">
-          <CardHeader>
-            <CardTitle className="font-['Barlow_Condensed'] uppercase text-lg">
-              Ordres de travail
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="h-64">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={workOrderChartData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                  <XAxis dataKey="name" tick={{ fontSize: 12 }} />
-                  <YAxis tick={{ fontSize: 12 }} />
-                  <Tooltip />
-                  <Bar dataKey="value" fill="#005F73" radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
       {/* Alerts & Upcoming Maintenance */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Alerts */}
@@ -630,50 +535,6 @@ const Dashboard = () => {
           </CardContent>
         </Card>
       </div>
-
-      {/* Compresseurs - Compteurs horaires */}
-      {stats?.compresseurs && stats.compresseurs.length > 0 && (
-        <Card className="dashboard-widget" data-testid="compressors-counters">
-          <CardHeader>
-            <CardTitle className="font-['Barlow_Condensed'] uppercase text-lg flex items-center gap-2">
-              <Activity className="w-5 h-5 text-[#005F73]" />
-              Compteurs horaires des compresseurs
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {stats.compresseurs.map((comp) => (
-                <div 
-                  key={comp.id} 
-                  className={`p-4 rounded-lg border ${
-                    comp.statut === 'hors_service' ? 'border-red-200 bg-red-50' :
-                    comp.statut === 'maintenance' ? 'border-yellow-200 bg-yellow-50' :
-                    'border-slate-200 bg-slate-50'
-                  }`}
-                >
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="font-medium text-sm">{comp.reference}</span>
-                    <Badge variant="outline" className={
-                      comp.statut === 'hors_service' ? 'bg-red-100 text-red-700' :
-                      comp.statut === 'maintenance' ? 'bg-yellow-100 text-yellow-700' :
-                      'bg-green-100 text-green-700'
-                    }>
-                      {comp.statut === 'en_service' ? 'Actif' : 
-                       comp.statut === 'maintenance' ? 'Maintenance' : 'HS'}
-                    </Badge>
-                  </div>
-                  <div className="text-3xl font-bold font-['Barlow_Condensed'] text-[#005F73]">
-                    {comp.compteur_horaire ? comp.compteur_horaire.toLocaleString() : '0'} h
-                  </div>
-                  <div className="text-xs text-slate-500 mt-1">
-                    S/N: {comp.numero_serie || '-'}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
 
       {/* Calendrier hebdomadaire */}
       <Card className="dashboard-widget" data-testid="maintenance-calendar">

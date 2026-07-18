@@ -4867,6 +4867,11 @@ TEMPLATES = {
         "headers": ["EQUIPEMENT", "TITRE", "TYPE_CONTROLE", "PERIODICITE", "DATE_REALISATION", "ORGANISME", "RESULTAT", "OBSERVATIONS"],
         "example": ["Caisson hyperbare", "Requalification périodique", "reglementaire", "biannuel", "10/03/2025", "APAVE", "conforme", "RAS"],
     },
+    "pieces": {
+        "sheet": "Pieces_Detachees",
+        "headers": ["NOM", "REFERENCE_FABRICANT", "TYPE_EQUIPEMENT", "QUANTITE_STOCK", "SEUIL_MINIMUM", "EMPLACEMENT", "FOURNISSEUR", "PRIX_UNITAIRE"],
+        "example": ["Filtre à air", "P21-BAUER", "Compresseur", "12", "3", "Armoire A2", "Bauer France", "45.90"],
+    },
 }
 
 
@@ -4943,6 +4948,8 @@ async def import_excel_file(
             result = await import_equipements_from_rows(_read_tabular_rows(temp_path, ext))
         elif import_type == "interventions":
             result = await import_interventions_from_rows(_read_tabular_rows(temp_path, ext))
+        elif import_type == "pieces":
+            result = await import_spare_parts_from_rows(_read_tabular_rows(temp_path, ext))
         else:
             raise HTTPException(status_code=400, detail=f"Type d'import non supporté: {import_type}")
 
@@ -5023,6 +5030,45 @@ def _to_float(v):
         return float(s.replace(",", ".").replace(" ", ""))
     except ValueError:
         return None
+
+
+def _to_int(v, default=0):
+    f = _to_float(v)
+    return int(f) if f is not None else default
+
+
+async def import_spare_parts_from_rows(rows: list) -> dict:
+    """Import des pièces détachées. Anti-duplication par référence fabricant (mise à jour sinon insertion)."""
+    imported, updated, errors = 0, 0, []
+    for i, row in enumerate(rows):
+        nom = _cell(row, "NOM", "DESIGNATION", "DÉSIGNATION", "LIBELLE")
+        ref = _cell(row, "REFERENCE_FABRICANT", "REFERENCE FABRICANT", "REFERENCE", "RÉFÉRENCE", "REF")
+        if not nom and not ref:
+            errors.append(f"Ligne {i + 2}: NOM ou REFERENCE_FABRICANT obligatoire")
+            continue
+        doc = {
+            "id": str(uuid.uuid4()),
+            "nom": nom or ref,
+            "reference_fabricant": ref or (nom or ""),
+            "equipment_type": _cell(row, "TYPE_EQUIPEMENT", "TYPE EQUIPEMENT", "TYPE", "EQUIPEMENT") or "",
+            "quantite_stock": _to_int(_cell(row, "QUANTITE_STOCK", "QUANTITE STOCK", "QUANTITE", "STOCK"), 0),
+            "seuil_minimum": _to_int(_cell(row, "SEUIL_MINIMUM", "SEUIL MINIMUM", "SEUIL"), 1),
+            "emplacement": _cell(row, "EMPLACEMENT", "LOCALISATION"),
+            "fournisseur": _cell(row, "FOURNISSEUR"),
+            "prix_unitaire": _to_float(_cell(row, "PRIX_UNITAIRE", "PRIX UNITAIRE", "PRIX")),
+            "photos": [],
+            "documents": [],
+            "created_at": datetime.now(timezone.utc).isoformat(),
+        }
+        existing = await db.spare_parts.find_one({"reference_fabricant": doc["reference_fabricant"]})
+        if existing:
+            upd = {k: v for k, v in doc.items() if k not in ("id", "created_at", "photos", "documents")}
+            await db.spare_parts.update_one({"id": existing["id"]}, {"$set": upd})
+            updated += 1
+        else:
+            await db.spare_parts.insert_one(doc)
+            imported += 1
+    return {"imported": imported, "updated": updated, "errors": errors, "type": "pieces"}
 
 
 async def import_equipements_from_rows(rows: list) -> dict:

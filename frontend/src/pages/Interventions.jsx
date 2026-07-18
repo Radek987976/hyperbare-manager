@@ -168,6 +168,13 @@ function Interventions() {
     ? data.subEquipments.filter(s => s.parent_equipment_id === formData.equipment_id)
     : [];
 
+  // Pièces détachées destinées au type de l'équipement sélectionné
+  const equipTypeLc = (selectedEquipment?.type || '').trim().toLowerCase();
+  const matchingSpareParts = equipTypeLc
+    ? data.spareParts.filter(p => (p.equipment_type || '').trim().toLowerCase() === equipTypeLc)
+    : [];
+  const availableSpareParts = matchingSpareParts.length > 0 ? matchingSpareParts : data.spareParts;
+
   async function handleSave() {
     setSaving(true);
     try {
@@ -582,15 +589,16 @@ function Interventions() {
                 <p className="text-xs text-blue-600 mb-2 font-medium">Ajouter une pièce :</p>
                 <div className="flex gap-2 items-end">
                   <div className="flex-1">
-                    <Label className="text-xs text-slate-500">Pièce détachée</Label>
+                    <Label className="text-xs text-slate-500">Pièce détachée{selectedEquipment && matchingSpareParts.length > 0 ? ` (${selectedEquipment.type})` : ''}</Label>
                     <SearchableSelect
                       value={partSelect.part}
                       onValueChange={v => setPartSelect(p => ({ ...p, part: v }))}
                       placeholder="Sélectionner une pièce"
-                      options={data.spareParts.map(p => ({
+                      options={availableSpareParts.map(p => ({
                         value: p.id,
                         label: `${p.nom}${p.quantite_stock !== undefined ? ` (stock: ${p.quantite_stock})` : ''}`,
                       }))}
+                      emptyText="Aucune pièce"
                       data-testid="interv-piece-select"
                     />
                   </div>

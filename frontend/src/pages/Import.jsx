@@ -78,6 +78,12 @@ const IMPORT_TYPES = [
     description: 'Importer l\'historique complet des interventions, rattachées par EQUIPEMENT ou N_SERIE (ou nom d\'un sous-équipement). Colonnes: EQUIPEMENT, TYPE (curative/preventive), DATE, INTERVENANT, DESIGNATION/MOTIF, ACTIONS_REALISEES, OBSERVATION, PIECES_UTILISEES, COMPTEUR_HORAIRE.',
     icon: '📝'
   },
+  {
+    value: 'pieces',
+    label: 'Pièces détachées (stock)',
+    description: 'Importer le stock de pièces détachées. Colonnes : NOM, REFERENCE_FABRICANT, TYPE_EQUIPEMENT, QUANTITE_STOCK, SEUIL_MINIMUM, EMPLACEMENT, FOURNISSEUR, PRIX_UNITAIRE. Anti-doublon par référence fabricant.',
+    icon: '📦'
+  },
 ];
 
 const Import = () => {
@@ -286,7 +292,7 @@ const Import = () => {
                 {IMPORT_TYPES.find(t => t.value === selectedType)?.description}
               </p>
             )}
-            {['equipements', 'sous-equipements', 'interventions', 'maintenance', 'controles'].includes(selectedType) && (
+            {['equipements', 'sous-equipements', 'interventions', 'maintenance', 'controles', 'pieces'].includes(selectedType) && (
               <Button
                 type="button"
                 variant="outline"

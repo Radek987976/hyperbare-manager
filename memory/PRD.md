@@ -3,7 +3,10 @@
 ## Énoncé du problème original
 Application web de GMAO (gestion de maintenance assistée par ordinateur) pour un caisson hyperbare unique contenant plusieurs équipements et sous-équipements.
 
-## Changelog (2026-06-17h) — Fix: modification type d'équipement des pièces + recherche par référence
+## Changelog (2026-06-17i) — Barre d'onglets navigateur (NavTabs)
+- Nouveau composant `components/NavTabs.jsx` : barre d'onglets en haut du contenu. Chaque page visitée via le menu latéral s'ouvre comme onglet ; basculer/fermer (×) ; fermeture de l'onglet actif → bascule sur voisin. Menu latéral conservé, pas de persistance au reload, masqué sur mobile. Intégré dans `Layout.jsx`. Validé testing_agent iteration_19 (100%).
+
+
 - Bug corrigé : `SparePartUpdate` n'incluait pas `equipment_type` (ni `nom`/`reference_fabricant`) → ces champs étaient ignorés à la mise à jour. Ajoutés au modèle ; PUT /api/spare-parts/{id} les persiste désormais. Validé testing_agent (iteration_18, 100% backend+frontend).
 - SearchableSelect : filtrage remplacé par recherche par sous-chaîne (insensible casse/accents) sur label+référence → recherche de pièces par référence fiable (fix du fuzzy cmdk).
 

@@ -102,6 +102,7 @@ export const equipmentTypesAPI = {
   create: (data) => api.post('/equipment-types', data),
   update: (id, data) => api.put(`/equipment-types/${id}`, data),
   delete: (id) => api.delete(`/equipment-types/${id}`),
+  cleanup: () => api.post('/equipment-types/cleanup'),
 };
 
 // Sub-Equipments

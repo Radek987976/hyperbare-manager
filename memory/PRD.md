@@ -3,7 +3,12 @@
 ## Énoncé du problème original
 Application web de GMAO (gestion de maintenance assistée par ordinateur) pour un caisson hyperbare unique contenant plusieurs équipements et sous-équipements.
 
-## Changelog (2026-06-17e) — Bouton reset "à usage unique"
+## Changelog (2026-06-17f) — Types d'équipement : nettoyage + tri A→Z
+- Nouveau `POST /api/equipment-types/cleanup` : supprime les types non utilisés par aucun équipement (match sur `equipment.type` vs `nom`/`code`, insensible à la casse) + les doublons (même nom). Retourne `{deleted, noms}`.
+- Frontend `EquipmentTypes.jsx` : bouton « Nettoyer les types inutilisés » (admin, confirmation) ; liste triée par nom A→Z (`localeCompare` fr). `equipmentTypesAPI.cleanup`.
+- Testé (preview) : 7 orphelins supprimés (Porte, Joint, Soupape, Capteur, Système de sécurité, Manomètre, Appareil respiratoire isolant), 8 types utilisés conservés et triés.
+
+
 - `GET /api/admin/reset-history-status` : renvoie `{done}` (flag `app_meta.history_reset` OU détection paresseuse si les 4 collections d'historique sont vides → pose le flag). `reset-history` pose le flag après exécution et renvoie 409 si déjà fait.
 - Frontend Import : le bouton « Réinitialiser l'historique » est masqué (remplacé par « ✓ Déjà effectuée ») quand `done:true`. Vérifié preview (done:true, ré-appel 409).
 - ⚠️ Observation : historique preview vide = identique à la prod → preview et prod semblent partager la même base MongoDB (à confirmer avec support).

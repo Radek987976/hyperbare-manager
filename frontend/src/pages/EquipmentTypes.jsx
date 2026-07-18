@@ -47,7 +47,27 @@ const EquipmentTypes = () => {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [selectedType, setSelectedType] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [isCleaning, setIsCleaning] = useState(false);
   const [error, setError] = useState('');
+
+  const sortedTypes = [...types].sort((a, b) =>
+    (a.nom || '').localeCompare(b.nom || '', 'fr', { sensitivity: 'base' })
+  );
+
+  const handleCleanup = async () => {
+    if (!window.confirm('Supprimer tous les types d\'équipement non utilisés par un équipement (et les doublons) ?')) return;
+    setIsCleaning(true);
+    try {
+      const res = await equipmentTypesAPI.cleanup();
+      await loadData();
+      const n = res.data.deleted || 0;
+      alert(n > 0 ? `${n} type(s) supprimé(s) : ${(res.data.noms || []).join(', ')}` : 'Aucun type inutilisé à supprimer.');
+    } catch (error) {
+      alert(error.response?.data?.detail || 'Erreur lors du nettoyage');
+    } finally {
+      setIsCleaning(false);
+    }
+  };
   
   const [formData, setFormData] = useState({
     nom: '',
@@ -149,10 +169,19 @@ const EquipmentTypes = () => {
         </div>
         
         {canCreate && (
-          <Button onClick={openCreateModal} className="bg-[#005F73] hover:bg-[#004C5C]">
-            <Plus className="w-4 h-4 mr-2" />
-            Nouveau type
-          </Button>
+          <div className="flex items-center gap-2">
+            {canDelete && (
+              <Button variant="outline" onClick={handleCleanup} disabled={isCleaning}
+                className="text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700" data-testid="cleanup-types-btn">
+                {isCleaning ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Trash2 className="w-4 h-4 mr-2" />}
+                Nettoyer les types inutilisés
+              </Button>
+            )}
+            <Button onClick={openCreateModal} className="bg-[#005F73] hover:bg-[#004C5C]">
+              <Plus className="w-4 h-4 mr-2" />
+              Nouveau type
+            </Button>
+          </div>
         )}
       </div>
 
@@ -173,7 +202,7 @@ const EquipmentTypes = () => {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {types.map((type) => (
+              {sortedTypes.map((type) => (
                 <TableRow key={type.id}>
                   <TableCell className="font-medium">{type.nom}</TableCell>
                   <TableCell className="text-slate-500">{type.description || '-'}</TableCell>

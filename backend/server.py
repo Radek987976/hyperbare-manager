@@ -1179,6 +1179,35 @@ async def update_equipment_type(type_id: str, data: EquipmentTypeCreate, current
     eq_type = await db.equipment_types.find_one({"id": type_id}, {"_id": 0})
     return eq_type
 
+@api_router.post("/equipment-types/cleanup")
+async def cleanup_equipment_types(current_user: dict = Depends(get_current_user)):
+    """Supprime les types d'équipement non utilisés par un équipement, ainsi que les doublons (même nom)."""
+    used = set()
+    async for e in db.equipments.find({}, {"_id": 0, "type": 1}):
+        t = (e.get("type") or "").strip().lower()
+        if t:
+            used.add(t)
+    types = await db.equipment_types.find({}, {"_id": 0}).to_list(1000)
+    to_delete_ids = []
+    deleted_noms = []
+    seen = set()
+    for t in types:
+        nom = (t.get("nom") or "").strip()
+        nom_l = nom.lower()
+        code_l = (t.get("code") or "").strip().lower()
+        is_used = (nom_l and nom_l in used) or (code_l and code_l in used)
+        if not is_used:
+            to_delete_ids.append(t["id"])
+            deleted_noms.append(nom)
+        elif nom_l in seen:
+            to_delete_ids.append(t["id"])
+            deleted_noms.append(f"{nom} (doublon)")
+        else:
+            seen.add(nom_l)
+    if to_delete_ids:
+        await db.equipment_types.delete_many({"id": {"$in": to_delete_ids}})
+    return {"deleted": len(to_delete_ids), "noms": deleted_noms}
+
 @api_router.delete("/equipment-types/{type_id}")
 async def delete_equipment_type(type_id: str, current_user: dict = Depends(get_current_user)):
     # Vérifier qu'aucun équipement n'utilise ce type

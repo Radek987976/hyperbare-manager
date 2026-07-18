@@ -29,6 +29,8 @@ function Interventions() {
   });
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [filterType, setFilterType] = useState('all');
+  const [filterEquipment, setFilterEquipment] = useState('all');
   const [page, setPage] = useState(1);
   const PAGE_SIZE = 25;
   const _loc = useLocation();
@@ -317,9 +319,12 @@ function Interventions() {
   
   const filtered = data.interventions.filter(i => {
     const term = searchTerm.toLowerCase();
-    return (i.technicien || '').toLowerCase().includes(term) || 
+    const matchSearch = (i.technicien || '').toLowerCase().includes(term) || 
            (i.actions_realisees || '').toLowerCase().includes(term) ||
            getInterventionLabel(i).toLowerCase().includes(term);
+    const matchType = filterType === 'all' || i.type_intervention === filterType;
+    const matchEquip = filterEquipment === 'all' || i.equipment_id === filterEquipment;
+    return matchSearch && matchType && matchEquip;
   });
 
   const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
@@ -351,9 +356,32 @@ function Interventions() {
 
       <Card>
         <CardContent className="p-4">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-            <Input placeholder="Rechercher..." value={searchTerm} onChange={e => { setSearchTerm(e.target.value); setPage(1); }} className="pl-10" />
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+              <Input placeholder="Rechercher..." value={searchTerm} onChange={e => { setSearchTerm(e.target.value); setPage(1); }} className="pl-10" data-testid="interv-search" />
+            </div>
+            <SearchableSelect
+              value={filterType}
+              onValueChange={v => { setFilterType(v); setPage(1); }}
+              placeholder="Tous les types"
+              options={[
+                { value: 'all', label: 'Tous les types' },
+                { value: 'curative', label: 'Curative' },
+                { value: 'preventive', label: 'Préventive' },
+              ]}
+              data-testid="interv-filter-type"
+            />
+            <SearchableSelect
+              value={filterEquipment}
+              onValueChange={v => { setFilterEquipment(v); setPage(1); }}
+              placeholder="Tous les équipements"
+              searchPlaceholder="Rechercher un équipement..."
+              options={[{ value: 'all', label: 'Tous les équipements' }, ...[...data.equipments]
+                .sort((a, b) => (a.reference || '').localeCompare(b.reference || ''))
+                .map(e => ({ value: e.id, label: `${e.reference}${e.type ? ` (${e.type})` : ''}` }))]}
+              data-testid="interv-filter-equipment"
+            />
           </div>
         </CardContent>
       </Card>

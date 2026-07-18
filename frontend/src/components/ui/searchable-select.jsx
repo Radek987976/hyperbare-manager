@@ -70,6 +70,17 @@ export const SearchableSelect = React.forwardRef(function SearchableSelect(
 
   const selected = options.find((o) => o.value === value);
 
+  const normalize = (s) =>
+    String(s ?? "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+
+  const visibleOptions = React.useMemo(() => {
+    const q = normalize(search.trim());
+    if (!q) return sortedOptions;
+    return sortedOptions.filter((o) =>
+      normalize(`${o.label} ${o.searchValue ?? ""} ${o.value}`).includes(q)
+    );
+  }, [sortedOptions, search]);
+
   const handleSelect = (val) => {
     onValueChange?.(val);
     if (storageKey) {
@@ -120,10 +131,10 @@ export const SearchableSelect = React.forwardRef(function SearchableSelect(
         className={cn("w-[--radix-popover-trigger-width] p-0", contentClassName)}
         align="start"
       >
-        <Command>
+        <Command shouldFilter={false}>
           <CommandInput placeholder={searchPlaceholder} value={search} onValueChange={setSearch} />
           <CommandList>
-            {!showCustom && <CommandEmpty>{emptyText}</CommandEmpty>}
+            {!showCustom && visibleOptions.length === 0 && <CommandEmpty>{emptyText}</CommandEmpty>}
             <CommandGroup>
               {showCustom && (
                 <CommandItem
@@ -136,7 +147,7 @@ export const SearchableSelect = React.forwardRef(function SearchableSelect(
                   Utiliser « {trimmed} »
                 </CommandItem>
               )}
-              {sortedOptions.map((opt) => (
+              {visibleOptions.map((opt) => (
                 <CommandItem
                   key={opt.value}
                   value={`${opt.label} ${opt.value}`}

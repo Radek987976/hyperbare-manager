@@ -365,6 +365,7 @@ function Interventions() {
               <TableRow className="bg-slate-50">
                 <TableHead>Date</TableHead>
                 <TableHead>Objet</TableHead>
+                <TableHead>Équipement</TableHead>
                 <TableHead>Technicien</TableHead>
                 <TableHead>Actions</TableHead>
                 <TableHead>Durée</TableHead>
@@ -374,7 +375,7 @@ function Interventions() {
             <TableBody>
               {filtered.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-12 text-slate-500">
+                  <TableCell colSpan={7} className="text-center py-12 text-slate-500">
                     <History className="w-12 h-12 mx-auto mb-3 text-slate-300" />
                     <p>Aucune intervention</p>
                   </TableCell>
@@ -386,6 +387,16 @@ function Interventions() {
                     {item.type_intervention === 'preventive' 
                       ? <span className="inline-flex items-center gap-2"><Badge variant="outline" className="bg-[#0A9396]/10 text-[#0A9396] border-[#0A9396]/30">Préventive</Badge>{getPreventiveTitle(item.maintenance_preventive_id)}</span>
                       : <span className="inline-flex items-center gap-2"><Badge variant="outline" className="bg-[#EE9B00]/10 text-[#EE9B00] border-[#EE9B00]/30">Curative</Badge>{getInterventionLabel(item)}</span>}
+                  </TableCell>
+                  <TableCell>
+                    {getEquipmentName(item.equipment_id) ? (
+                      <span className="text-sm">
+                        {getEquipmentName(item.equipment_id)}
+                        {getSubEquipmentName(item.sous_equipement_id) && (
+                          <span className="text-slate-400"> › {getSubEquipmentName(item.sous_equipement_id)}</span>
+                        )}
+                      </span>
+                    ) : <span className="text-slate-400">-</span>}
                   </TableCell>
                   <TableCell><User className="w-4 h-4 inline mr-1 text-slate-400" />{item.technicien}</TableCell>
                   <TableCell className="max-w-xs truncate">{item.actions_realisees}</TableCell>

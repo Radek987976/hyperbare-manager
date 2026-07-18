@@ -3,7 +3,14 @@
 ## Énoncé du problème original
 Application web de GMAO (gestion de maintenance assistée par ordinateur) pour un caisson hyperbare unique contenant plusieurs équipements et sous-équipements.
 
-## Changelog (2026-06-17f) — Types d'équipement : nettoyage + tri A→Z
+## Changelog (2026-06-17g) — Intervention: équipement d'abord + filtres + import pièces
+- Formulaire « Nouvelle intervention » : Équipement puis Sous-équipement (optionnel, filtré par parent) pour les DEUX types. Préventif : menu « Maintenance préventive concernée » filtré par l'équipement sélectionné (n'affiche que ses maintenances). Validation : equipment_id requis pour les deux types.
+- Recherche pièces détachées par NOM et RÉFÉRENCE fabricant (référence incluse dans le libellé : « Nom — Réf (stock: X) »). Menu pièces filtré par type d'équipement.
+- Import stock pièces détachées : `import_spare_parts_from_rows` (anti-doublon par réf fabricant), dispatch `pieces`, `TEMPLATES["pieces"]`, bouton modèle téléchargeable dans page Import.
+- Index MongoDB créés au démarrage (interventions/work_orders/inspections/equipments/subequipments/formations/gas_cylinders) + pagination (25/page) sur la liste interventions → perf.
+- Testé : testing_agent frontend 100% (iteration_17), flux préventif API HTTP 200, import pièces + anti-doublon.
+
+
 - Nouveau `POST /api/equipment-types/cleanup` : supprime les types non utilisés par aucun équipement (match sur `equipment.type` vs `nom`/`code`, insensible à la casse) + les doublons (même nom). Retourne `{deleted, noms}`.
 - Frontend `EquipmentTypes.jsx` : bouton « Nettoyer les types inutilisés » (admin, confirmation) ; liste triée par nom A→Z (`localeCompare` fr). `equipmentTypesAPI.cleanup`.
 - Testé (preview) : 7 orphelins supprimés (Porte, Joint, Soupape, Capteur, Système de sécurité, Manomètre, Appareil respiratoire isolant), 8 types utilisés conservés et triés.

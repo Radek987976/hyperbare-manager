@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import NavTabs from './NavTabs';
 import { Badge } from './ui/badge';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -374,6 +375,9 @@ const Layout = ({ children }) => {
             <div className="w-10" />
           </div>
         </header>
+
+        {/* Barre d'onglets (navigation type navigateur) */}
+        <NavTabs />
 
         {/* Page content */}
         <div className="p-6 md:p-8">

@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { NavLink, useNavigate } from 'react-router-dom';
+import React, { useState, useRef, useEffect } from 'react';
+import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import NavTabs from './NavTabs';
 import { Badge } from './ui/badge';
@@ -350,6 +350,36 @@ const Sidebar = ({ isOpen, onClose }) => {
 
 const Layout = ({ children }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const location = useLocation();
+  const navigate = useNavigate();
+  const cache = useRef({});
+  const [openTabs, setOpenTabs] = useState([]);
+
+  // Garde l'élément de la page monté (keep-alive) : on ne recache jamais un chemin déjà connu
+  if (!cache.current[location.pathname]) {
+    cache.current[location.pathname] = children;
+  }
+  const tabsToRender = openTabs.includes(location.pathname)
+    ? openTabs
+    : [...openTabs, location.pathname];
+
+  useEffect(() => {
+    setOpenTabs((prev) => (prev.includes(location.pathname) ? prev : [...prev, location.pathname]));
+  }, [location.pathname]);
+
+  const handleSelectTab = (path) => navigate(path);
+
+  const handleCloseTab = (path) => {
+    setOpenTabs((prev) => {
+      const idx = prev.indexOf(path);
+      const next = prev.filter((p) => p !== path);
+      delete cache.current[path];
+      if (path === location.pathname) {
+        navigate(next[idx] || next[idx - 1] || '/');
+      }
+      return next;
+    });
+  };
 
   return (
     <div className="main-layout">
@@ -376,13 +406,22 @@ const Layout = ({ children }) => {
           </div>
         </header>
 
-        {/* Barre d'onglets (navigation type navigateur) */}
-        <NavTabs />
-
-        {/* Page content */}
-        <div className="p-6 md:p-8">
-          {children}
+        {/* Barre d'onglets (navigation type navigateur) — sticky */}
+        <div className="hidden md:block sticky top-0 z-30">
+          <NavTabs tabs={openTabs} active={location.pathname} onSelect={handleSelectTab} onClose={handleCloseTab} />
         </div>
+
+        {/* Pages ouvertes gardées montées (keep-alive) : seule l'active est visible */}
+        {tabsToRender.map((path) => (
+          <div
+            key={path}
+            style={{ display: path === location.pathname ? 'block' : 'none' }}
+            className="p-6 md:p-8"
+            data-testid={`tab-panel-${path === '/' ? 'home' : path.replace(/\//g, '-').replace(/^-/, '')}`}
+          >
+            {cache.current[path]}
+          </div>
+        ))}
       </main>
     </div>
   );

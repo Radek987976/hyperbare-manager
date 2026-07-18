@@ -1,0 +1,33 @@
+{
+  "summary": "Tested NavTabs sticky + keep-alive behavior in HyperbareManager. Login OK, all 6 target pages (Tableau de bord, Équipements, Sous-équipements, Interventions, Stock pièces, Bouteilles de gaz) render correctly with content via keep-alive panels. Sticky nav-tabs bar stays at top:0 while scrollY=2500 (PASS). Keep-alive of form state PASSES (search text 'TESTKEEP123' preserved on Équipements after navigating away and back). Close-tab X works, and closing the ACTIVE tab correctly navigates to a neighbor. ONE ISSUE: keep-alive of SCROLL position on Stock pièces does NOT work — scrollY set to 1500, after switching to Équipements and back to Stock, scrollY resets to 0.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "Layout.jsx (keep-alive)",
+        "issue": "La position de défilement (window.scrollY) n'est PAS conservée quand on quitte puis revient sur un onglet. Sur Stock pièces : scrollY set à 1500, retour après switch = 0. Les entrées de formulaire (état React interne) sont bien préservées grâce au keep-alive (display:none), mais le scroll du document est global au window et n'est pas mémorisé/restauré par onglet. Fix: sauvegarder window.scrollY par pathname avant switch et restaurer via useLayoutEffect lors du retour, OU rendre le panneau .p-6 comme conteneur scrollable overflow-y:auto (scroll par panel qui persiste naturellement avec display:none).",
+        "selector": "[data-testid=\"tab-panel-stock\"] / window",
+        "priority": "MEDIUM"
+      }
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [],
+  "action_items": [
+    "Implémenter la conservation de window.scrollY par onglet dans Layout.jsx (soit stockage explicite dans un useRef {pathname: scrollY} avec save avant unmount visuel et restore via useLayoutEffect au retour, soit passer à un conteneur scrollable par tab-panel avec overflow-y:auto pour que display:none conserve automatiquement scrollTop)."
+  ],
+  "critical_code_review_comments": [
+    "Layout.jsx: le cache useRef stocke `children` par pathname; comme `children` est toujours l'élément de la route courante fourni par React Router, le cache fonctionne correctement pour conserver l'état grâce au keep-alive via display:block/none — vérifié empiriquement (input de recherche préservé).",
+    "handleCloseTab: en cas de fermeture de l'onglet actif, navigation vers next[idx] || next[idx-1] fonctionne (testé — Stock fermé -> Bouteilles-gaz).",
+    "Le scroll principal se fait sur window (main-content sans overflow), ce qui rend impossible la conservation naturelle du scroll par onglet. À revoir pour la feature demandée."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "n/a", "frontend": "90%"},
+  "test_credentials": "admin@hypermaint.fr / admin123 (OK)",
+  "seed_data_creation": "none",
+  "retest_needed": true,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Login via [data-testid=login-email/login-password/login-submit] — utiliser locator().fill() (fill('email',...) direct sur page peut échouer si focus vole). Vérifier après fix scroll: naviguer sur /stock, window.scrollTo(0,1500), switch vers /equipements, retour /stock, attendre 1s, window.scrollY doit ≈ 1500. Tester aussi sur /interventions ou toute page longue. Ne pas oublier le mobile (mobile-menu-btn) hors périmètre ici.",
+  "rca of the issue": "Le layout utilise `.main-content` en flex/min-height:100vh SANS overflow-y:auto, donc c'est le document (window) qui scroll. La technique keep-alive (display:block/none entre panneaux dans le même conteneur) préserve l'état React (valeurs contrôlées des inputs, useState, etc.) mais NE préserve PAS window.scrollY car il n'y a qu'un seul scrollY global partagé. Quand on passe display:none sur le panneau actif, le document se raccourcit et scrollY est écrêté; au retour scrollY reste à 0. Deux fixes possibles: (a) tracker window.scrollY par pathname (useRef) et le restaurer via useLayoutEffect ; (b) rendre chaque tab-panel scrollable individuellement (className p-6 md:p-8 + overflow-y-auto + hauteur bornée) pour que scrollTop soit conservé automatiquement lors du display:none."
+}

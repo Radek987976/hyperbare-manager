@@ -2325,6 +2325,59 @@ async def _reformed_equipment_ids():
     return {d["id"] for d in docs}
 
 
+@api_router.get("/dashboard/admin-requests")
+async def get_admin_requests(admin: dict = Depends(require_admin)):
+    """Demandes nécessitant une action admin : inscriptions à valider, mots de passe à réinitialiser, irrégularités."""
+    pending_users = await db.users.find(
+        {"is_approved": False}, {"_id": 0, "password_hash": 0}
+    ).sort("created_at", -1).to_list(500)
+    reset_requests = await db.password_reset_requests.find(
+        {"statut": "pending"}, {"_id": 0}
+    ).sort("created_at", -1).to_list(500)
+
+    # Irrégularités : contrôles non conformes, équipements hors service, stock en rupture/bas
+    irregularites = []
+    async for insp in db.inspections.find(
+        {"resultat": {"$in": ["non_conforme", "avec_reserves"]}}, {"_id": 0}
+    ):
+        eq = await db.equipments.find_one({"id": insp.get("equipment_id")}, {"_id": 0, "reference": 1})
+        irregularites.append({
+            "type": "controle_non_conforme",
+            "label": f"Contrôle « {insp.get('titre', '')} » : {insp.get('resultat')}",
+            "equipement": eq.get("reference") if eq else None,
+            "date": insp.get("date_realisation"),
+            "lien": "/pv-controle",
+        })
+    async for eq in db.equipments.find({"statut": "hors_service"}, {"_id": 0, "reference": 1, "type": 1}):
+        irregularites.append({
+            "type": "equipement_hs",
+            "label": f"Équipement hors service : {eq.get('reference', '')}",
+            "equipement": eq.get("reference"),
+            "date": None,
+            "lien": "/equipements",
+        })
+    low_stock_count = 0
+    async for p in db.spare_parts.find({}, {"_id": 0, "quantite_stock": 1, "seuil_minimum": 1}):
+        if p.get("quantite_stock", 0) <= p.get("seuil_minimum", 0):
+            low_stock_count += 1
+    if low_stock_count > 0:
+        irregularites.append({
+            "type": "stock_bas",
+            "label": f"{low_stock_count} pièce(s) en stock bas ou en rupture",
+            "equipement": None,
+            "date": None,
+            "lien": "/stock",
+        })
+
+    total = len(pending_users) + len(reset_requests) + len(irregularites)
+    return {
+        "total": total,
+        "inscriptions": pending_users,
+        "reset_mdp": reset_requests,
+        "irregularites": irregularites,
+    }
+
+
 @api_router.get("/dashboard/alerts")
 async def get_alerts(current_user: dict = Depends(get_current_user)):
     alerts = []

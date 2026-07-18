@@ -32,7 +32,10 @@ import {
   Wrench,
   GraduationCap,
   Plus,
-  Trash2
+  Trash2,
+  UserPlus,
+  KeyRound,
+  ShieldAlert
 } from 'lucide-react';
 
 const Dashboard = () => {
@@ -53,6 +56,40 @@ const Dashboard = () => {
   const [savingFormation, setSavingFormation] = useState(false);
   const emptyFormation = { nom: '', technicien: '', date_debut: '', date_fin: '', description: '' };
   const [formationForm, setFormationForm] = useState(emptyFormation);
+  const [adminRequests, setAdminRequests] = useState(null);
+  const [processingReq, setProcessingReq] = useState(null);
+
+  const loadAdminRequests = async () => {
+    if (user?.role !== 'admin') return;
+    try {
+      const res = await dashboardAPI.getAdminRequests();
+      setAdminRequests(res.data);
+    } catch (e) { /* noop */ }
+  };
+
+  const handleApproveUser = async (u) => {
+    setProcessingReq(`user-${u.id}`);
+    try {
+      await usersAPI.approve(u.id);
+      await loadAdminRequests();
+    } catch (e) {
+      alert(e.response?.data?.detail || 'Erreur lors de la validation');
+    } finally {
+      setProcessingReq(null);
+    }
+  };
+
+  const handleSendTempPassword = async (req) => {
+    setProcessingReq(`reset-${req.id}`);
+    try {
+      await usersAPI.sendTempPassword(req.user_id);
+      await loadAdminRequests();
+    } catch (e) {
+      alert(e.response?.data?.detail || 'Erreur lors de l\'envoi du mot de passe');
+    } finally {
+      setProcessingReq(null);
+    }
+  };
 
   const goToAlert = (a) => {
     if (a.item_type === 'work_order') navigate('/interventions', { state: { openWorkOrderId: a.item_id } });
@@ -99,6 +136,8 @@ const Dashboard = () => {
 
   useEffect(() => {
     loadDashboardData();
+    loadAdminRequests();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleSendAlerts = async () => {
@@ -426,6 +465,87 @@ const Dashboard = () => {
           </CardContent>
         </Card>
       </div>
+
+      {/* Demandes à traiter (admin) */}
+      {isAdmin && adminRequests && adminRequests.total > 0 && (
+        <Card className="dashboard-widget border-[#EE9B00]/40" data-testid="admin-requests">
+          <CardHeader>
+            <CardTitle className="font-['Barlow_Condensed'] uppercase text-lg flex items-center gap-2">
+              <ShieldAlert className="w-5 h-5 text-[#EE9B00]" />
+              Demandes à traiter
+              <Badge className="ml-1 bg-[#EE9B00] text-white">{adminRequests.total}</Badge>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-5">
+            {/* Inscriptions à valider */}
+            {adminRequests.inscriptions.length > 0 && (
+              <div>
+                <p className="text-sm font-medium text-slate-700 mb-2 flex items-center gap-2">
+                  <UserPlus className="w-4 h-4 text-[#005F73]" /> Inscriptions à valider ({adminRequests.inscriptions.length})
+                </p>
+                <div className="space-y-2">
+                  {adminRequests.inscriptions.map((u) => (
+                    <div key={u.id} className="flex items-center justify-between bg-slate-50 border border-slate-200 rounded-md px-3 py-2" data-testid={`req-inscription-${u.id}`}>
+                      <div className="text-sm">
+                        <span className="font-medium">{u.prenom} {u.nom}</span>
+                        <span className="text-slate-500"> — {u.email} ({u.role})</span>
+                      </div>
+                      <Button size="sm" className="bg-[#0A9396] hover:bg-[#087a7d]" disabled={processingReq === `user-${u.id}`}
+                        onClick={() => handleApproveUser(u)} data-testid={`approve-user-${u.id}`}>
+                        {processingReq === `user-${u.id}` ? <Loader2 className="w-4 h-4 animate-spin" /> : <><CheckCircle2 className="w-4 h-4 mr-1" /> Valider</>}
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Mots de passe à réinitialiser */}
+            {adminRequests.reset_mdp.length > 0 && (
+              <div>
+                <p className="text-sm font-medium text-slate-700 mb-2 flex items-center gap-2">
+                  <KeyRound className="w-4 h-4 text-[#005F73]" /> Réinitialisations de mot de passe ({adminRequests.reset_mdp.length})
+                </p>
+                <div className="space-y-2">
+                  {adminRequests.reset_mdp.map((r) => (
+                    <div key={r.id} className="flex items-center justify-between bg-slate-50 border border-slate-200 rounded-md px-3 py-2" data-testid={`req-reset-${r.id}`}>
+                      <div className="text-sm">
+                        <span className="font-medium">{r.prenom} {r.nom}</span>
+                        <span className="text-slate-500"> — {r.email}</span>
+                      </div>
+                      <Button size="sm" className="bg-[#005F73] hover:bg-[#004855]" disabled={processingReq === `reset-${r.id}`}
+                        onClick={() => handleSendTempPassword(r)} data-testid={`send-temp-${r.id}`}>
+                        {processingReq === `reset-${r.id}` ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Mail className="w-4 h-4 mr-1" /> Envoyer MDP</>}
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Irrégularités */}
+            {adminRequests.irregularites.length > 0 && (
+              <div>
+                <p className="text-sm font-medium text-slate-700 mb-2 flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4 text-[#AE2012]" /> Irrégularités ({adminRequests.irregularites.length})
+                </p>
+                <div className="space-y-2">
+                  {adminRequests.irregularites.map((irr, idx) => (
+                    <div key={idx} className="flex items-center justify-between bg-red-50 border border-red-100 rounded-md px-3 py-2 cursor-pointer hover:bg-red-100/60"
+                      onClick={() => navigate(irr.lien)} data-testid={`req-irregularite-${idx}`}>
+                      <div className="text-sm text-slate-700">
+                        {irr.label}
+                        {irr.equipement ? <span className="text-slate-500"> — {irr.equipement}</span> : null}
+                      </div>
+                      <ChevronRight className="w-4 h-4 text-slate-400" />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Alerts & Upcoming Maintenance */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

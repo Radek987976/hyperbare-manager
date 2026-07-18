@@ -244,6 +244,7 @@ export const dashboardAPI = {
   getAlerts: () => api.get('/dashboard/alerts'),
   getUpcomingMaintenance: () => api.get('/dashboard/upcoming-maintenance'),
   getCalendar: () => api.get('/dashboard/calendar'),
+  getAdminRequests: () => api.get('/dashboard/admin-requests'),
 };
 
 // Alerts / Notifications

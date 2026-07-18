@@ -516,6 +516,9 @@ class SparePart(SparePartBase):
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 class SparePartUpdate(BaseModel):
+    nom: Optional[str] = None
+    reference_fabricant: Optional[str] = None
+    equipment_type: Optional[str] = None
     quantite_stock: Optional[int] = None
     seuil_minimum: Optional[int] = None
     emplacement: Optional[str] = None

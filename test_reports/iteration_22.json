@@ -1,0 +1,33 @@
+{
+  "summary": "Retest ciblé du scroll par onglet (fix Layout.jsx). Tous les tests passent : scroll restauré sur retour d'onglet, sticky OK, keep-alive form state OK, rendu pages OK, fermeture d'onglet OK.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_results": {
+    "scroll_restore_stock_1500_after_switch_to_equipements_and_back": "PASS (scrollY=1500 restauré)",
+    "equipements_scroll_stays_at_0_on_return": "PASS (scrollY=0)",
+    "stock_scroll_stays_at_1500_on_2nd_return": "PASS",
+    "nav_tabs_sticky_top_while_scrolled": "PASS (top=4px, collé en haut)",
+    "keep_alive_search_input_preserved": "PASS (valeur 'TESTVAL' conservée après switch Equipements et retour Stock)",
+    "pages_render": {"tableau_de_bord": "PASS", "equipements": "PASS", "stock": "PASS", "interventions": "PASS"},
+    "close_tab_x_button": "PASS (8 -> 6 onglets après fermeture, nav-tab-equipements retiré)"
+  },
+  "test_report_links": [],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Layout.jsx OK : listener window 'scroll' avec passive:true, sauvegarde par currentPathRef, restauration via useLayoutEffect. Nettoyage correct dans handleCloseTab (scrollPositions + cache).",
+    "Sidebar (Layout.jsx) : fichier ~450 lignes, à surveiller (dépasserait 700 c'est OK actuel).",
+    "Note d'automation : window.fetch est intercepté par PostHog/emergent recorder qui provoque 'Failed to fetch' quand on l'appelle depuis page.evaluate. Utiliser page.request.post pour l'auth durant les tests."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "N/A", "frontend": "100%"},
+  "test_credentials": "admin@hypermaint.fr / admin123 (OK)",
+  "seed_data_creation": "aucune",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Login UI via page.fill+click submit ne déclenche pas la requête (bloquée par PostHog/service worker interceptant window.fetch). Contournement : appeler /api/auth/login via page.request.post puis injecter token+user dans localStorage et goto('/'). Cela ne bloque pas les utilisateurs réels (curl et navigateur réel OK).",
+  "rca of the issue": "N/A - retest positif, aucun bug à investiguer."
+}

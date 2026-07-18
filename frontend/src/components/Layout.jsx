@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useLayoutEffect } from 'react';
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import NavTabs from './NavTabs';
@@ -354,6 +354,22 @@ const Layout = ({ children }) => {
   const navigate = useNavigate();
   const cache = useRef({});
   const [openTabs, setOpenTabs] = useState([]);
+  const scrollPositions = useRef({});
+  const currentPathRef = useRef(location.pathname);
+
+  // Mémorise la position de défilement par onglet
+  useEffect(() => {
+    const onScroll = () => { scrollPositions.current[currentPathRef.current] = window.scrollY; };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+
+  // Restaure la position de défilement au retour sur un onglet
+  useLayoutEffect(() => {
+    currentPathRef.current = location.pathname;
+    const y = scrollPositions.current[location.pathname] || 0;
+    window.scrollTo(0, y);
+  }, [location.pathname]);
 
   // Garde l'élément de la page monté (keep-alive) : on ne recache jamais un chemin déjà connu
   if (!cache.current[location.pathname]) {
@@ -374,6 +390,7 @@ const Layout = ({ children }) => {
       const idx = prev.indexOf(path);
       const next = prev.filter((p) => p !== path);
       delete cache.current[path];
+      delete scrollPositions.current[path];
       if (path === location.pathname) {
         navigate(next[idx] || next[idx - 1] || '/');
       }

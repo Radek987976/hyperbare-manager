@@ -1,0 +1,22 @@
+{
+  "summary": "Frontend-only test of the redesigned 'Nouvelle intervention' modal on /interventions. All requested behaviors verified: (1) equipment → sous-équipement selection for both curative & preventive, (2) preventive maintenance dropdown filtered by selected equipment with proper empty state, (3) spare part search by name AND by reference fabricant (label shows 'Nom — Ref (stock: X)'), (4) save button disabled per validation rules, (5) sub-equipment filtered by parent. One curative test intervention created and shown with 'Curative' badge.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Interventions.jsx is 716 lines — consider splitting into smaller components (InterventionForm, InterventionDetail, PieceRow) for maintainability.",
+    "SearchableSelect cmdk value uses 'label + value' so any character appearing in labels matches broadly (e.g. '(' matches 222 pieces). Not a bug, but for future accuracy consider exposing custom filter."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "N/A", "frontend": "100%"},
+  "test_credentials": "admin@hypermaint.fr / admin123 (works)",
+  "seed_data_creation": "1 curative intervention created (titre 'TEST_Motif curatif', technicien first technician, actions 'TEST actions playwright'). Modal closed and 'Curative' badge appeared in the list.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Equipment count: 32. Technicien dropdown has 1 preloaded user + allowCustom. Preventive workorders exist for some equipments (found 3 options for equip cddda0be) and correctly show 'Aucune maintenance pour cet équipement' when none exists (equip c666255b). Piece list has 222 items with format 'Nom — Reference (stock: X)'; cmdk performs substring match on label including reference — search by reference '56681' returned matches."
+}

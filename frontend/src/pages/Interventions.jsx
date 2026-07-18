@@ -74,8 +74,8 @@ function Interventions() {
         setFormData({
           ...emptyForm,
           type_intervention: isPreventive ? 'preventive' : 'curative',
+          equipment_id: wo.equipment_id || '',
           maintenance_preventive_id: isPreventive ? wo.id : '',
-          equipment_id: isPreventive ? '' : (wo.equipment_id || ''),
           titre: isPreventive ? '' : (wo.titre || ''),
         });
         setShowCustomTechnicien(false);
@@ -109,9 +109,11 @@ function Interventions() {
     setLoading(false);
   }
 
-  // Maintenances préventives disponibles pour rattachement
+  // Maintenances préventives disponibles pour l'équipement sélectionné
   const preventiveWorkOrders = data.workOrders.filter(wo => 
-    wo.type_maintenance === 'preventive' && (wo.statut === 'planifiee' || wo.statut === 'en_cours')
+    wo.type_maintenance === 'preventive' &&
+    (wo.statut === 'planifiee' || wo.statut === 'en_cours') &&
+    (!formData.equipment_id || wo.equipment_id === formData.equipment_id)
   );
 
   function handleChange(e) {
@@ -148,17 +150,10 @@ function Interventions() {
     }));
   }
 
-  // Récupérer l'équipement concerné
+  // Récupérer l'équipement concerné (choisi directement pour les deux types)
   function getSelectedEquipment() {
-    if (formData.type_intervention === 'curative') {
-      if (!formData.equipment_id) return null;
-      return data.equipments.find(e => e.id === formData.equipment_id) || null;
-    }
-    const woId = formData.maintenance_preventive_id;
-    if (!woId) return null;
-    const wo = data.workOrders.find(w => w.id === woId);
-    if (!wo || !wo.equipment_id) return null;
-    return data.equipments.find(e => e.id === wo.equipment_id);
+    if (!formData.equipment_id) return null;
+    return data.equipments.find(e => e.id === formData.equipment_id) || null;
   }
 
   const selectedEquipment = getSelectedEquipment();
@@ -183,8 +178,8 @@ function Interventions() {
         work_order_id: null,
         maintenance_preventive_id: formData.type_intervention === 'preventive' ? formData.maintenance_preventive_id : null,
         titre: formData.type_intervention === 'curative' ? formData.titre : null,
-        equipment_id: formData.type_intervention === 'curative' ? formData.equipment_id : (selectedEquipment?.id || null),
-        sous_equipement_id: formData.type_intervention === 'curative' ? (formData.sous_equipement_id || null) : null,
+        equipment_id: formData.equipment_id || null,
+        sous_equipement_id: formData.sous_equipement_id || null,
         date_intervention: formData.date_intervention,
         technicien: formData.technicien,
         actions_realisees: formData.actions_realisees,
@@ -446,59 +441,58 @@ function Interventions() {
             </div>
 
             <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>Équipement *</Label>
+                <SearchableSelect
+                  value={formData.equipment_id}
+                  onValueChange={v => setFormData(p => ({ ...p, equipment_id: v, sous_equipement_id: '', maintenance_preventive_id: '' }))}
+                  placeholder="Sélectionner un équipement"
+                  searchPlaceholder="Rechercher un équipement..."
+                  options={[...data.equipments]
+                    .sort((a, b) => (a.reference || '').localeCompare(b.reference || ''))
+                    .map(e => ({ value: e.id, label: `${e.reference}${e.type ? ` (${e.type})` : ''}` }))}
+                  data-testid="interv-equipment-select"
+                />
+              </div>
+              <div>
+                <Label>Sous-équipement</Label>
+                <SearchableSelect
+                  value={formData.sous_equipement_id}
+                  onValueChange={v => setFormData(p => ({ ...p, sous_equipement_id: v }))}
+                  placeholder={formData.equipment_id ? 'Optionnel' : 'Choisir un équipement d\'abord'}
+                  searchPlaceholder="Rechercher un sous-équipement..."
+                  options={availableSubEquipments.map(s => ({ value: s.id, label: `${s.nom || s.reference}${s.reference && s.nom ? ` (${s.reference})` : ''}` }))}
+                  emptyText="Aucun sous-équipement"
+                  data-testid="interv-subequipment-select"
+                />
+              </div>
+
               {formData.type_intervention === 'curative' ? (
-                <>
-                  <div>
-                    <Label>Équipement *</Label>
-                    <SearchableSelect
-                      value={formData.equipment_id}
-                      onValueChange={v => setFormData(p => ({ ...p, equipment_id: v, sous_equipement_id: '' }))}
-                      placeholder="Sélectionner un équipement"
-                      searchPlaceholder="Rechercher un équipement..."
-                      options={[...data.equipments]
-                        .sort((a, b) => (a.reference || '').localeCompare(b.reference || ''))
-                        .map(e => ({ value: e.id, label: `${e.reference}${e.type ? ` (${e.type})` : ''}` }))}
-                      data-testid="interv-equipment-select"
-                    />
-                  </div>
-                  <div>
-                    <Label>Sous-équipement</Label>
-                    <SearchableSelect
-                      value={formData.sous_equipement_id}
-                      onValueChange={v => setFormData(p => ({ ...p, sous_equipement_id: v }))}
-                      placeholder={formData.equipment_id ? 'Optionnel' : 'Choisir un équipement d\'abord'}
-                      searchPlaceholder="Rechercher un sous-équipement..."
-                      options={availableSubEquipments.map(s => ({ value: s.id, label: s.nom || s.reference }))}
-                      emptyText="Aucun sous-équipement"
-                      data-testid="interv-subequipment-select"
-                    />
-                  </div>
-                  <div className="col-span-2">
-                    <Label>Motif / désignation *</Label>
-                    <Input
-                      name="titre"
-                      value={formData.titre}
-                      onChange={handleChange}
-                      placeholder="Ex: Dépannage, remplacement soupape..."
-                      data-testid="interv-titre-input"
-                    />
-                  </div>
-                </>
+                <div className="col-span-2">
+                  <Label>Motif / désignation *</Label>
+                  <Input
+                    name="titre"
+                    value={formData.titre}
+                    onChange={handleChange}
+                    placeholder="Ex: Dépannage, remplacement soupape..."
+                    data-testid="interv-titre-input"
+                  />
+                </div>
               ) : (
-                <div>
-                  <Label>Maintenance préventive</Label>
+                <div className="col-span-2">
+                  <Label>Maintenance préventive concernée *</Label>
                   <SearchableSelect
                     value={formData.maintenance_preventive_id}
                     onValueChange={v => setFormData(p => ({ ...p, maintenance_preventive_id: v }))}
-                    placeholder="Sélectionner"
+                    placeholder={formData.equipment_id ? 'Sélectionner une maintenance' : 'Choisir un équipement d\'abord'}
+                    searchPlaceholder="Rechercher une maintenance..."
                     options={preventiveWorkOrders.map(wo => ({
                       value: wo.id,
                       label: `${wo.titre}${wo.periodicite_heures ? ` (${wo.periodicite_heures}h)` : wo.periodicite_jours ? ` (${wo.periodicite_jours}j)` : ''}`,
                     }))}
-                    emptyText="Aucune maintenance préventive planifiée"
+                    emptyText={formData.equipment_id ? 'Aucune maintenance pour cet équipement' : 'Choisir un équipement d\'abord'}
                     data-testid="interv-preventive-select"
                   />
-                  <p className="text-xs text-slate-500 mt-1">Une nouvelle maintenance sera créée automatiquement</p>
                 </div>
               )}
               <div>
@@ -596,8 +590,9 @@ function Interventions() {
                       placeholder="Sélectionner une pièce"
                       options={availableSpareParts.map(p => ({
                         value: p.id,
-                        label: `${p.nom}${p.quantite_stock !== undefined ? ` (stock: ${p.quantite_stock})` : ''}`,
+                        label: `${p.nom}${p.reference_fabricant ? ` — ${p.reference_fabricant}` : ''}${p.quantite_stock !== undefined ? ` (stock: ${p.quantite_stock})` : ''}`,
                       }))}
+                      searchPlaceholder="Rechercher par nom ou référence..."
                       emptyText="Aucune pièce"
                       data-testid="interv-piece-select"
                     />
@@ -631,8 +626,8 @@ function Interventions() {
             <Button variant="outline" onClick={() => setShowModal(false)}>Annuler</Button>
             <Button 
               onClick={handleSave} 
-              disabled={saving || !formData.technicien || 
-                (formData.type_intervention === 'curative' && (!formData.equipment_id || !formData.titre)) ||
+              disabled={saving || !formData.technicien || !formData.equipment_id ||
+                (formData.type_intervention === 'curative' && !formData.titre) ||
                 (formData.type_intervention === 'preventive' && !formData.maintenance_preventive_id)} 
               className="bg-[#005F73]"
             >

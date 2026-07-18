@@ -5631,6 +5631,31 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+@app.on_event("startup")
+async def create_indexes():
+    """Crée les index MongoDB pour accélérer les requêtes (interventions, historiques, etc.)."""
+    try:
+        await db.interventions.create_index("equipment_id")
+        await db.interventions.create_index("sous_equipement_id")
+        await db.interventions.create_index("maintenance_preventive_id")
+        await db.interventions.create_index("work_order_id")
+        await db.interventions.create_index([("date_intervention", -1)])
+        await db.work_orders.create_index("equipment_id")
+        await db.work_orders.create_index("statut")
+        await db.work_orders.create_index("type_maintenance")
+        await db.work_orders.create_index("date_planifiee")
+        await db.inspections.create_index("equipment_id")
+        await db.inspections.create_index("date_validite")
+        await db.equipments.create_index("type")
+        await db.equipments.create_index("statut")
+        await db.equipments.create_index("reference")
+        await db.subequipments.create_index("parent_equipment_id")
+        await db.formations.create_index("date_debut")
+        await db.gas_cylinders.create_index("type_gaz")
+        logger.info("Index MongoDB créés/vérifiés")
+    except Exception as e:
+        logger.error(f"Erreur création index: {e}")
+
 @app.on_event("shutdown")
 async def shutdown_db_client():
     client.close()

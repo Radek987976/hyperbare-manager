@@ -29,6 +29,8 @@ function Interventions() {
   });
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [page, setPage] = useState(1);
+  const PAGE_SIZE = 25;
   const _loc = useLocation();
   useEffect(() => { if (_loc.state?.q) setSearchTerm(_loc.state.q); }, [_loc.state]);
   const [showModal, setShowModal] = useState(false);
@@ -318,6 +320,10 @@ function Interventions() {
            getInterventionLabel(i).toLowerCase().includes(term);
   });
 
+  const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const currentPage = Math.min(page, pageCount);
+  const paged = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+
   if (loading) {
     return <div className="space-y-6"><Skeleton className="h-10 w-48" /><Skeleton className="h-96" /></div>;
   }
@@ -345,7 +351,7 @@ function Interventions() {
         <CardContent className="p-4">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-            <Input placeholder="Rechercher..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="pl-10" />
+            <Input placeholder="Rechercher..." value={searchTerm} onChange={e => { setSearchTerm(e.target.value); setPage(1); }} className="pl-10" />
           </div>
         </CardContent>
       </Card>
@@ -371,7 +377,7 @@ function Interventions() {
                     <p>Aucune intervention</p>
                   </TableCell>
                 </TableRow>
-              ) : filtered.map(item => (
+              ) : paged.map(item => (
                 <TableRow key={item.id}>
                   <TableCell>{formatDate(item.date_intervention)}</TableCell>
                   <TableCell>
@@ -393,6 +399,23 @@ function Interventions() {
           </Table>
         </CardContent>
       </Card>
+
+      {filtered.length > PAGE_SIZE && (
+        <div className="flex items-center justify-between px-1" data-testid="interventions-pagination">
+          <p className="text-sm text-slate-500">
+            {(currentPage - 1) * PAGE_SIZE + 1}–{Math.min(currentPage * PAGE_SIZE, filtered.length)} sur {filtered.length}
+          </p>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={currentPage <= 1} data-testid="interv-prev-page">
+              Précédent
+            </Button>
+            <span className="text-sm text-slate-600">Page {currentPage} / {pageCount}</span>
+            <Button variant="outline" size="sm" onClick={() => setPage(p => Math.min(pageCount, p + 1))} disabled={currentPage >= pageCount} data-testid="interv-next-page">
+              Suivant
+            </Button>
+          </div>
+        </div>
+      )}
 
       <Dialog open={showModal} onOpenChange={setShowModal}>
         <DialogContent className="max-w-2xl">

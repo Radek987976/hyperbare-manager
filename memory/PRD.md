@@ -3,7 +3,11 @@
 ## Énoncé du problème original
 Application web de GMAO (gestion de maintenance assistée par ordinateur) pour un caisson hyperbare unique contenant plusieurs équipements et sous-équipements.
 
-## Changelog (2026-06-17g) — Intervention: équipement d'abord + filtres + import pièces
+## Changelog (2026-06-17h) — Fix: modification type d'équipement des pièces + recherche par référence
+- Bug corrigé : `SparePartUpdate` n'incluait pas `equipment_type` (ni `nom`/`reference_fabricant`) → ces champs étaient ignorés à la mise à jour. Ajoutés au modèle ; PUT /api/spare-parts/{id} les persiste désormais. Validé testing_agent (iteration_18, 100% backend+frontend).
+- SearchableSelect : filtrage remplacé par recherche par sous-chaîne (insensible casse/accents) sur label+référence → recherche de pièces par référence fiable (fix du fuzzy cmdk).
+
+
 - Formulaire « Nouvelle intervention » : Équipement puis Sous-équipement (optionnel, filtré par parent) pour les DEUX types. Préventif : menu « Maintenance préventive concernée » filtré par l'équipement sélectionné (n'affiche que ses maintenances). Validation : equipment_id requis pour les deux types.
 - Recherche pièces détachées par NOM et RÉFÉRENCE fabricant (référence incluse dans le libellé : « Nom — Réf (stock: X) »). Menu pièces filtré par type d'équipement.
 - Import stock pièces détachées : `import_spare_parts_from_rows` (anti-doublon par réf fabricant), dispatch `pieces`, `TEMPLATES["pieces"]`, bouton modèle téléchargeable dans page Import.

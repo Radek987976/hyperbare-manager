@@ -152,7 +152,7 @@ const Equipments = () => {
       ]);
       setEquipments(equipmentsRes.data || []);
       setCaisson(caissonRes.data);
-      setEquipmentTypes(typesRes.data || []);
+      setEquipmentTypes([...(typesRes.data || [])].sort((a, b) => (a.nom || '').localeCompare(b.nom || '', 'fr', { sensitivity: 'base' })));
       try {
         const techRes = await usersAPI.getTechnicians();
         setTechnicians(techRes.data || []);

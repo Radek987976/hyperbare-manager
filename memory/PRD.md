@@ -3,7 +3,12 @@
 ## Énoncé du problème original
 Application web de GMAO (gestion de maintenance assistée par ordinateur) pour un caisson hyperbare unique contenant plusieurs équipements et sous-équipements.
 
-## Changelog (2026-06-17i) — Barre d'onglets navigateur (NavTabs)
+## Changelog (2026-06-17j) — Dashboard admin : panneau « Demandes à traiter »
+- `GET /api/dashboard/admin-requests` (admin) : inscriptions à valider (users is_approved=false), demandes de réinit. mot de passe (password_reset_requests pending), irrégularités (contrôles non_conforme/avec_reserves, équipements hors_service, résumé stock bas en 1 ligne).
+- Dashboard : panneau admin-only « Demandes à traiter » (badge total). Boutons inline « Valider » (approve user) et « Envoyer MDP » (send-temp-password) ; irrégularités cliquables → page liée. `dashboardAPI.getAdminRequests`.
+- Validé testing_agent iteration_20 (100% backend 9/9 + frontend 6/6). Note mineure hors-scope : PUT /users/{id}/password ne reset pas must_change_password (comportement existant, non lié).
+
+
 - Nouveau composant `components/NavTabs.jsx` : barre d'onglets en haut du contenu. Chaque page visitée via le menu latéral s'ouvre comme onglet ; basculer/fermer (×) ; fermeture de l'onglet actif → bascule sur voisin. Menu latéral conservé, pas de persistance au reload, masqué sur mobile. Intégré dans `Layout.jsx`. Validé testing_agent iteration_19 (100%).
 
 

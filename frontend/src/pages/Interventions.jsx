@@ -459,7 +459,7 @@ function Interventions() {
       )}
 
       <Dialog open={showModal} onOpenChange={setShowModal}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{editingId ? 'Modifier l\'intervention' : 'Enregistrer une intervention'}</DialogTitle>
             <DialogDescription>Renseignez la maintenance concernée, le technicien et les actions réalisées.</DialogDescription>

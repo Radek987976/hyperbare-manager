@@ -1,0 +1,35 @@
+{
+  "summary": "Verified modal 'Nouvelle intervention' CSS fix (max-h-[90vh] overflow-y-auto) on Interventions page at 1920x800. Modal now fits viewport, has internal scroll, header and footer both accessible.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_evidence": {
+    "modal_height_px": 720,
+    "viewport_height_px": 800,
+    "max_height_computed": "720px",
+    "overflow_y": "auto",
+    "scroll_height": 937,
+    "client_height": 718,
+    "title_visible_on_open": true,
+    "type_field_visible_on_open": true,
+    "pieces_utilisees_visible_after_scroll": true,
+    "footer_annuler_present": true,
+    "footer_enregistrer_present": true,
+    "footer_save_button_bbox_y": 699,
+    "footer_save_button_in_viewport": true,
+    "overlay_present": true
+  },
+  "test_report_links": [],
+  "action_items": [],
+  "critical_code_review_comments": [],
+  "updated_files": [],
+  "success_rate": {"frontend": "100%"},
+  "test_credentials": "admin@hypermaint.fr / admin123 (works)",
+  "seed_data_creation": "None - non-regression create flow not exercised to avoid creating stray data; modal reachability of Enregistrer button was verified positionally (y=699, in viewport, clickable).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Modal fix verified. DialogContent has max-h-[90vh] overflow-y-auto at Interventions.jsx:462. Internal scroll works; top (Type d'intervention) and bottom (Pièces utilisées + DialogFooter Annuler/Enregistrer) both accessible."
+}

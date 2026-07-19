@@ -374,3 +374,7 @@ spare_parts: {id, nom, reference_fabricant, equipment_type, quantite_stock, seui
 - **Fix code**: ajout d'un contrôle `is_reformed_next` dans `complete_work_order` — plus de régénération si l'équipement est réformé (cohérent avec la logique existante de réforme L1353 et le blocage de création L1569).
 - **Nettoyage données**: annulé (statut `annulee`) tous les ordres préventifs actifs (planifiee/en_cours) des 4 équipements réformés = 15 ordres. Vérifié: LUCHAR 3/3 annulés, alertes maintenance_retard=0.
 - Base partagée preview/production → nettoyage appliqué aux deux. Le code doit être redéployé pour propager le fix de régénération en production.
+
+### 2026-07-19 (suite) — Action "Réformer en 1 clic" (VÉRIFIÉ testing_agent 100%, iter 25)
+- **Equipments.jsx**: nouvel item de menu "Réformer" (dropdown actions, visible si canModify() && statut != 'reforme', data-testid reform-{id}) ouvrant un modal `reform-modal` (date_reforme pré-remplie, motif SearchableSelect, technicien SearchableSelect). Confirmation → `equipmentsAPI.update(id, {...champs, statut:'reforme', date/motif/technicien})`. Le backend (PUT /equipments L1353) solde automatiquement les maintenances préventives actives (annulee). Vérifié via API (payload→200→WO annulée) et UI (row grisée, menu masqué après réforme).
+- Note: route liste = /equipements (orthographe FR).

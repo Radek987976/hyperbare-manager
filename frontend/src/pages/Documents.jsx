@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { documentsAPI, equipmentsAPI, contractorsAPI } from '../lib/api';
+import { documentsAPI, equipmentsAPI, contractorsAPI, openStoredFile } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
 import { formatDate, getErrorMessage } from '../lib/utils';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
@@ -433,11 +433,9 @@ const Documents = () => {
                           <DropdownMenuContent align="end">
                             {doc.fichier_url && (
                               <>
-                                <DropdownMenuItem asChild>
-                                  <a href={`${API_URL}${doc.fichier_url}`} target="_blank" rel="noopener noreferrer">
-                                    <Eye className="h-4 w-4 mr-2" />
-                                    Visualiser
-                                  </a>
+                                <DropdownMenuItem onClick={() => openStoredFile(doc.fichier_url)} data-testid="document-view-link">
+                                  <Eye className="h-4 w-4 mr-2" />
+                                  Visualiser
                                 </DropdownMenuItem>
                                 <DropdownMenuItem asChild>
                                   <a href={`${API_URL}${doc.fichier_url}`} download={doc.fichier_nom}>

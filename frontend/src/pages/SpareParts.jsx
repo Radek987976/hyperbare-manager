@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { sparePartsAPI, equipmentTypesAPI } from '../lib/api';
+import { sparePartsAPI, equipmentTypesAPI, openStoredFile } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
 import { getErrorMessage } from '../lib/utils';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
@@ -805,9 +805,11 @@ const SpareParts = () => {
                     <div key={doc.url} className="flex items-center justify-between p-2 bg-slate-50 rounded">
                       <a
                         href={`${backendUrl}${doc.url}`}
+                        onClick={(e) => { e.preventDefault(); openStoredFile(doc.url); }}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-[#005F73] hover:underline flex items-center gap-2"
+                        className="text-[#005F73] hover:underline flex items-center gap-2 cursor-pointer"
+                        data-testid="sparepart-doc-link"
                       >
                         <FileText className="w-4 h-4" />
                         {doc.filename}

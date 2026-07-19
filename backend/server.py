@@ -3532,6 +3532,7 @@ async def get_uploaded_file(folder: str, filename: str, request: Request):
     base_headers = {
         "Content-Disposition": f'{disposition}; filename="{filename}"',
         "Accept-Ranges": "bytes",
+        "Cache-Control": "private, max-age=600",
     }
 
     # Range support is required by Chrome's built-in PDF viewer (otherwise: blank page)

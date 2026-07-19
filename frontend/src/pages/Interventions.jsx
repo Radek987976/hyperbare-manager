@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
-import { interventionsAPI, workOrdersAPI, sparePartsAPI, usersAPI, equipmentsAPI, subEquipmentsAPI } from '../lib/api';
+import { interventionsAPI, workOrdersAPI, sparePartsAPI, usersAPI, equipmentsAPI, subEquipmentsAPI, openStoredFile } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
 import { formatDate } from '../lib/utils';
 import { Card, CardContent } from '../components/ui/card';
@@ -721,7 +721,7 @@ function Interventions() {
                   <div className="space-y-2">
                     {selectedItem.documents.map((doc) => (
                       <div key={doc.url} className="flex items-center justify-between p-2 rounded border border-slate-200" data-testid="interv-pdf-item">
-                        <a href={`${backendUrl}${doc.url}`} target="_blank" rel="noreferrer" className="flex items-center gap-2 text-[#005F73] hover:underline text-sm truncate">
+                        <a href={`${backendUrl}${doc.url}`} onClick={(e) => { e.preventDefault(); openStoredFile(doc.url); }} target="_blank" rel="noreferrer" className="flex items-center gap-2 text-[#005F73] hover:underline text-sm truncate cursor-pointer" data-testid="interv-pdf-link">
                           <FileText className="w-4 h-4 shrink-0" /> {doc.filename}
                         </a>
                         <button onClick={() => handleDeletePdf(doc.url)} className="text-slate-400 hover:text-red-600 shrink-0" data-testid="interv-pdf-delete">

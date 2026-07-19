@@ -353,3 +353,13 @@ spare_parts: {id, nom, reference_fabricant, equipment_type, quantite_stock, seui
 - **Backend** (`server.py`): `POST /work-orders/{id}/complete` (clôture + génère la prochaine occurrence à J+periodicite_jours + crée intervention + maj compteur compresseur), `POST /planning/reschedule` (glisser-déposer), `GET /planning/events?start&end` (fusion work_orders+inspections, champ `origine`, `is_overdue`), `GET /planning/summary?year` (compteurs par mois).
 - **Frontend**: page `Planning.jsx` (route `/planning`, menu « Planning ») — vue Mois (grille custom, événements colorés, drag&drop) + vue Année (12 cartes mois), légende couleur, dialog détail + « Marquer réalisé & planifier la suite ». `planningAPI` + `workOrdersAPI.complete` dans api.js.
 - Couleurs: préventif=teal, réglementaire=indigo, correctif=ambre, en retard=rouge, réalisé=vert.
+
+### 2026-07-19 — Stockage persistant des fichiers + fix PDF "page blanche"
+- **Problème 1**: fichiers (PDF fiches techniques, procédures, photos, PV) stockés sur disque local éphémère → perdus à chaque redéploiement ("ne s'ouvre pas" / 404).
+- **Fix 1 (backend `server.py`)**: migration vers **Emergent Object Storage** (persistant). Helpers `init_storage/save_upload/read_upload`, `APP_NAME="hypermaint"`, clé `EMERGENT_LLM_KEY` ajoutée à backend/.env. Tous les endpoints d'upload écrivent maintenant en storage; `GET /api/uploads/{folder}/{filename}` lit depuis storage (+ fallback disque legacy) avec support **HTTP Range 206** (requis par le viewer PDF Chrome). Vérifié via curl (upload→open 200, range 206).
+- **Problème 2**: PDF ouvrait une page blanche. Cause: l'ingress force `Cache-Control: no-store` sur toutes les routes /api → casse le lecteur PDF Chrome (impossible à surcharger côté serveur).
+- **Fix 2 (frontend `lib/api.js` + 6 pages)**: helper `openStoredFile(url)` qui récupère le fichier en **blob** et l'ouvre via une URL locale `blob:` (contourne les en-têtes de l'ingress). Appliqué à SpareParts, Interventions, Inspections, WorkOrders, SubEquipments, Equipments, Documents (liens PDF → onClick openStoredFile).
+- **IMPORTANT**: les fichiers ajoutés AVANT ce fix sont perdus (disque effacé) → à ré-uploader.
+- **EN ATTENTE validation utilisateur** (rendu PDF vérifiable uniquement dans un vrai navigateur; headless sans lecteur PDF).
+- **Backlog proposé (non tranché par user)**: (a) traçabilité "ajouté par technicien + date", (b) export ZIP audit de tous les documents, (c) indicateur de stockage admin.
+- **Bug UI en attente**: modal "Nouvelle intervention" (Interventions.jsx L462) — débordement horizontal + boutons Enregistrer/Annuler cachés (à restructurer header fixe / corps scroll / footer fixe).

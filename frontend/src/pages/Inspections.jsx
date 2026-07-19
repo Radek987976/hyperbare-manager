@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
-import { inspectionsAPI, caissonAPI, equipmentsAPI } from '../lib/api';
+import { inspectionsAPI, caissonAPI, equipmentsAPI, openStoredFile } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
 import { toast } from 'sonner';
 import { formatDate, daysUntil, equipmentTypeLabels, periodiciteLabels, getErrorMessage } from '../lib/utils';
@@ -711,9 +711,11 @@ const Inspections = () => {
                       <div key={doc.url} className="flex items-center justify-between p-2 rounded border border-slate-200" data-testid="pdf-doc-item">
                         <a
                           href={`${process.env.REACT_APP_BACKEND_URL}${doc.url}`}
+                          onClick={(e) => { e.preventDefault(); openStoredFile(doc.url); }}
                           target="_blank"
                           rel="noreferrer"
-                          className="flex items-center gap-2 text-[#005F73] hover:underline text-sm truncate"
+                          className="flex items-center gap-2 text-[#005F73] hover:underline text-sm truncate cursor-pointer"
+                          data-testid="inspection-pdf-link"
                         >
                           <FileText className="w-4 h-4 shrink-0" /> {doc.filename}
                         </a>

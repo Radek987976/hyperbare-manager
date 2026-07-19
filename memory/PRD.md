@@ -389,3 +389,16 @@ spare_parts: {id, nom, reference_fabricant, equipment_type, quantite_stock, seui
 - **SpareParts.jsx** modal "Ajuster le stock": boutons -1/+1 agrandis (h-14, text-xl, icônes w-6, bordure 2px, survol rouge/vert), champ quantité h-12 text-lg centré.
 - **index.css** (global): flèches natives des `input[type=number]` (::-webkit-inner/outer-spin-button) toujours visibles + agrandies (width 1.75rem, height 2.5rem) → s'applique à tous les champs de quantité de l'app.
 - Front compile OK. À valider visuellement par l'utilisateur (screenshot tool ne gère pas les flux authentifiés). Redéploiement requis pour la production.
+
+### 2026-07-19 (suite) — Devise XPF/EUR + Budget prévisionnel N+1 (VÉRIFIÉ testing_agent 100%, iter 26)
+**Phase 1 — Devise pièces détachées**
+- server.py: SparePartBase/Update ont `devise` (XPF défaut/EUR). Constante EUR_TO_XPF=119.3, helper prix_unitaire_xpf(). Totaux valeur stock convertis en XPF (reports/statistics + dashboard summary). Import détecte colonne DEVISE, template inclut DEVISE. Label CSV "(XPF)".
+- SpareParts.jsx: sélecteur devise (select-devise) au formulaire, estimation "≈ X XPF (1€=119,3 XPF)" si EUR, colonne "Prix" (cell-prix) + détail (detail-prix) via formatPrice(). Vérifié: 50€ → 5 965,0 XPF.
+
+**Phase 2 — Budget prévisionnel N+1** (option C)
+- server.py: WorkOrderBase a `pieces_prevues` [{spare_part_id, quantite}]. Endpoint GET /api/budget/forecast/{annee}: pour chaque maintenance préventive (équipement non réformé), occurrences/an = 365/periodicite_jours OU moyenne heures (historique compteur)/periodicite_heures; pièces = pieces_prevues sinon fallback dernière intervention; coût = occ × Σ(qte × prix_unitaire_xpf). Dédoublonnage par (equipment,titre). Total XPF+EUR. Vérifié: 30j→12/an, 1 pièce→12u→12000 XPF.
+- WorkOrders.jsx: section "Pièces prévues par intervention" (select-piece-prevue, input-piece-qte, add-piece-prevue-btn, pieces-prevues-list). Charge spareParts.
+- Budget.jsx: carte "Prévisionnel automatique" (forecast-card) + bouton Recalculer (generate-forecast-btn) → total (forecast-total) + tableau dépliable par maintenance (forecast-row). budgetAPI.getForecast ajouté.
+- NOTE: total=0 tant que l'utilisateur n'a pas renseigné les pièces prévues sur les maintenances. Sous-traitance NON incluse (contrats gérés à part, choix user).
+- Mineur non bloquant: overlay dev CRA "ResizeObserver loop" visible en preview (disparaît en build prod).
+- Redéploiement requis pour la production.

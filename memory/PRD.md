@@ -408,3 +408,12 @@ spare_parts: {id, nom, reference_fabricant, equipment_type, quantite_stock, seui
 - **Pré-remplir depuis l'historique**: server.py GET /api/work-orders/{id}/suggested-pieces → pièces de la dernière intervention liée (par work_order_id, sinon même équipement+titre). WorkOrders.jsx: bouton "Pré-remplir depuis l'historique" (prefill-history-btn) visible en édition d'une maintenance préventive → remplit pieces_prevues. workOrdersAPI.getSuggestedPieces ajouté.
 - Vérifié via curl (export xlsx OK; suggested-pieces renvoie qte 2) + testing_agent frontend 100%.
 - Redéploiement requis pour la production.
+
+### 2026-07-19 (suite) — Coût prestataire par maintenance préventive (VÉRIFIÉ testing_agent 100%, iter 28)
+- **Objectif**: ajouter le prix d'une prestation externe (sous-traitant) PAR maintenance préventive (coût par passage). Un prestataire peut intervenir sur plusieurs maintenances; le prix dépend de la maintenance.
+- **server.py**: WorkOrderBase + `cout_prestataire`, `prestataire_id` (contractor), `devise_prestataire` (XPF/EUR). _compute_forecast: par ligne `cout_prestataire_unitaire_xpf`, `cout_prestation_annuel_xpf` = coût × occurrences/an; totaux séparés `total_prestations_xpf/eur` (NON additionnés aux pièces, choix user "2B"). Export Excel: 3e feuille "Prestations" + colonnes prestataire dans Synthese.
+- **WorkOrders.jsx**: bloc "Prestation externe (sous-traitant)" dans le formulaire préventif (select-prestataire, input-cout-prestataire, select-devise-prestataire + estimation XPF). Charge contractorsAPI.
+- **Budget.jsx**: 2 totaux distincts (forecast-total pièces + forecast-total-prestations), colonne "Prestation/an" (forecast-prestation-cell) avec nom prestataire.
+- Vérifié curl: extincteur Entretien annuel 10000×1 + Entretien 6 mois 2000×2 = total prestations 14000 XPF. Frontend 100%.
+- Fix au passage: doublon de fin de fichier WorkOrders.jsx supprimé.
+- Redéploiement requis pour la production.

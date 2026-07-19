@@ -506,6 +506,7 @@ class InterventionBase(BaseModel):
     compteur_horaire: Optional[float] = None  # Compteur horaire au moment de l'intervention (pour compresseurs)
     equipment_id: Optional[str] = None  # Équipement concerné
     sous_equipement_id: Optional[str] = None  # Sous-équipement concerné (optionnel)
+    prestataire_id: Optional[str] = None  # Prestataire externe ayant réalisé l'intervention (optionnel)
     documents: List[dict] = []  # PV / documents PDF [{filename, url, uploaded_at}]
 
 class InterventionCreate(InterventionBase):
@@ -616,7 +617,8 @@ class SparePartUpdate(BaseModel):
 class ContractorBase(BaseModel):
     nom: str
     type: str = Field(default="prestataire", description="prestataire, fournisseur, organisme_controle")
-    specialite: Optional[str] = None  # Maintenance compresseurs, Métrologie, etc.
+    specialite: Optional[str] = None  # Legacy texte libre (conservé pour compat)
+    specialites: List[str] = []  # Types d'équipements pris en charge (multi-sélection)
     contact_nom: Optional[str] = None
     contact_email: Optional[str] = None
     contact_telephone: Optional[str] = None

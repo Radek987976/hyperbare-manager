@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { contractorsAPI } from '../lib/api';
+import { contractorsAPI, equipmentTypesAPI } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
 import { formatDate, getErrorMessage } from '../lib/utils';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
@@ -78,6 +78,7 @@ const typeColors = {
 const Contractors = () => {
   const { canCreate, canModify, canDelete } = useAuth();
   const [contractors, setContractors] = useState([]);
+  const [equipmentTypes, setEquipmentTypes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState('all');
@@ -94,6 +95,7 @@ const Contractors = () => {
     nom: '',
     type: 'prestataire',
     specialite: '',
+    specialites: [],
     contact_nom: '',
     contact_email: '',
     contact_telephone: '',
@@ -109,8 +111,12 @@ const Contractors = () => {
   const fetchContractors = async () => {
     try {
       setLoading(true);
-      const response = await contractorsAPI.getAll();
+      const [response, typesRes] = await Promise.all([
+        contractorsAPI.getAll(),
+        equipmentTypesAPI.getAll(),
+      ]);
       setContractors(response.data);
+      setEquipmentTypes((typesRes.data || []).map(t => t.nom).sort((a, b) => a.localeCompare(b, 'fr')));
     } catch (err) {
       console.error('Error fetching contractors:', err);
       setError(getErrorMessage(err));
@@ -157,6 +163,7 @@ const Contractors = () => {
       nom: contractor.nom || '',
       type: contractor.type || 'prestataire',
       specialite: contractor.specialite || '',
+      specialites: contractor.specialites || (contractor.specialite ? [contractor.specialite] : []),
       contact_nom: contractor.contact_nom || '',
       contact_email: contractor.contact_email || '',
       contact_telephone: contractor.contact_telephone || '',
@@ -177,6 +184,7 @@ const Contractors = () => {
       nom: '',
       type: 'prestataire',
       specialite: '',
+      specialites: [],
       contact_nom: '',
       contact_email: '',
       contact_telephone: '',
@@ -193,6 +201,7 @@ const Contractors = () => {
     const matchesSearch = 
       contractor.nom?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       contractor.specialite?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (contractor.specialites || []).some(s => s.toLowerCase().includes(searchTerm.toLowerCase())) ||
       contractor.contact_nom?.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesType = filterType === 'all' || contractor.type === filterType;
     return matchesSearch && matchesType;
@@ -345,7 +354,15 @@ const Contractors = () => {
                         {typeLabels[contractor.type]}
                       </Badge>
                     </TableCell>
-                    <TableCell>{contractor.specialite || '-'}</TableCell>
+                    <TableCell>
+                      {(contractor.specialites && contractor.specialites.length > 0) ? (
+                        <div className="flex flex-wrap gap-1 max-w-xs">
+                          {contractor.specialites.map((s) => (
+                            <Badge key={s} variant="outline" className="bg-teal-50 text-teal-700 border-teal-200 text-xs">{s}</Badge>
+                          ))}
+                        </div>
+                      ) : (contractor.specialite || '-')}
+                    </TableCell>
                     <TableCell>
                       {contractor.contact_nom && (
                         <div className="text-sm">
@@ -436,13 +453,31 @@ const Contractors = () => {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="specialite">Spécialité</Label>
-              <Input
-                id="specialite"
-                value={formData.specialite}
-                onChange={(e) => setFormData({ ...formData, specialite: e.target.value })}
-                placeholder="ex: Maintenance compresseurs, Métrologie..."
-              />
+              <Label>Spécialités (types d'équipements)</Label>
+              <p className="text-xs text-gray-500">Sélectionnez les types d'équipements pris en charge. Utilisé pour filtrer les prestataires proposés lors d'une intervention.</p>
+              <div className="flex flex-wrap gap-2 p-3 border rounded-md max-h-48 overflow-y-auto" data-testid="contractor-specialites">
+                {equipmentTypes.length === 0 ? (
+                  <span className="text-sm text-gray-400">Aucun type d'équipement défini</span>
+                ) : equipmentTypes.map((type) => {
+                  const active = formData.specialites.includes(type);
+                  return (
+                    <button
+                      key={type}
+                      type="button"
+                      data-testid={`specialite-toggle-${type}`}
+                      onClick={() => setFormData((prev) => ({
+                        ...prev,
+                        specialites: active
+                          ? prev.specialites.filter((s) => s !== type)
+                          : [...prev.specialites, type],
+                      }))}
+                      className={`px-3 py-1 rounded-full text-sm border transition-colors ${active ? 'bg-teal-600 text-white border-teal-600' : 'bg-white text-gray-600 border-gray-300 hover:border-teal-400'}`}
+                    >
+                      {type}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

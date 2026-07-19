@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
-import { interventionsAPI, workOrdersAPI, sparePartsAPI, usersAPI, equipmentsAPI, subEquipmentsAPI, openStoredFile } from '../lib/api';
+import { interventionsAPI, workOrdersAPI, sparePartsAPI, usersAPI, equipmentsAPI, subEquipmentsAPI, contractorsAPI, openStoredFile } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
 import { formatDate } from '../lib/utils';
 import { Card, CardContent } from '../components/ui/card';
@@ -25,7 +25,8 @@ function Interventions() {
     spareParts: [],
     technicians: [],
     equipments: [],
-    subEquipments: []
+    subEquipments: [],
+    contractors: []
   });
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -50,6 +51,7 @@ function Interventions() {
     maintenance_preventive_id: '',
     equipment_id: '',
     sous_equipement_id: '',
+    prestataire_id: '',
     titre: '',
     date_intervention: new Date().toISOString().split('T')[0],
     technicien: '',
@@ -89,21 +91,29 @@ function Interventions() {
 
   async function loadData() {
     try {
-      const [r1, r2, r3, r4, r5, r6] = await Promise.all([
+      const [r1, r2, r3, r5, r6, r7] = await Promise.all([
         interventionsAPI.getAll(),
         workOrdersAPI.getAll(),
         sparePartsAPI.getAll(),
-        usersAPI.getTechnicians(),
         equipmentsAPI.getAll(),
-        subEquipmentsAPI.getAll()
+        subEquipmentsAPI.getAll(),
+        contractorsAPI.getAll()
       ]);
+      // Technicien: admin voit tous les utilisateurs ; technicien = lui-même (+ saisie libre)
+      let technicians = [];
+      if (isAdmin) {
+        try { const ru = await usersAPI.getAll(); technicians = ru.data || []; } catch (e) { /* noop */ }
+      } else if (user) {
+        technicians = [{ id: user.id, prenom: user.prenom, nom: user.nom }];
+      }
       setData({
         interventions: r1.data || [],
         workOrders: r2.data || [],
         spareParts: r3.data || [],
-        technicians: r4.data || [],
+        technicians,
         equipments: r5.data || [],
-        subEquipments: r6.data || []
+        subEquipments: r6.data || [],
+        contractors: r7.data || []
       });
     } catch (e) {
       console.error(e);
@@ -172,6 +182,14 @@ function Interventions() {
     : [];
   const availableSpareParts = matchingSpareParts.length > 0 ? matchingSpareParts : data.spareParts;
 
+  // Prestataires dont la spécialité correspond STRICTEMENT au type de l'équipement sélectionné
+  const matchingContractors = selectedEquipment
+    ? data.contractors.filter(c =>
+        Array.isArray(c.specialites) &&
+        c.specialites.some(s => (s || '').trim().toLowerCase() === equipTypeLc)
+      )
+    : [];
+
   async function handleSave() {
     setSaving(true);
     try {
@@ -182,6 +200,7 @@ function Interventions() {
         titre: formData.type_intervention === 'curative' ? formData.titre : null,
         equipment_id: formData.equipment_id || null,
         sous_equipement_id: formData.sous_equipement_id || null,
+        prestataire_id: formData.prestataire_id || null,
         date_intervention: formData.date_intervention,
         technicien: formData.technicien,
         actions_realisees: formData.actions_realisees,
@@ -215,6 +234,7 @@ function Interventions() {
       maintenance_preventive_id: item.maintenance_preventive_id || '',
       equipment_id: item.equipment_id || '',
       sous_equipement_id: item.sous_equipement_id || '',
+      prestataire_id: item.prestataire_id || '',
       titre: item.titre || '',
       date_intervention: item.date_intervention || new Date().toISOString().split('T')[0],
       technicien: item.technicien || '',
@@ -301,6 +321,11 @@ function Interventions() {
   function getSubEquipmentName(id) {
     const s = data.subEquipments.find(x => x.id === id);
     return s ? (s.nom || s.reference) : null;
+  }
+
+  function getContractorName(id) {
+    const c = data.contractors.find(x => x.id === id);
+    return c ? c.nom : null;
   }
 
   // Libellé affiché dans la liste / le détail
@@ -557,6 +582,18 @@ function Interventions() {
                 <Label>Durée (min)</Label>
                 <Input name="duree_minutes" type="number" value={formData.duree_minutes} onChange={handleChange} />
               </div>
+              <div className="col-span-2">
+                <Label>Prestataire externe</Label>
+                <SearchableSelect
+                  value={formData.prestataire_id}
+                  onValueChange={v => setFormData(p => ({ ...p, prestataire_id: v }))}
+                  placeholder={formData.equipment_id ? (matchingContractors.length ? 'Optionnel — prestataire de ce type d\'équipement' : 'Aucun prestataire pour ce type d\'équipement') : 'Choisir un équipement d\'abord'}
+                  searchPlaceholder="Rechercher un prestataire..."
+                  options={matchingContractors.map(c => ({ value: c.id, label: c.nom }))}
+                  emptyText={formData.equipment_id ? 'Aucun prestataire dont la spécialité correspond à ce type' : 'Choisir un équipement d\'abord'}
+                  data-testid="interv-prestataire-select"
+                />
+              </div>
             </div>
             
             {/* Compteur horaire pour les compresseurs */}
@@ -683,6 +720,9 @@ function Interventions() {
             <div className="space-y-3">
               <p><strong>Date:</strong> {formatDate(selectedItem.date_intervention)}</p>
               <p><strong>Technicien:</strong> {selectedItem.technicien}</p>
+              {selectedItem.prestataire_id && getContractorName(selectedItem.prestataire_id) && (
+                <p><strong>Prestataire:</strong> {getContractorName(selectedItem.prestataire_id)}</p>
+              )}
               <p><strong>Objet:</strong> {getInterventionLabel(selectedItem)}</p>
               <p><strong>Actions:</strong> {selectedItem.actions_realisees}</p>
               {selectedItem.observations && <p><strong>Observations:</strong> {selectedItem.observations}</p>}

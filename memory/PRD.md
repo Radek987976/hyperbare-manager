@@ -1,5 +1,10 @@
 # HyperbareManager - PRD (Product Requirements Document)
 
+## Changelog (2026-06-20b) — Fix: prestataire vide dans Maintenance préventive (WorkOrders)
+- **Bug**: le formulaire Maintenance préventive (`WorkOrders.jsx`) affichait « Aucun résultat » pour la « Prestation externe (sous-traitant) » — `loadData` ne chargeait jamais `contractorsAPI.getAll()` (régression iter 28), la liste `contractors` restait vide.
+- **Fix**: chargement des prestataires ajouté dans `loadData` + filtrage STRICT par spécialité (`matchingContractors`) identique aux interventions : seuls les prestataires dont `specialites` contient le type de l'équipement sélectionné sont proposés (emptyText sinon).
+- Vérifié navigateur (preview): Extincteur hyperbare CX01980016 → « Incendie Moz » proposé.
+
 ## Changelog (2026-06-20) — Prestataires par spécialité + Technicien par rôle + prestataire d'intervention (VÉRIFIÉ testing_agent iter 29, frontend 100%)
 - **Spécialités prestataire (1a)**: `ContractorBase.specialites: List[str]` = types d'équipements pris en charge (multi-sélection). `specialite` (texte libre) conservé pour compat. Contractors.jsx: grille de badges cliquables des types d'équipements (`contractor-specialites`, `specialite-toggle-{type}`), colonne tableau affiche les spécialités en badges. Édition pré-coche les spécialités existantes.
 - **Prestataire dans l'intervention (2b)**: `InterventionBase.prestataire_id: Optional[str]`. Interventions.jsx: champ « Prestataire externe » (`interv-prestataire-select`) filtré STRICTEMENT par les prestataires dont `specialites` contient le type de l'équipement sélectionné (si aucun → liste vide). Affiché dans le détail de l'intervention.

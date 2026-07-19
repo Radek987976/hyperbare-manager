@@ -137,13 +137,14 @@ const WorkOrders = () => {
 
   const loadData = async () => {
     try {
-      const [workOrdersRes, equipmentsRes, caissonRes, techniciansRes, typesRes, sparePartsRes] = await Promise.all([
+      const [workOrdersRes, equipmentsRes, caissonRes, techniciansRes, typesRes, sparePartsRes, contractorsRes] = await Promise.all([
         workOrdersAPI.getAll(),
         equipmentsAPI.getAll(),
         caissonAPI.get(),
         usersAPI.getTechnicians(),
         equipmentTypesAPI.getAll(),
-        sparePartsAPI.getAll()
+        sparePartsAPI.getAll(),
+        contractorsAPI.getAll()
       ]);
       setWorkOrders(workOrdersRes.data || []);
       setEquipments(equipmentsRes.data || []);
@@ -151,6 +152,7 @@ const WorkOrders = () => {
       setTechnicians(techniciansRes.data || []);
       setEquipmentTypes(typesRes.data || []);
       setSpareParts(sparePartsRes.data || []);
+      setContractors(contractorsRes.data || []);
     } catch (error) {
       console.error('Erreur chargement:', error);
     } finally {
@@ -265,6 +267,15 @@ const WorkOrders = () => {
   const getSelectedEquipment = () => {
     return equipments.find(eq => eq.id === formData.equipment_id);
   };
+
+  // Prestataires dont la spécialité correspond STRICTEMENT au type de l'équipement sélectionné
+  const selectedEquipmentType = (getSelectedEquipment()?.type || '').trim().toLowerCase();
+  const matchingContractors = selectedEquipmentType
+    ? contractors.filter(c =>
+        Array.isArray(c.specialites) &&
+        c.specialites.some(s => (s || '').trim().toLowerCase() === selectedEquipmentType)
+      )
+    : contractors;
 
   const handleSave = async () => {
     setSaving(true);
@@ -806,7 +817,8 @@ const WorkOrders = () => {
                       data-testid="select-prestataire"
                       placeholder="Sélectionner un prestataire (optionnel)"
                       searchPlaceholder="Rechercher un prestataire..."
-                      options={contractors.map(c => ({ value: c.id, label: c.nom }))}
+                      options={matchingContractors.map(c => ({ value: c.id, label: c.nom }))}
+                      emptyText={selectedEquipmentType ? 'Aucun prestataire dont la spécialité correspond à ce type d\'équipement' : 'Aucun prestataire'}
                     />
                     <div className="flex gap-2">
                       <div className="flex-1">

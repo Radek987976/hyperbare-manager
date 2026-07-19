@@ -1,0 +1,37 @@
+{
+  "summary": "Frontend-only testing of two new features: (1) Excel export of forecast budget, (2) 'Pre-fill from history' button on preventive maintenance edit. Both features work end-to-end without console errors.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_details": {
+    "feature_1_export_forecast_excel": {
+      "route": "/budget",
+      "steps": "Login admin -> /budget -> click 'Calculer' (generate-forecast-btn) -> forecast card appears -> 'Export Excel' button (export-forecast-btn) visible -> click triggers download",
+      "network": "GET /api/budget/forecast/2026 -> 200 (json); GET /api/budget/forecast/2026/export -> 200 with content-type application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      "download": "budget_previsionnel_2026.xlsx (download event captured)",
+      "console_errors": "none",
+      "result": "PASS"
+    },
+    "feature_2_prefill_from_history": {
+      "route": "/ordres-travail",
+      "steps": "Open action menu of a preventive row (Contrôle de l'état extérieur ARI - ARI_C01) -> 'Modifier' -> Edit modal opens -> Section 'Pièces prévues par intervention' contains 'Pré-remplir depuis l'historique' button (prefill-history-btn) -> click -> API called -> browser alert shown -> closed via Annuler (no persistence)",
+      "network": "GET /api/work-orders/7a31b29a-1820-4d73-be33-57b23c70d1ee/suggested-pieces -> 200",
+      "alert_shown": "Aucune pièce trouvée dans l'historique (no historical interventions with pieces for this equipment - expected fallback path)",
+      "console_errors": "none",
+      "result": "PASS"
+    }
+  },
+  "test_report_links": [],
+  "action_items": [],
+  "critical_code_review_comments": [],
+  "updated_files": [],
+  "success_rate": {"backend": "N/A (not tested per request)", "frontend": "100%"},
+  "test_credentials": "admin@hypermaint.fr / admin123",
+  "seed_data_creation": "None - no data persisted; edit modal closed via Annuler",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Both new features (export-forecast-btn on /budget after Calculer, and prefill-history-btn in preventive maintenance edit modal) are functional. The prefill alert path was hit because the tested equipment (ARI_C01) has no intervention history with pieces; to see the fill path, choose an equipment with past interventions containing pieces."
+}

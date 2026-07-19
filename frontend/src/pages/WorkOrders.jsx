@@ -55,6 +55,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs'
 import {
   ClipboardList,
   Plus,
+  RefreshCw,
   Search,
   MoreVertical,
   Edit,
@@ -184,6 +185,21 @@ const WorkOrders = () => {
 
   const removePiecePrevue = (spid) => {
     setFormData({ ...formData, pieces_prevues: formData.pieces_prevues.filter(p => p.spare_part_id !== spid) });
+  };
+
+  const prefillFromHistory = async () => {
+    if (!selectedWorkOrder?.id) return;
+    try {
+      const res = await workOrdersAPI.getSuggestedPieces(selectedWorkOrder.id);
+      const pieces = (res.data.pieces || []).map(p => ({ spare_part_id: p.spare_part_id, quantite: p.quantite || 1 }));
+      if (pieces.length === 0) {
+        alert(res.data.message || "Aucune pièce trouvée dans l'historique des interventions");
+        return;
+      }
+      setFormData(prev => ({ ...prev, pieces_prevues: pieces }));
+    } catch (e) {
+      alert(getErrorMessage(e, 'Erreur lors du pré-remplissage'));
+    }
   };
 
   const getPartName = (spid) => {
@@ -728,6 +744,11 @@ const WorkOrders = () => {
               <div className="space-y-2 border-t pt-4">
                 <Label>Pièces prévues par intervention</Label>
                 <p className="text-xs text-slate-500 -mt-1">Utilisé pour le budget prévisionnel N+1 (quantité consommée à chaque passage).</p>
+                {selectedWorkOrder?.id && (
+                  <Button type="button" variant="ghost" size="sm" onClick={prefillFromHistory} className="h-7 text-[#005F73]" data-testid="prefill-history-btn">
+                    <RefreshCw className="w-3.5 h-3.5 mr-1" /> Pré-remplir depuis l'historique
+                  </Button>
+                )}
                 <div className="flex gap-2 items-end">
                   <div className="flex-1">
                     <SearchableSelect

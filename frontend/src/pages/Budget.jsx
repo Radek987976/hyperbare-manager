@@ -161,6 +161,22 @@ const Budget = () => {
     }
   };
 
+  const handleExportForecast = async () => {
+    try {
+      const res = await budgetAPI.exportForecast(selectedYear);
+      const url = URL.createObjectURL(new Blob([res.data]));
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `budget_previsionnel_${selectedYear}.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      setError(getErrorMessage(err));
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
@@ -393,10 +409,17 @@ const Budget = () => {
               Estimé à partir des maintenances préventives (périodicité) et des pièces prévues par intervention. Équipements réformés exclus.
             </p>
           </div>
-          <Button onClick={fetchForecast} disabled={loadingForecast} data-testid="generate-forecast-btn">
-            {loadingForecast ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Calculator className="h-4 w-4 mr-2" />}
-            {forecast ? 'Recalculer' : 'Calculer'}
-          </Button>
+          <div className="flex items-center gap-2">
+            {forecast && (
+              <Button variant="outline" onClick={handleExportForecast} data-testid="export-forecast-btn">
+                <Download className="h-4 w-4 mr-2" /> Export Excel
+              </Button>
+            )}
+            <Button onClick={fetchForecast} disabled={loadingForecast} data-testid="generate-forecast-btn">
+              {loadingForecast ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Calculator className="h-4 w-4 mr-2" />}
+              {forecast ? 'Recalculer' : 'Calculer'}
+            </Button>
+          </div>
         </CardHeader>
         {forecast && (
           <CardContent>

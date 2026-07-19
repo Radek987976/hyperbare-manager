@@ -4934,6 +4934,10 @@ def _avg_hours_per_year(eq: dict):
 async def get_budget_forecast(annee: int, current_user: dict = Depends(get_current_user)):
     """Budget prévisionnel N+1 : projette pour chaque maintenance préventive le nombre
     d'occurrences dans l'année et le coût des pièces consommées (en XPF)."""
+    return await _compute_forecast(annee)
+
+
+async def _compute_forecast(annee: int):
     equipments = {e["id"]: e for e in await db.equipments.find({}, {"_id": 0}).to_list(2000)}
     spare_parts = {p["id"]: p for p in await db.spare_parts.find({}, {"_id": 0}).to_list(20000)}
     work_orders = await db.work_orders.find({"type_maintenance": "preventive"}, {"_id": 0}).to_list(5000)
@@ -5022,6 +5026,106 @@ async def get_budget_forecast(annee: int, current_user: dict = Depends(get_curre
         "nombre_maintenances": len(lignes),
         "lignes": lignes,
     }
+
+
+@api_router.get("/budget/forecast/{annee}/export")
+async def export_budget_forecast(annee: int, current_user: dict = Depends(get_current_user)):
+    """Exporte le budget prévisionnel N+1 en Excel (2 feuilles: synthèse + détail pièces)."""
+    data = await _compute_forecast(annee)
+
+    synthese_rows = []
+    detail_rows = []
+    for l in data["lignes"]:
+        if not l.get("pieces"):
+            continue
+        synthese_rows.append({
+            "Équipement": l.get("equipment_ref"),
+            "Maintenance": l.get("maintenance"),
+            "Périodicité": l.get("periodicite") or "",
+            "Occurrences/an": l.get("occurrences_par_an"),
+            "Source pièces": l.get("source_pieces") or "",
+            "Coût pièces (XPF)": l.get("cout_total_xpf"),
+        })
+        for p in l["pieces"]:
+            detail_rows.append({
+                "Équipement": l.get("equipment_ref"),
+                "Maintenance": l.get("maintenance"),
+                "Pièce": p.get("nom"),
+                "Référence": p.get("reference"),
+                "Qté/intervention": p.get("quantite_par_intervention"),
+                "Occurrences/an": l.get("occurrences_par_an"),
+                "Qté annuelle": p.get("quantite_annuelle"),
+                "Prix unitaire (XPF)": p.get("prix_unitaire_xpf"),
+                "Coût annuel (XPF)": p.get("cout_xpf"),
+            })
+
+    synthese_rows.append({
+        "Équipement": "TOTAL",
+        "Maintenance": "",
+        "Périodicité": "",
+        "Occurrences/an": "",
+        "Source pièces": "",
+        "Coût pièces (XPF)": data["total_previsionnel_xpf"],
+    })
+
+    output = io.BytesIO()
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+        pd.DataFrame(synthese_rows or [{"Info": "Aucune pièce prévue définie"}]).to_excel(
+            writer, sheet_name='Synthese', index=False)
+        pd.DataFrame(detail_rows or [{"Info": "Aucune pièce prévue définie"}]).to_excel(
+            writer, sheet_name='Detail_Pieces', index=False)
+    output.seek(0)
+    return StreamingResponse(
+        output,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f"attachment; filename=budget_previsionnel_{annee}.xlsx"}
+    )
+
+
+@api_router.get("/work-orders/{work_order_id}/suggested-pieces")
+async def suggested_pieces(work_order_id: str, current_user: dict = Depends(get_current_user)):
+    """Suggère les pièces prévues à partir des interventions réelles passées.
+
+    Recherche par work_order_id, sinon par équipement + même titre de maintenance.
+    Retourne les pièces de l'intervention la plus récente ayant consommé des pièces.
+    """
+    wo = await db.work_orders.find_one({"id": work_order_id}, {"_id": 0})
+    if not wo:
+        raise HTTPException(status_code=404, detail="Maintenance non trouvée")
+
+    # 1) Interventions liées directement à ce bon
+    last_int = await db.interventions.find_one(
+        {"work_order_id": work_order_id, "pieces_utilisees": {"$ne": []}},
+        {"_id": 0}, sort=[("date_intervention", -1)]
+    )
+    source = "cette maintenance"
+    # 2) Sinon, autres maintenances du même équipement avec le même titre
+    if not last_int and wo.get("equipment_id"):
+        related = await db.work_orders.find(
+            {"equipment_id": wo["equipment_id"], "titre": wo.get("titre")}, {"id": 1, "_id": 0}
+        ).to_list(200)
+        ids = [w["id"] for w in related]
+        if ids:
+            last_int = await db.interventions.find_one(
+                {"work_order_id": {"$in": ids}, "pieces_utilisees": {"$ne": []}},
+                {"_id": 0}, sort=[("date_intervention", -1)]
+            )
+            source = "historique de l'équipement"
+
+    if not last_int:
+        return {"pieces": [], "source": None, "message": "Aucune pièce trouvée dans l'historique"}
+
+    pieces = []
+    for pu in (last_int.get("pieces_utilisees") or []):
+        sp = await db.spare_parts.find_one({"id": pu.get("spare_part_id")}, {"_id": 0})
+        pieces.append({
+            "spare_part_id": pu.get("spare_part_id"),
+            "quantite": pu.get("quantite", 1),
+            "nom": sp.get("nom") if sp else None,
+            "reference": sp.get("reference_fabricant") if sp else None,
+        })
+    return {"pieces": pieces, "source": source, "date_intervention": last_int.get("date_intervention")}
+
 
 
 

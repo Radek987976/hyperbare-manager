@@ -62,7 +62,8 @@ import { Settings2,
   Activity,
   Upload,
   Image,
-  FileText
+  FileText,
+  Archive
 } from 'lucide-react';
 import { Download } from 'lucide-react';
 import { MaintenanceHistory } from '../components/MaintenanceHistory';
@@ -91,6 +92,9 @@ const Equipments = () => {
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [compteurValue, setCompteurValue] = useState('');
+  const [showReformModal, setShowReformModal] = useState(false);
+  const [reforming, setReforming] = useState(false);
+  const [reformForm, setReformForm] = useState({ date_reforme: '', motif_reforme: '', technicien_reforme: '' });
   
   const [formData, setFormData] = useState({
     type: '',
@@ -215,6 +219,42 @@ const Equipments = () => {
     setSelectedEquipment(equipment);
     setCompteurValue(equipment.compteur_horaire?.toString() || '');
     setShowCompteurModal(true);
+  };
+
+  const openReformModal = (equipment) => {
+    setSelectedEquipment(equipment);
+    setReformForm({ date_reforme: new Date().toISOString().split('T')[0], motif_reforme: '', technicien_reforme: '' });
+    setShowReformModal(true);
+  };
+
+  const handleReform = async () => {
+    if (!selectedEquipment) return;
+    setReforming(true);
+    try {
+      const eq = selectedEquipment;
+      const payload = {
+        type: eq.type,
+        reference: eq.reference,
+        numero_serie: eq.numero_serie,
+        criticite: eq.criticite,
+        statut: 'reforme',
+        caisson_id: eq.caisson_id,
+        description: eq.description || null,
+        date_installation: eq.date_installation || null,
+        compteur_horaire: eq.compteur_horaire ?? null,
+        gas_cylinder_id: eq.gas_cylinder_id || null,
+        date_reforme: reformForm.date_reforme || null,
+        motif_reforme: reformForm.motif_reforme || null,
+        technicien_reforme: reformForm.technicien_reforme || null,
+      };
+      await equipmentsAPI.update(eq.id, payload);
+      await loadData();
+      setShowReformModal(false);
+    } catch (e) {
+      alert(getErrorMessage(e, 'Erreur lors de la réforme'));
+    } finally {
+      setReforming(false);
+    }
   };
 
   const handleUpdateCompteur = async () => {
@@ -538,6 +578,12 @@ const Equipments = () => {
                               <DropdownMenuItem onClick={() => openEditModal(equipment)}>
                                 <Edit className="w-4 h-4 mr-2" />
                                 Modifier
+                              </DropdownMenuItem>
+                            )}
+                            {canModify() && equipment.statut !== 'reforme' && (
+                              <DropdownMenuItem onClick={() => openReformModal(equipment)} className="text-amber-700" data-testid={`reform-${equipment.id}`}>
+                                <Archive className="w-4 h-4 mr-2" />
+                                Réformer
                               </DropdownMenuItem>
                             )}
                             {canDelete() && (
@@ -1001,6 +1047,76 @@ const Equipments = () => {
             >
               {saving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
               Mettre à jour
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Réforme rapide (1 clic) */}
+      <Dialog open={showReformModal} onOpenChange={setShowReformModal}>
+        <DialogContent className="max-w-md" data-testid="reform-modal">
+          <DialogHeader>
+            <DialogTitle className="font-['Barlow_Condensed'] uppercase flex items-center gap-2">
+              <Archive className="w-5 h-5 text-amber-600" />
+              Réformer l'équipement
+            </DialogTitle>
+          </DialogHeader>
+          {selectedEquipment && (
+            <div className="space-y-4 py-2">
+              <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800">
+                <p className="font-medium">{selectedEquipment.reference} — {getTypeLabel(selectedEquipment.type)}</p>
+                <p className="text-xs mt-1">L'équipement sera archivé et toutes ses maintenances préventives en cours seront automatiquement soldées (annulées).</p>
+              </div>
+              <div className="space-y-2">
+                <Label>Date de réforme *</Label>
+                <Input
+                  type="date"
+                  value={reformForm.date_reforme}
+                  onChange={(e) => setReformForm(p => ({ ...p, date_reforme: e.target.value }))}
+                  data-testid="reform-date"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Motif de réforme</Label>
+                <SearchableSelect
+                  value={reformForm.motif_reforme}
+                  onValueChange={(v) => setReformForm(p => ({ ...p, motif_reforme: v }))}
+                  data-testid="reform-motif"
+                  placeholder="Sélectionner un motif"
+                  options={[
+                    { value: 'Usure / vétusté', label: 'Usure / vétusté' },
+                    { value: 'Obsolescence', label: 'Obsolescence' },
+                    { value: 'Panne majeure / irréparable', label: 'Panne majeure / irréparable' },
+                    { value: 'Fin de vie réglementaire', label: 'Fin de vie réglementaire' },
+                    { value: 'Accident', label: 'Accident' },
+                    { value: 'Autre', label: 'Autre' },
+                  ]}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Technicien responsable</Label>
+                <SearchableSelect
+                  value={reformForm.technicien_reforme}
+                  onValueChange={(v) => setReformForm(p => ({ ...p, technicien_reforme: v }))}
+                  allowCustom
+                  data-testid="reform-technicien"
+                  placeholder="Sélectionner ou saisir un nom"
+                  searchPlaceholder="Rechercher ou saisir un nom..."
+                  options={technicians.map(t => ({ value: `${t.prenom} ${t.nom}`, label: `${t.prenom} ${t.nom}` }))}
+                />
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowReformModal(false)}>Annuler</Button>
+            <Button
+              onClick={handleReform}
+              disabled={reforming || !reformForm.date_reforme}
+              className="bg-amber-600 hover:bg-amber-700"
+              data-testid="reform-confirm"
+            >
+              {reforming && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              Réformer
             </Button>
           </DialogFooter>
         </DialogContent>

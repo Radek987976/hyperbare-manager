@@ -1,0 +1,30 @@
+{
+  "summary": "Frontend-only testing of the new quick 'Réformer' action on the Équipements page. Created a dummy test equipment (TEST_REFORM_EQ) via API, ran the full reform flow through the UI as admin, then cleaned up. All acceptance criteria passed: menu item present, modal opens with all fields, date pre-filled with today, confirm succeeds, modal closes, row shows 'Réformé' with opacity-50 class, and Réformer menu item disappears from the actions dropdown after reform. Backend cancel-on-reform for preventive WOs was not exercised in UI because the test equipment had no preventive WOs (as agent-to-agent note allowed).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Route path is /equipements (French spelling) but review_request mentions /equipments - consistent internally; just a note.",
+    "SearchableSelect for motif/technicien inside Dialog works with force click; no z-index issues observed."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "n/a", "frontend": "100%"},
+  "test_credentials": "admin@hypermaint.fr / admin123",
+  "seed_data_creation": "Created TEST_REFORM_EQ (id aa97ef8c-8e3e-4f20-a25b-c2b983746f02, reference TEST_REFORM_28040) via POST /api/equipments, reformed via UI, then DELETEd via API. No residual test data.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Equipments list URL is /equipements (not /equipments). Search input placeholder 'Rechercher par référence, N° série...' filters the table. All data-testids used: equipment-actions-{id}, reform-{id}, reform-modal, reform-date, reform-motif, reform-technicien, reform-confirm, equipment-row-{id}. WO cancel-on-reform not covered in UI here because test equipment had no preventive WOs; backend logic already verified per review_request.",
+  "flow_results": {
+    "menu_item_visible_before_reform": true,
+    "modal_opens_with_all_fields": true,
+    "date_prefilled_today": true,
+    "confirm_success_modal_closes": true,
+    "row_shows_reforme_and_opacity_50": true,
+    "reform_menu_hidden_after_reform": true
+  }
+}

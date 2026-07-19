@@ -2827,9 +2827,11 @@ async def complete_work_order(work_order_id: str, data: CompleteWorkOrderRequest
                      "technicien": data.technicien or "Non renseigné"}}}
             )
 
-    # Générer la prochaine occurrence (préventive + périodicité en jours)
+    # Générer la prochaine occurrence (préventive + périodicité en jours) — sauf équipement réformé
     next_wo = None
-    if wo.get("type_maintenance") == "preventive" and wo.get("periodicite_jours"):
+    eq_for_next = await db.equipments.find_one({"id": wo.get("equipment_id")}, {"statut": 1, "_id": 0}) if wo.get("equipment_id") else None
+    is_reformed_next = bool(eq_for_next and eq_for_next.get("statut") == "reforme")
+    if not is_reformed_next and wo.get("type_maintenance") == "preventive" and wo.get("periodicite_jours"):
         try:
             base = datetime.strptime(date_real, "%Y-%m-%d").date()
             next_date = (base + timedelta(days=int(wo["periodicite_jours"]))).strftime("%Y-%m-%d")

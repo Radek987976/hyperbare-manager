@@ -378,3 +378,9 @@ spare_parts: {id, nom, reference_fabricant, equipment_type, quantite_stock, seui
 ### 2026-07-19 (suite) — Action "Réformer en 1 clic" (VÉRIFIÉ testing_agent 100%, iter 25)
 - **Equipments.jsx**: nouvel item de menu "Réformer" (dropdown actions, visible si canModify() && statut != 'reforme', data-testid reform-{id}) ouvrant un modal `reform-modal` (date_reforme pré-remplie, motif SearchableSelect, technicien SearchableSelect). Confirmation → `equipmentsAPI.update(id, {...champs, statut:'reforme', date/motif/technicien})`. Le backend (PUT /equipments L1353) solde automatiquement les maintenances préventives actives (annulee). Vérifié via API (payload→200→WO annulée) et UI (row grisée, menu masqué après réforme).
 - Note: route liste = /equipements (orthographe FR).
+
+### 2026-07-19 (suite) — Seuil de stock à 0 = pas d'alerte (+ tolérance import)
+- **Seuil 0 = non surveillé**: toutes les comparaisons de stock bas (7 emplacements dans server.py: get_spare_parts?low_stock, stats, alerts admin, dashboard alert-summary, export CSV, email alertes) exigent désormais `seuil_minimum > 0 AND quantite_stock <= seuil_minimum`. Frontend `SpareParts.jsx` isLowStock idem; parseInt `|| 0`; champ min=0 + hint "Mettez 0 pour ne pas être alerté". Import default seuil = 0. Vérifié via API (seuil0→aucune alerte, seuil2/stock1→alerte).
+- **Import tolérant** (server.py `_cell`): matching insensible casse/accents/espaces/underscores + alias typo "REFERENCE_FARBICANT". Corrige le bug prod "nom = référence" dû à l'en-tête mal orthographié. Vérifié via import Excel réel.
+- **complete_work_order**: ne régénère plus de maintenance si équipement réformé (fix récurrence).
+- EN ATTENTE: redéploiement production pour activer ces correctifs backend en live. Nettoyage stock (vidage+réimport) proposé mais non exécuté (en attente réponse user sur impact interventions/photos).

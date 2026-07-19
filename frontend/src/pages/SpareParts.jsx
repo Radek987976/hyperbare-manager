@@ -167,7 +167,7 @@ const SpareParts = () => {
         reference_fabricant: formData.reference_fabricant,
         equipment_type: formData.equipment_type,
         quantite_stock: parseInt(formData.quantite_stock) || 0,
-        seuil_minimum: parseInt(formData.seuil_minimum) || 1,
+        seuil_minimum: parseInt(formData.seuil_minimum) || 0,
         emplacement: formData.emplacement || null,
         fournisseur: formData.fournisseur || null,
         prix_unitaire: formData.prix_unitaire ? parseFloat(formData.prix_unitaire) : null
@@ -284,7 +284,7 @@ const SpareParts = () => {
     }
   };
 
-  const isLowStock = (part) => part.quantite_stock <= part.seuil_minimum;
+  const isLowStock = (part) => part.seuil_minimum > 0 && part.quantite_stock <= part.seuil_minimum;
 
   const filteredParts = spareParts.filter(part => {
     const matchesSearch = 
@@ -550,6 +550,7 @@ const SpareParts = () => {
                 onChange={handleChange}
                 data-testid="input-seuil"
               />
+              <p className="text-xs text-slate-500">Mettez 0 pour ne pas être alerté sur cette pièce.</p>
             </div>
             <div className="space-y-2">
               <Label htmlFor="emplacement">Emplacement</Label>

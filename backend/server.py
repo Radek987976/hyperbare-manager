@@ -2218,7 +2218,7 @@ async def get_spare_parts(
     spare_parts = await db.spare_parts.find(query, {"_id": 0}).to_list(1000)
     
     if low_stock:
-        spare_parts = [p for p in spare_parts if p["quantite_stock"] <= p["seuil_minimum"]]
+        spare_parts = [p for p in spare_parts if p["seuil_minimum"] > 0 and p["quantite_stock"] <= p["seuil_minimum"]]
     
     return spare_parts
 
@@ -2362,7 +2362,7 @@ async def get_dashboard_stats(current_user: dict = Depends(get_current_user)):
     
     # Spare parts with low stock
     spare_parts = await db.spare_parts.find({}, {"_id": 0}).to_list(1000)
-    low_stock_parts = [p for p in spare_parts if p["quantite_stock"] <= p["seuil_minimum"]]
+    low_stock_parts = [p for p in spare_parts if p["seuil_minimum"] > 0 and p["quantite_stock"] <= p["seuil_minimum"]]
     
     # Compresseurs avec compteur horaire
     compresseurs = [e for e in equipments if (e.get("type") or "").lower() == "compresseur"]
@@ -2423,7 +2423,7 @@ async def get_admin_requests(admin: dict = Depends(require_admin)):
         })
     low_stock_count = 0
     async for p in db.spare_parts.find({}, {"_id": 0, "quantite_stock": 1, "seuil_minimum": 1}):
-        if p.get("quantite_stock", 0) <= p.get("seuil_minimum", 0):
+        if p.get("seuil_minimum", 0) > 0 and p.get("quantite_stock", 0) <= p.get("seuil_minimum", 0):
             low_stock_count += 1
     if low_stock_count > 0:
         irregularites.append({
@@ -2452,7 +2452,7 @@ async def get_alerts(current_user: dict = Depends(get_current_user)):
     # Low stock alerts
     spare_parts = await db.spare_parts.find({}, {"_id": 0}).to_list(1000)
     for part in spare_parts:
-        if part["quantite_stock"] <= part["seuil_minimum"]:
+        if part["seuil_minimum"] > 0 and part["quantite_stock"] <= part["seuil_minimum"]:
             alerts.append({
                 "type": "stock_bas",
                 "severity": "warning",
@@ -3730,7 +3730,7 @@ async def get_statistics_report(current_user: dict = Depends(get_current_user)):
     
     # Spare parts stats
     spare_parts = await db.spare_parts.find({}, {"_id": 0}).to_list(1000)
-    low_stock_count = sum(1 for p in spare_parts if p.get("quantite_stock", 0) <= p.get("seuil_minimum", 1))
+    low_stock_count = sum(1 for p in spare_parts if p.get("seuil_minimum", 0) > 0 and p.get("quantite_stock", 0) <= p.get("seuil_minimum", 0))
     total_stock_value = sum((p.get("quantite_stock", 0) * (p.get("prix_unitaire", 0) or 0)) for p in spare_parts)
     
     return {
@@ -4006,7 +4006,7 @@ async def generate_statistics_pdf(current_user: dict = Depends(get_current_user)
     
     # Spare parts stats
     elements.append(Paragraph("Stock de Pièces Détachées", styles['SectionHeader']))
-    low_stock = len([p for p in spare_parts if (p.get('quantite_stock') or 0) <= (p.get('seuil_minimum') or 1)])
+    low_stock = len([p for p in spare_parts if (p.get('seuil_minimum') or 0) > 0 and (p.get('quantite_stock') or 0) <= (p.get('seuil_minimum') or 0)])
     total_value = sum((p.get('quantite_stock') or 0) * (p.get('prix_unitaire') or 0) for p in spare_parts)
     
     sp_data = [
@@ -4469,7 +4469,7 @@ async def check_and_send_alerts(admin: dict = Depends(require_admin)):
     # 2. Check low stock
     spare_parts = await db.spare_parts.find({}, {"_id": 0}).to_list(1000)
     for part in spare_parts:
-        if part.get("quantite_stock", 0) <= part.get("seuil_minimum", 1):
+        if part.get("seuil_minimum", 0) > 0 and part.get("quantite_stock", 0) <= part.get("seuil_minimum", 0):
             await send_low_stock_email(
                 admin_email,
                 part["nom"],
@@ -5210,7 +5210,7 @@ async def import_spare_parts_from_rows(rows: list) -> dict:
             "reference_fabricant": ref or (nom or ""),
             "equipment_type": _cell(row, "TYPE_EQUIPEMENT", "TYPE EQUIPEMENT", "TYPE", "EQUIPEMENT") or "",
             "quantite_stock": _to_int(_cell(row, "QUANTITE_STOCK", "QUANTITE STOCK", "QUANTITE", "STOCK"), 0),
-            "seuil_minimum": _to_int(_cell(row, "SEUIL_MINIMUM", "SEUIL MINIMUM", "SEUIL"), 1),
+            "seuil_minimum": _to_int(_cell(row, "SEUIL_MINIMUM", "SEUIL MINIMUM", "SEUIL"), 0),
             "emplacement": _cell(row, "EMPLACEMENT", "LOCALISATION"),
             "fournisseur": _cell(row, "FOURNISSEUR"),
             "prix_unitaire": _to_float(_cell(row, "PRIX_UNITAIRE", "PRIX UNITAIRE", "PRIX")),

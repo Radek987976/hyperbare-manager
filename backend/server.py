@@ -4,7 +4,7 @@ from fastapi.staticfiles import StaticFiles
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
-from starlette.responses import StreamingResponse, FileResponse
+from starlette.responses import StreamingResponse, FileResponse, Response
 import os
 import logging
 import io
@@ -12,6 +12,7 @@ import csv
 import json
 import re
 import shutil
+import requests
 import asyncio
 import resend
 import secrets
@@ -59,6 +60,76 @@ UPLOADS_DIR.mkdir(exist_ok=True)
 (UPLOADS_DIR / "documents").mkdir(exist_ok=True)
 (UPLOADS_DIR / "reports").mkdir(exist_ok=True)
 (UPLOADS_DIR / "imports").mkdir(exist_ok=True)
+
+# ==================== PERSISTENT OBJECT STORAGE ====================
+# Files are stored in Emergent Object Storage so they survive redeploys.
+# We keep the existing "/api/uploads/{folder}/{filename}" URL scheme; the
+# physical bytes live in object storage under "{APP_NAME}/{folder}/{filename}".
+STORAGE_URL = "https://integrations.emergentagent.com/objstore/api/v1/storage"
+EMERGENT_KEY = os.environ.get("EMERGENT_LLM_KEY")
+APP_NAME = "hypermaint"
+_storage_key = None
+
+CONTENT_TYPES = {
+    ".pdf": "application/pdf",
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".png": "image/png",
+    ".gif": "image/gif",
+    ".webp": "image/webp",
+}
+
+
+def init_storage():
+    """Init the object storage session once and reuse the key globally."""
+    global _storage_key
+    if _storage_key:
+        return _storage_key
+    resp = requests.post(f"{STORAGE_URL}/init", json={"emergent_key": EMERGENT_KEY}, timeout=30)
+    resp.raise_for_status()
+    _storage_key = resp.json()["storage_key"]
+    return _storage_key
+
+
+def _content_type_for(name: str) -> str:
+    return CONTENT_TYPES.get(Path(name).suffix.lower(), "application/octet-stream")
+
+
+def save_upload(file_path: Path, upload_file) -> None:
+    """Persist an UploadFile to object storage.
+
+    file_path is the legacy on-disk Path (e.g. UPLOADS_DIR/spareparts/<uuid>.pdf);
+    we derive the storage path from its folder + filename to keep URLs stable.
+    """
+    folder = file_path.parent.name
+    filename = file_path.name
+    storage_path = f"{APP_NAME}/{folder}/{filename}"
+    upload_file.file.seek(0)
+    data = upload_file.file.read()
+    key = init_storage()
+    resp = requests.put(
+        f"{STORAGE_URL}/objects/{storage_path}",
+        headers={"X-Storage-Key": key, "Content-Type": _content_type_for(filename)},
+        data=data,
+        timeout=120,
+    )
+    resp.raise_for_status()
+
+
+def read_upload(folder: str, filename: str):
+    """Read bytes for a stored file. Returns (bytes, content_type)."""
+    storage_path = f"{APP_NAME}/{folder}/{filename}"
+    key = init_storage()
+    resp = requests.get(
+        f"{STORAGE_URL}/objects/{storage_path}",
+        headers={"X-Storage-Key": key},
+        timeout=60,
+    )
+    if resp.status_code == 404:
+        return None, None
+    resp.raise_for_status()
+    return resp.content, resp.headers.get("Content-Type", _content_type_for(filename))
+
 
 # Currency conversion rate (XPF to EUR)
 XPF_TO_EUR = 0.00838  # 1 XPF = 0.00838 EUR (taux fixe)
@@ -1417,8 +1488,7 @@ async def upload_subequipment_photo(
     unique_filename = f"{uuid.uuid4()}{ext}"
     file_path = UPLOADS_DIR / "subequipments" / unique_filename
     
-    with open(file_path, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
+    save_upload(file_path, file)
     
     photo_url = f"/api/uploads/subequipments/{unique_filename}"
     await db.subequipments.update_one(
@@ -1444,8 +1514,7 @@ async def upload_subequipment_document(
     unique_filename = f"{uuid.uuid4()}{ext}"
     file_path = UPLOADS_DIR / "subequipments" / unique_filename
     
-    with open(file_path, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
+    save_upload(file_path, file)
     
     doc_url = f"/api/uploads/subequipments/{unique_filename}"
     doc_info = {
@@ -1660,8 +1729,7 @@ async def upload_work_order_photo(
     unique_filename = f"{uuid.uuid4()}{ext}"
     file_path = UPLOADS_DIR / "workorders" / unique_filename
     
-    with open(file_path, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
+    save_upload(file_path, file)
     
     photo_url = f"/api/uploads/workorders/{unique_filename}"
     await db.work_orders.update_one(
@@ -1687,8 +1755,7 @@ async def upload_work_order_document(
     unique_filename = f"{uuid.uuid4()}{ext}"
     file_path = UPLOADS_DIR / "workorders" / unique_filename
     
-    with open(file_path, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
+    save_upload(file_path, file)
     
     doc_url = f"/api/uploads/workorders/{unique_filename}"
     doc_info = {
@@ -1999,8 +2066,7 @@ async def upload_intervention_document(
 
     unique_filename = f"{uuid.uuid4()}{ext}"
     file_path = UPLOADS_DIR / "interventions" / unique_filename
-    with open(file_path, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
+    save_upload(file_path, file)
 
     doc_url = f"/api/uploads/interventions/{unique_filename}"
     doc_info = {
@@ -2199,8 +2265,7 @@ async def upload_spare_part_photo(
     unique_filename = f"{uuid.uuid4()}{ext}"
     file_path = UPLOADS_DIR / "spareparts" / unique_filename
     
-    with open(file_path, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
+    save_upload(file_path, file)
     
     photo_url = f"/api/uploads/spareparts/{unique_filename}"
     await db.spare_parts.update_one(
@@ -2226,8 +2291,7 @@ async def upload_spare_part_document(
     unique_filename = f"{uuid.uuid4()}{ext}"
     file_path = UPLOADS_DIR / "spareparts" / unique_filename
     
-    with open(file_path, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
+    save_upload(file_path, file)
     
     doc_url = f"/api/uploads/spareparts/{unique_filename}"
     doc_info = {
@@ -3292,8 +3356,7 @@ async def upload_equipment_photo(
     file_path = UPLOADS_DIR / "equipments" / unique_filename
     
     # Save file
-    with open(file_path, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
+    save_upload(file_path, file)
     
     # Update equipment in database
     photo_url = f"/api/uploads/equipments/{unique_filename}"
@@ -3326,8 +3389,7 @@ async def upload_equipment_document(
     file_path = UPLOADS_DIR / "equipments" / unique_filename
     
     # Save file
-    with open(file_path, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
+    save_upload(file_path, file)
     
     # Update equipment in database
     doc_url = f"/api/uploads/equipments/{unique_filename}"
@@ -3407,8 +3469,7 @@ async def upload_inspection_procedure(
     file_path = UPLOADS_DIR / "inspections" / unique_filename
     
     # Save file
-    with open(file_path, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
+    save_upload(file_path, file)
     
     # Update inspection in database
     doc_url = f"/api/uploads/inspections/{unique_filename}"
@@ -3448,27 +3509,29 @@ async def delete_inspection_procedure(
 # Serve uploaded files
 @api_router.get("/uploads/{folder}/{filename}")
 async def get_uploaded_file(folder: str, filename: str):
-    """Serve uploaded files"""
-    if folder not in ["equipments", "inspections", "subequipments", "spareparts", "workorders", "interventions"]:
+    """Serve uploaded files from persistent object storage."""
+    allowed = ["equipments", "inspections", "subequipments", "spareparts",
+               "workorders", "interventions", "documents", "contractors",
+               "gas_cylinders", "contracts"]
+    if folder not in allowed:
         raise HTTPException(status_code=404, detail="Dossier non trouvé")
     
-    file_path = UPLOADS_DIR / folder / filename
-    if not file_path.exists():
+    data, content_type = read_upload(folder, filename)
+    if data is None:
+        # Fallback to legacy on-disk file (pre-migration uploads on this pod)
+        file_path = UPLOADS_DIR / folder / filename
+        if file_path.exists():
+            return FileResponse(file_path, media_type=_content_type_for(filename))
         raise HTTPException(status_code=404, detail="Fichier non trouvé")
     
-    # Determine content type
     ext = get_file_extension(filename)
-    content_types = {
-        ".pdf": "application/pdf",
-        ".jpg": "image/jpeg",
-        ".jpeg": "image/jpeg",
-        ".png": "image/png",
-        ".gif": "image/gif",
-        ".webp": "image/webp"
-    }
-    content_type = content_types.get(ext, "application/octet-stream")
-    
-    return FileResponse(file_path, media_type=content_type)
+    inline = ext in [".pdf", ".jpg", ".jpeg", ".png", ".gif", ".webp"]
+    disposition = "inline" if inline else "attachment"
+    return Response(
+        content=data,
+        media_type=content_type or _content_type_for(filename),
+        headers={"Content-Disposition": f'{disposition}; filename="{filename}"'},
+    )
 
 # ==================== MAINTENANCE REPORT ====================
 
@@ -4716,8 +4779,7 @@ async def upload_document(
     filename = f"{file_id}{file_ext}"
     file_path = UPLOADS_DIR / "documents" / filename
     
-    with open(file_path, "wb") as f:
-        shutil.copyfileobj(file.file, f)
+    save_upload(file_path, file)
     
     document_obj = Document(
         titre=titre,
@@ -5757,6 +5819,11 @@ async def create_indexes():
         logger.info("Index MongoDB créés/vérifiés")
     except Exception as e:
         logger.error(f"Erreur création index: {e}")
+    try:
+        init_storage()
+        logger.info("Object storage initialisé")
+    except Exception as e:
+        logger.error(f"Erreur init object storage: {e}")
 
 @app.on_event("shutdown")
 async def shutdown_db_client():

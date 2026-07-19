@@ -372,6 +372,7 @@ export const documentsAPI = {
 export const budgetAPI = {
   getAll: (params) => api.get('/budget', { params }),
   getSummary: (annee) => api.get(`/budget/summary/${annee}`),
+  getForecast: (annee) => api.get(`/budget/forecast/${annee}`),
   create: (data) => api.post('/budget', data),
   update: (id, data) => api.put(`/budget/${id}`, data),
   delete: (id) => api.delete(`/budget/${id}`),

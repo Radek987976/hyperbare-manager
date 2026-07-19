@@ -1,0 +1,40 @@
+{
+  "summary": "Frontend-only validation of Phase 1 (devise sur pièces détachées) et Phase 2 (pièces prévues sur maintenance préventive + budget prévisionnel forecast). Tous les data-testids attendus sont présents, les calculs XPF/EUR affichés correctement, la carte forecast fonctionne et l'API /api/budget/forecast/{annee} renvoie 200. Aucune donnée persistée: pièce QA_EUR_PIECE créée puis supprimée, bon de travail non enregistré.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Global (dev overlay)", "issues": ["Overlay 'Uncaught runtime errors: ResizeObserver loop completed with undelivered notifications' apparaît de temps en temps. C'est un warning bénin bien connu (Radix Select/shadcn) mais visible en preview car l'app tourne en mode dev. À masquer via un handler ResizeObserver ou en désactivant l'overlay CRA en preview (pas bloquant)."]}
+    ]
+  },
+  "test_report_links": [],
+  "action_items": [
+    "Optionnel: masquer l'overlay CRA des warnings ResizeObserver (non bloquant).",
+    "Doc: le libellé du bouton budget est 'Recalculer' (spec mentionnait 'Calculer'); le testid generate-forecast-btn est bien présent, aucun changement requis sauf si alignement de spec souhaité.",
+    "Doc: sur /ordres-travail le bouton est 'Nouvelle maintenance' (pas 'Ajouter'). data-testid stable non défini sur ce bouton — envisager d'ajouter data-testid='add-work-order-btn' pour robustesse future."
+  ],
+  "critical_code_review_comments": [
+    "SpareParts.jsx et WorkOrders.jsx bien instrumentés en data-testid.",
+    "Bouton 'Nouvelle maintenance' n'a pas de data-testid dédié — ajouter data-testid pour tests futurs.",
+    "Overlay d'erreur runtime en preview (React dev mode) est visible aux utilisateurs; envisager de déployer un build production ou d'utiliser react-error-overlay off pour la preview."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "N/A (not tested)", "frontend": "100%"},
+  "test_credentials": "admin@hypermaint.fr / admin123",
+  "seed_data_creation": "Aucune donnée persistée. Pièce QA_EUR_PIECE créée puis supprimée avec succès. Bon de travail non enregistré (fermé via Annuler).",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Routes réelles: /stock (pièces), /ordres-travail (WO préventives), /budget. Boutons: 'Ajouter une pièce' (data-testid=add-spare-part-btn), 'Nouvelle maintenance' (pas de testid), 'Recalculer' (data-testid=generate-forecast-btn). Pour supprimer une pièce: dropdown row → Supprimer → data-testid=confirm-delete-btn.",
+  "verifications": {
+    "phase1_modal_devise_selector": "OK (data-testid=select-devise avec options XPF/EUR)",
+    "phase1_eur_estimation_line": "OK: '≈ 5 965,0 XPF (1 € = 119,3 XPF)' affiché quand devise=EUR et prix=50",
+    "phase1_cell_prix_in_table": "OK: '50,00 € (≈ 5 965,0 XPF)' dans data-testid=cell-prix",
+    "phase1_detail_prix": "OK: data-testid=detail-prix = '50,00 € (≈ 5 965,0 XPF)'",
+    "phase1_cleanup": "OK: pièce QA_EUR_PIECE supprimée après test",
+    "phase2_workorder_section": "OK: select-piece-prevue, input-piece-qte, add-piece-prevue-btn présents; ajout d'une pièce peuple pieces-prevues-list avec remove-piece-prevue",
+    "phase2_budget_forecast_card": "OK: forecast-card + generate-forecast-btn ('Recalculer') présents",
+    "phase2_budget_forecast_total": "OK: forecast-total='0 FCFP' (aucune WO avec pieces_prevues persistée), message 'Aucune pièce prévue...' affiché",
+    "phase2_api_forecast_status": "200 (aucune erreur réseau capturée)"
+  }
+}

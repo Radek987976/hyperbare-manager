@@ -99,6 +99,9 @@ const Budget = () => {
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [filterCategory, setFilterCategory] = useState('all');
   const [showInEur, setShowInEur] = useState(false);
+  const [forecast, setForecast] = useState(null);
+  const [loadingForecast, setLoadingForecast] = useState(false);
+  const [expandedWo, setExpandedWo] = useState(null);
   
   // Dialog states
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -137,11 +140,24 @@ const Budget = () => {
       setSummary(summaryRes.data);
       setItems(summaryRes.data.items || []);
       setContractors(contractorsRes.data);
+      setForecast(null);
     } catch (err) {
       console.error('Error fetching data:', err);
       setError(getErrorMessage(err));
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchForecast = async () => {
+    setLoadingForecast(true);
+    try {
+      const res = await budgetAPI.getForecast(selectedYear);
+      setForecast(res.data);
+    } catch (err) {
+      setError(getErrorMessage(err));
+    } finally {
+      setLoadingForecast(false);
     }
   };
 
@@ -364,6 +380,75 @@ const Budget = () => {
             })}
           </div>
         </CardContent>
+      </Card>
+
+      {/* Budget prévisionnel automatique (analyse N+1) */}
+      <Card data-testid="forecast-card">
+        <CardHeader className="flex flex-row items-start justify-between gap-4">
+          <div>
+            <CardTitle className="flex items-center gap-2">
+              <TrendingUp className="h-5 w-5" /> Prévisionnel automatique {selectedYear}
+            </CardTitle>
+            <p className="text-sm text-gray-500 mt-1">
+              Estimé à partir des maintenances préventives (périodicité) et des pièces prévues par intervention. Équipements réformés exclus.
+            </p>
+          </div>
+          <Button onClick={fetchForecast} disabled={loadingForecast} data-testid="generate-forecast-btn">
+            {loadingForecast ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Calculator className="h-4 w-4 mr-2" />}
+            {forecast ? 'Recalculer' : 'Calculer'}
+          </Button>
+        </CardHeader>
+        {forecast && (
+          <CardContent>
+            <div className="mb-4 p-4 bg-blue-50 rounded-lg">
+              <p className="text-sm text-blue-700">Total prévisionnel pièces {selectedYear}</p>
+              <p className="text-2xl font-bold text-blue-900" data-testid="forecast-total">
+                {formatCurrency(forecast.total_previsionnel_xpf, 'XPF')}
+              </p>
+              <p className="text-xs text-blue-600">
+                ≈ {formatCurrency(forecast.total_previsionnel_eur, 'EUR')} — {forecast.nombre_maintenances} maintenances préventives analysées
+              </p>
+            </div>
+            {forecast.lignes.filter(l => l.pieces.length > 0).length === 0 ? (
+              <p className="text-sm text-gray-500 text-center py-6">
+                Aucune pièce prévue n'est définie sur les maintenances préventives. Renseignez les « Pièces prévues par intervention » dans chaque maintenance (page Maintenance préventive) pour alimenter le prévisionnel.
+              </p>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Équipement</TableHead>
+                    <TableHead>Maintenance</TableHead>
+                    <TableHead>Périodicité</TableHead>
+                    <TableHead className="text-center">Occ./an</TableHead>
+                    <TableHead className="text-right">Coût pièces (XPF)</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {forecast.lignes.filter(l => l.pieces.length > 0).map((l) => (
+                    <React.Fragment key={l.work_order_id}>
+                      <TableRow className="cursor-pointer hover:bg-slate-50" onClick={() => setExpandedWo(expandedWo === l.work_order_id ? null : l.work_order_id)} data-testid="forecast-row">
+                        <TableCell className="font-medium">{l.equipment_ref}</TableCell>
+                        <TableCell className="max-w-xs truncate">{l.maintenance}</TableCell>
+                        <TableCell className="text-xs">{l.periodicite || '-'}{l.note ? ' ⚠️' : ''}</TableCell>
+                        <TableCell className="text-center">{l.occurrences_par_an}</TableCell>
+                        <TableCell className="text-right font-medium">{formatCurrency(l.cout_total_xpf, 'XPF')}</TableCell>
+                      </TableRow>
+                      {expandedWo === l.work_order_id && l.pieces.map((p, i) => (
+                        <TableRow key={i} className="bg-slate-50 text-xs">
+                          <TableCell></TableCell>
+                          <TableCell colSpan={2} className="text-slate-600">↳ {p.nom} ({p.reference}) — {p.quantite_par_intervention}/interv.</TableCell>
+                          <TableCell className="text-center">{p.quantite_annuelle} u</TableCell>
+                          <TableCell className="text-right">{formatCurrency(p.cout_xpf, 'XPF')}</TableCell>
+                        </TableRow>
+                      ))}
+                    </React.Fragment>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+          </CardContent>
+        )}
       </Card>
 
       {/* Filter */}

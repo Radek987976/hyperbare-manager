@@ -24,6 +24,7 @@ import {
   DialogFooter,
 } from '../components/ui/dialog';
 import { SearchableSelect } from '../components/ui/searchable-select';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -85,7 +86,8 @@ const SpareParts = () => {
     seuil_minimum: '',
     emplacement: '',
     fournisseur: '',
-    prix_unitaire: ''
+    prix_unitaire: '',
+    devise: 'XPF'
   });
 
   const [stockAdjustment, setStockAdjustment] = useState('');
@@ -133,7 +135,8 @@ const SpareParts = () => {
       seuil_minimum: '1',
       emplacement: '',
       fournisseur: '',
-      prix_unitaire: ''
+      prix_unitaire: '',
+      devise: 'XPF'
     });
     setShowModal(true);
   };
@@ -148,7 +151,8 @@ const SpareParts = () => {
       seuil_minimum: part.seuil_minimum.toString(),
       emplacement: part.emplacement || '',
       fournisseur: part.fournisseur || '',
-      prix_unitaire: part.prix_unitaire?.toString() || ''
+      prix_unitaire: part.prix_unitaire?.toString() || '',
+      devise: part.devise || 'XPF'
     });
     setShowModal(true);
   };
@@ -170,7 +174,8 @@ const SpareParts = () => {
         seuil_minimum: parseInt(formData.seuil_minimum) || 0,
         emplacement: formData.emplacement || null,
         fournisseur: formData.fournisseur || null,
-        prix_unitaire: formData.prix_unitaire ? parseFloat(formData.prix_unitaire) : null
+        prix_unitaire: formData.prix_unitaire ? parseFloat(formData.prix_unitaire) : null,
+        devise: formData.devise || 'XPF'
       };
       
       if (selectedPart) {
@@ -286,6 +291,17 @@ const SpareParts = () => {
 
   const isLowStock = (part) => part.seuil_minimum > 0 && part.quantite_stock <= part.seuil_minimum;
 
+  const EUR_TO_XPF = 119.3;
+  const formatPrice = (part) => {
+    const prix = part?.prix_unitaire;
+    if (prix === null || prix === undefined || prix === '') return '-';
+    if ((part.devise || 'XPF') === 'EUR') {
+      const xpf = (prix * EUR_TO_XPF).toLocaleString('fr-FR', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+      return `${prix.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} € (≈ ${xpf} XPF)`;
+    }
+    return `${prix.toLocaleString('fr-FR')} XPF`;
+  };
+
   const filteredParts = spareParts.filter(part => {
     const matchesSearch = 
       part.nom.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -396,13 +412,14 @@ const SpareParts = () => {
                   <TableHead className="font-semibold">Stock</TableHead>
                   <TableHead className="font-semibold">Seuil</TableHead>
                   <TableHead className="font-semibold">Emplacement</TableHead>
+                  <TableHead className="font-semibold">Prix</TableHead>
                   <TableHead className="w-16"></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredParts.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center py-12 text-slate-500">
+                    <TableCell colSpan={8} className="text-center py-12 text-slate-500">
                       <Package className="w-12 h-12 mx-auto mb-3 text-slate-300" />
                       <p>Aucune pièce en stock</p>
                     </TableCell>
@@ -441,6 +458,7 @@ const SpareParts = () => {
                       </TableCell>
                       <TableCell>{part.seuil_minimum}</TableCell>
                       <TableCell>{part.emplacement || '-'}</TableCell>
+                      <TableCell className="text-sm whitespace-nowrap" data-testid="cell-prix">{formatPrice(part)}</TableCell>
                       <TableCell>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
@@ -574,19 +592,36 @@ const SpareParts = () => {
                 data-testid="input-fournisseur"
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="prix_unitaire">Prix unitaire (€)</Label>
-              <Input
-                id="prix_unitaire"
-                name="prix_unitaire"
-                type="number"
-                step="0.01"
-                value={formData.prix_unitaire}
-                onChange={handleChange}
-                placeholder="0.00"
-                data-testid="input-prix"
-              />
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="prix_unitaire">Prix unitaire</Label>
+                <Input
+                  id="prix_unitaire"
+                  name="prix_unitaire"
+                  type="number"
+                  step="0.01"
+                  value={formData.prix_unitaire}
+                  onChange={handleChange}
+                  placeholder="0.00"
+                  data-testid="input-prix"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="devise">Devise</Label>
+                <Select value={formData.devise} onValueChange={(v) => handleSelectChange('devise', v)}>
+                  <SelectTrigger data-testid="select-devise">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="XPF">XPF (Franc Pacifique)</SelectItem>
+                    <SelectItem value="EUR">EUR (Euro)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
+            {formData.devise === 'EUR' && formData.prix_unitaire && (
+              <p className="text-xs text-slate-500 -mt-2">≈ {(parseFloat(formData.prix_unitaire) * 119.3).toLocaleString('fr-FR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} XPF (1 € = 119,3 XPF)</p>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowModal(false)}>
@@ -727,6 +762,10 @@ const SpareParts = () => {
                 <div>
                   <p className="text-sm text-slate-500">Fournisseur</p>
                   <p className="font-medium">{selectedPart.fournisseur || '-'}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-slate-500">Prix unitaire</p>
+                  <p className="font-medium" data-testid="detail-prix">{formatPrice(selectedPart)}</p>
                 </div>
               </div>
 

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
-import { workOrdersAPI, equipmentsAPI, caissonAPI, usersAPI, equipmentTypesAPI, openStoredFile } from '../lib/api';
+import { workOrdersAPI, equipmentsAPI, caissonAPI, usersAPI, equipmentTypesAPI, sparePartsAPI, openStoredFile } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
 import { 
   formatDate, 
@@ -104,6 +104,9 @@ const WorkOrders = () => {
   const [saving, setSaving] = useState(false);
   const [showCustomTechnicien, setShowCustomTechnicien] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [spareParts, setSpareParts] = useState([]);
+  const [pieceToAdd, setPieceToAdd] = useState('');
+  const [pieceQte, setPieceQte] = useState('1');
   
   const backendUrl = process.env.REACT_APP_BACKEND_URL;
   
@@ -119,7 +122,8 @@ const WorkOrders = () => {
     periodicite_jours: '',
     periodicite_heures: '',
     compteur_declenchement: '',
-    technicien_assigne: ''
+    technicien_assigne: '',
+    pieces_prevues: []
   });
 
   useEffect(() => {
@@ -128,18 +132,20 @@ const WorkOrders = () => {
 
   const loadData = async () => {
     try {
-      const [workOrdersRes, equipmentsRes, caissonRes, techniciansRes, typesRes] = await Promise.all([
+      const [workOrdersRes, equipmentsRes, caissonRes, techniciansRes, typesRes, sparePartsRes] = await Promise.all([
         workOrdersAPI.getAll(),
         equipmentsAPI.getAll(),
         caissonAPI.get(),
         usersAPI.getTechnicians(),
-        equipmentTypesAPI.getAll()
+        equipmentTypesAPI.getAll(),
+        sparePartsAPI.getAll()
       ]);
       setWorkOrders(workOrdersRes.data || []);
       setEquipments(equipmentsRes.data || []);
       setCaisson(caissonRes.data);
       setTechnicians(techniciansRes.data || []);
       setEquipmentTypes(typesRes.data || []);
+      setSpareParts(sparePartsRes.data || []);
     } catch (error) {
       console.error('Erreur chargement:', error);
     } finally {
@@ -161,6 +167,30 @@ const WorkOrders = () => {
     setFormData({ ...formData, [name]: value });
   };
 
+  const addPiecePrevue = () => {
+    if (!pieceToAdd) return;
+    const qte = parseInt(pieceQte) || 1;
+    const existing = formData.pieces_prevues.find(p => p.spare_part_id === pieceToAdd);
+    let next;
+    if (existing) {
+      next = formData.pieces_prevues.map(p => p.spare_part_id === pieceToAdd ? { ...p, quantite: qte } : p);
+    } else {
+      next = [...formData.pieces_prevues, { spare_part_id: pieceToAdd, quantite: qte }];
+    }
+    setFormData({ ...formData, pieces_prevues: next });
+    setPieceToAdd('');
+    setPieceQte('1');
+  };
+
+  const removePiecePrevue = (spid) => {
+    setFormData({ ...formData, pieces_prevues: formData.pieces_prevues.filter(p => p.spare_part_id !== spid) });
+  };
+
+  const getPartName = (spid) => {
+    const p = spareParts.find(s => s.id === spid);
+    return p ? `${p.nom} (${p.reference_fabricant})` : spid;
+  };
+
   const openCreateModal = () => {
     setSelectedWorkOrder(null);
     setFormData({
@@ -175,7 +205,8 @@ const WorkOrders = () => {
       periodicite_jours: '',
       periodicite_heures: '',
       compteur_declenchement: '',
-      technicien_assigne: ''
+      technicien_assigne: '',
+      pieces_prevues: []
     });
     setShowCustomTechnicien(false);
     setShowModal(true);
@@ -195,7 +226,8 @@ const WorkOrders = () => {
       periodicite_jours: wo.periodicite_jours?.toString() || '',
       periodicite_heures: wo.periodicite_heures?.toString() || '',
       compteur_declenchement: wo.compteur_declenchement?.toString() || '',
-      technicien_assigne: wo.technicien_assigne || ''
+      technicien_assigne: wo.technicien_assigne || '',
+      pieces_prevues: wo.pieces_prevues || []
     });
     // Check if technicien is not in the list
     const isInList = technicians.some(t => `${t.prenom} ${t.nom}` === wo.technicien_assigne);
@@ -691,6 +723,46 @@ const WorkOrders = () => {
                 options={technicians.map(tech => ({ value: `${tech.prenom} ${tech.nom}`, label: `${tech.prenom} ${tech.nom} (${tech.role})` }))}
               />
             </div>
+
+            {formData.type_maintenance === 'preventive' && (
+              <div className="space-y-2 border-t pt-4">
+                <Label>Pièces prévues par intervention</Label>
+                <p className="text-xs text-slate-500 -mt-1">Utilisé pour le budget prévisionnel N+1 (quantité consommée à chaque passage).</p>
+                <div className="flex gap-2 items-end">
+                  <div className="flex-1">
+                    <SearchableSelect
+                      value={pieceToAdd}
+                      onValueChange={setPieceToAdd}
+                      data-testid="select-piece-prevue"
+                      placeholder="Sélectionner une pièce"
+                      searchPlaceholder="Rechercher par nom ou référence..."
+                      options={spareParts.map(p => ({ value: p.id, label: `${p.nom} (${p.reference_fabricant})` }))}
+                    />
+                  </div>
+                  <Input
+                    type="number"
+                    min="1"
+                    value={pieceQte}
+                    onChange={(e) => setPieceQte(e.target.value)}
+                    className="w-20"
+                    data-testid="input-piece-qte"
+                  />
+                  <Button type="button" variant="outline" onClick={addPiecePrevue} data-testid="add-piece-prevue-btn">
+                    Ajouter
+                  </Button>
+                </div>
+                {formData.pieces_prevues.length > 0 && (
+                  <div className="space-y-1 mt-2" data-testid="pieces-prevues-list">
+                    {formData.pieces_prevues.map((p) => (
+                      <div key={p.spare_part_id} className="flex items-center justify-between bg-slate-50 rounded px-3 py-2 text-sm">
+                        <span>{getPartName(p.spare_part_id)} — <b>{p.quantite}</b> / intervention</span>
+                        <button type="button" onClick={() => removePiecePrevue(p.spare_part_id)} className="text-red-500 hover:text-red-700" data-testid="remove-piece-prevue">✕</button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowModal(false)}>

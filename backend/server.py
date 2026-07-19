@@ -134,6 +134,15 @@ def read_upload(folder: str, filename: str):
 
 # Currency conversion rate (XPF to EUR)
 XPF_TO_EUR = 0.00838  # 1 XPF = 0.00838 EUR (taux fixe)
+EUR_TO_XPF = 119.3    # 1 EUR = 119,3 XPF (parité fixe franc CFP)
+
+
+def prix_unitaire_xpf(part: dict) -> float:
+    """Prix unitaire d'une pièce converti en XPF (devise principale)."""
+    prix = part.get("prix_unitaire") or 0
+    if (part.get("devise") or "XPF") == "EUR":
+        return prix * EUR_TO_XPF
+    return prix
 
 # MongoDB connection
 mongo_url = os.environ['MONGO_URL']
@@ -467,6 +476,7 @@ class WorkOrderBase(BaseModel):
     periodicite_heures: Optional[int] = None  # Périodicité en heures de fonctionnement
     compteur_declenchement: Optional[float] = None  # Compteur horaire au moment où la maintenance doit être faite
     technicien_assigne: Optional[str] = None
+    pieces_prevues: List[dict] = []  # Pièces consommées par intervention [{spare_part_id, quantite}]
     photos: List[str] = []
     documents: List[dict] = []
 
@@ -576,6 +586,7 @@ class SparePartBase(BaseModel):
     emplacement: Optional[str] = None
     fournisseur: Optional[str] = None
     prix_unitaire: Optional[float] = None
+    devise: str = Field(default="XPF", description="XPF ou EUR")
     photos: List[str] = []
     documents: List[dict] = []
 
@@ -596,10 +607,9 @@ class SparePartUpdate(BaseModel):
     emplacement: Optional[str] = None
     fournisseur: Optional[str] = None
     prix_unitaire: Optional[float] = None
+    devise: Optional[str] = None
 
 # ==================== NEW MODELS FOR EXTENDED FEATURES ====================
-
-# Prestataire/Fournisseur Model
 class ContractorBase(BaseModel):
     nom: str
     type: str = Field(default="prestataire", description="prestataire, fournisseur, organisme_controle")
@@ -3731,7 +3741,7 @@ async def get_statistics_report(current_user: dict = Depends(get_current_user)):
     # Spare parts stats
     spare_parts = await db.spare_parts.find({}, {"_id": 0}).to_list(1000)
     low_stock_count = sum(1 for p in spare_parts if p.get("seuil_minimum", 0) > 0 and p.get("quantite_stock", 0) <= p.get("seuil_minimum", 0))
-    total_stock_value = sum((p.get("quantite_stock", 0) * (p.get("prix_unitaire", 0) or 0)) for p in spare_parts)
+    total_stock_value = sum((p.get("quantite_stock", 0) * prix_unitaire_xpf(p)) for p in spare_parts)
     
     return {
         "generated_at": datetime.now(timezone.utc).isoformat(),
@@ -3813,7 +3823,7 @@ async def export_statistics_csv(current_user: dict = Depends(get_current_user)):
     writer.writerow(["=== PIÈCES DÉTACHÉES ==="])
     writer.writerow(["Total", stats["spare_parts"]["total"]])
     writer.writerow(["Stock bas", stats["spare_parts"]["low_stock"]])
-    writer.writerow(["Valeur totale stock (€)", stats["spare_parts"]["total_stock_value"]])
+    writer.writerow(["Valeur totale stock (XPF)", stats["spare_parts"]["total_stock_value"]])
     
     output.seek(0)
     filename = f"statistiques_hyperbaremanager_{datetime.now(timezone.utc).strftime('%Y%m%d')}.csv"
@@ -4007,7 +4017,7 @@ async def generate_statistics_pdf(current_user: dict = Depends(get_current_user)
     # Spare parts stats
     elements.append(Paragraph("Stock de Pièces Détachées", styles['SectionHeader']))
     low_stock = len([p for p in spare_parts if (p.get('seuil_minimum') or 0) > 0 and (p.get('quantite_stock') or 0) <= (p.get('seuil_minimum') or 0)])
-    total_value = sum((p.get('quantite_stock') or 0) * (p.get('prix_unitaire') or 0) for p in spare_parts)
+    total_value = sum((p.get('quantite_stock') or 0) * prix_unitaire_xpf(p) for p in spare_parts)
     
     sp_data = [
         ["Indicateur", "Valeur"],
@@ -4898,6 +4908,123 @@ async def get_budget_summary(annee: int, current_user: dict = Depends(get_curren
     
     return summary
 
+def _avg_hours_per_year(eq: dict):
+    """Estime les heures de fonctionnement/an à partir de l'historique du compteur."""
+    hist = eq.get("historique_compteur") or []
+    pts = []
+    for h in hist:
+        d = h.get("date"); v = h.get("valeur")
+        if d and v is not None:
+            try:
+                dt = datetime.fromisoformat(str(d).replace("Z", "+00:00"))
+                pts.append((dt, float(v)))
+            except (ValueError, TypeError):
+                pass
+    if len(pts) < 2:
+        return None
+    pts.sort(key=lambda x: x[0])
+    span_days = (pts[-1][0] - pts[0][0]).days
+    diff = pts[-1][1] - pts[0][1]
+    if span_days <= 0 or diff <= 0:
+        return None
+    return diff / span_days * 365.0
+
+
+@api_router.get("/budget/forecast/{annee}")
+async def get_budget_forecast(annee: int, current_user: dict = Depends(get_current_user)):
+    """Budget prévisionnel N+1 : projette pour chaque maintenance préventive le nombre
+    d'occurrences dans l'année et le coût des pièces consommées (en XPF)."""
+    equipments = {e["id"]: e for e in await db.equipments.find({}, {"_id": 0}).to_list(2000)}
+    spare_parts = {p["id"]: p for p in await db.spare_parts.find({}, {"_id": 0}).to_list(20000)}
+    work_orders = await db.work_orders.find({"type_maintenance": "preventive"}, {"_id": 0}).to_list(5000)
+
+    seen_wo = set()
+    lignes = []
+    grand_total = 0.0
+    for wo in work_orders:
+        # Éviter les doublons de récurrence : ne garder que le plus récent par (equipment, titre)
+        key = (wo.get("equipment_id"), (wo.get("titre") or "").strip().lower())
+        if key in seen_wo:
+            continue
+        eq = equipments.get(wo.get("equipment_id"))
+        if not eq or eq.get("statut") == "reforme":
+            continue
+        seen_wo.add(key)
+
+        occ = None
+        base = None
+        note = None
+        if wo.get("periodicite_jours"):
+            occ = 365.0 / wo["periodicite_jours"]
+            base = f"{wo['periodicite_jours']} jours"
+        elif wo.get("periodicite_heures"):
+            ah = _avg_hours_per_year(eq)
+            if ah:
+                occ = ah / wo["periodicite_heures"]
+                base = f"{wo['periodicite_heures']} h (~{round(ah)} h/an)"
+            else:
+                base = f"{wo['periodicite_heures']} h"
+                note = "Historique compteur insuffisant pour estimer les heures/an"
+
+        occ_round = max(1, round(occ)) if occ else 0
+
+        pieces = wo.get("pieces_prevues") or []
+        source = "prévues"
+        if not pieces:
+            last_int = await db.interventions.find_one(
+                {"work_order_id": wo["id"], "pieces_utilisees": {"$ne": []}},
+                {"_id": 0}, sort=[("date_intervention", -1)]
+            )
+            if last_int:
+                pieces = last_int.get("pieces_utilisees") or []
+                source = "historique"
+
+        piece_lines = []
+        wo_total = 0.0
+        for pu in pieces:
+            sp = spare_parts.get(pu.get("spare_part_id"))
+            if not sp:
+                continue
+            qte_occ = pu.get("quantite", 0) or 0
+            qte_an = qte_occ * occ_round
+            pu_xpf = prix_unitaire_xpf(sp)
+            cost = qte_an * pu_xpf
+            wo_total += cost
+            piece_lines.append({
+                "spare_part_id": pu.get("spare_part_id"),
+                "nom": sp.get("nom"),
+                "reference": sp.get("reference_fabricant"),
+                "quantite_par_intervention": qte_occ,
+                "quantite_annuelle": qte_an,
+                "prix_unitaire_xpf": round(pu_xpf, 1),
+                "cout_xpf": round(cost, 1),
+            })
+
+        grand_total += wo_total
+        lignes.append({
+            "work_order_id": wo["id"],
+            "maintenance": wo.get("titre"),
+            "equipment_id": wo.get("equipment_id"),
+            "equipment_ref": eq.get("reference"),
+            "periodicite": base,
+            "occurrences_par_an": occ_round,
+            "source_pieces": source if piece_lines else None,
+            "note": note,
+            "pieces": piece_lines,
+            "cout_total_xpf": round(wo_total, 1),
+        })
+
+    lignes.sort(key=lambda x: x["cout_total_xpf"], reverse=True)
+    return {
+        "annee": annee,
+        "total_previsionnel_xpf": round(grand_total, 1),
+        "total_previsionnel_eur": round(grand_total * XPF_TO_EUR, 2),
+        "nombre_maintenances": len(lignes),
+        "lignes": lignes,
+    }
+
+
+
 @api_router.post("/budget", response_model=dict)
 async def create_budget_item(item: BudgetItemCreate, current_user: dict = Depends(require_admin)):
     """Create a new budget item"""
@@ -5013,8 +5140,8 @@ TEMPLATES = {
     },
     "pieces": {
         "sheet": "Pieces_Detachees",
-        "headers": ["NOM", "REFERENCE_FABRICANT", "TYPE_EQUIPEMENT", "QUANTITE_STOCK", "SEUIL_MINIMUM", "EMPLACEMENT", "FOURNISSEUR", "PRIX_UNITAIRE"],
-        "example": ["Filtre à air", "P21-BAUER", "Compresseur", "12", "3", "Armoire A2", "Bauer France", "45.90"],
+        "headers": ["NOM", "REFERENCE_FABRICANT", "TYPE_EQUIPEMENT", "QUANTITE_STOCK", "SEUIL_MINIMUM", "EMPLACEMENT", "FOURNISSEUR", "PRIX_UNITAIRE", "DEVISE"],
+        "example": ["Filtre à air", "P21-BAUER", "Compresseur", "12", "3", "Armoire A2", "Bauer France", "45.90", "EUR"],
     },
 }
 
@@ -5214,6 +5341,7 @@ async def import_spare_parts_from_rows(rows: list) -> dict:
             "emplacement": _cell(row, "EMPLACEMENT", "LOCALISATION"),
             "fournisseur": _cell(row, "FOURNISSEUR"),
             "prix_unitaire": _to_float(_cell(row, "PRIX_UNITAIRE", "PRIX UNITAIRE", "PRIX")),
+            "devise": (_cell(row, "DEVISE", "CURRENCY", "MONNAIE") or "XPF").upper() if (_cell(row, "DEVISE", "CURRENCY", "MONNAIE") or "XPF").upper() in ("XPF", "EUR") else "XPF",
             "photos": [],
             "documents": [],
             "created_at": datetime.now(timezone.utc).isoformat(),

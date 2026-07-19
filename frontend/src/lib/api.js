@@ -9,6 +9,8 @@ const api = axios.create({
   },
 });
 
+export { api };
+
 // Add auth token to requests
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('token');
@@ -31,28 +33,14 @@ api.interceptors.response.use(
   }
 );
 
-// Open a stored file (PDF/image) reliably by fetching it as a blob and opening
-// a local blob: URL. This bypasses ingress cache headers that break Chrome's
-// built-in PDF viewer (blank page issue).
-export const openStoredFile = async (fileUrl) => {
-  // fileUrl looks like "/api/uploads/spareparts/<uuid>.pdf"
-  const w = window.open('', '_blank');
-  try {
-    const path = fileUrl.replace(/^\/api/, '');
-    const res = await api.get(path, { responseType: 'blob' });
-    const type = res.data.type || 'application/pdf';
-    const blob = new Blob([res.data], { type });
-    const blobUrl = URL.createObjectURL(blob);
-    if (w) {
-      w.location.href = blobUrl;
-    } else {
-      window.open(blobUrl, '_blank');
-    }
-    setTimeout(() => URL.revokeObjectURL(blobUrl), 120000);
-  } catch (e) {
-    if (w) w.close();
-    alert("Impossible d'ouvrir le document");
-  }
+// Open a stored file (PDF/image) in the in-app viewer. Dispatches an event that
+// the PdfViewerHost (mounted once in Layout) listens to. The host fetches the
+// file as a blob and renders it in an <iframe>, which always displays inside the
+// app regardless of ingress cache headers or browser "download PDF" settings.
+export const openStoredFile = (fileUrl, filename) => {
+  window.dispatchEvent(
+    new CustomEvent('emergent:open-pdf', { detail: { url: fileUrl, filename } })
+  );
 };
 
 // Auth

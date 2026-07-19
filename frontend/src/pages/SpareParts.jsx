@@ -805,7 +805,7 @@ const SpareParts = () => {
                     <div key={doc.url} className="flex items-center justify-between p-2 bg-slate-50 rounded">
                       <a
                         href={`${backendUrl}${doc.url}`}
-                        onClick={(e) => { e.preventDefault(); openStoredFile(doc.url); }}
+                        onClick={(e) => { e.preventDefault(); openStoredFile(doc.url, doc.filename); }}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="text-[#005F73] hover:underline flex items-center gap-2 cursor-pointer"

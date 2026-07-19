@@ -433,7 +433,7 @@ const Documents = () => {
                           <DropdownMenuContent align="end">
                             {doc.fichier_url && (
                               <>
-                                <DropdownMenuItem onClick={() => openStoredFile(doc.fichier_url)} data-testid="document-view-link">
+                                <DropdownMenuItem onClick={() => openStoredFile(doc.fichier_url, doc.fichier_nom)} data-testid="document-view-link">
                                   <Eye className="h-4 w-4 mr-2" />
                                   Visualiser
                                 </DropdownMenuItem>

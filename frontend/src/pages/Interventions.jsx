@@ -459,12 +459,12 @@ function Interventions() {
       )}
 
       <Dialog open={showModal} onOpenChange={setShowModal}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
+        <DialogContent className="max-w-2xl max-h-[90vh] p-0 gap-0 !flex flex-col overflow-hidden">
+          <DialogHeader className="px-6 pt-6 pb-3 border-b">
             <DialogTitle>{editingId ? 'Modifier l\'intervention' : 'Enregistrer une intervention'}</DialogTitle>
             <DialogDescription>Renseignez la maintenance concernée, le technicien et les actions réalisées.</DialogDescription>
           </DialogHeader>
-          <div className="space-y-4">
+          <div className="space-y-4 flex-1 overflow-y-auto overflow-x-hidden px-6 py-4">
             {/* Type d'intervention */}
             <div>
               <Label>Type d'intervention *</Label>
@@ -661,7 +661,7 @@ function Interventions() {
               </div>
             </div>
           </div>
-          <DialogFooter>
+          <DialogFooter className="px-6 py-4 border-t">
             <Button variant="outline" onClick={() => setShowModal(false)}>Annuler</Button>
             <Button 
               onClick={handleSave} 
@@ -721,7 +721,7 @@ function Interventions() {
                   <div className="space-y-2">
                     {selectedItem.documents.map((doc) => (
                       <div key={doc.url} className="flex items-center justify-between p-2 rounded border border-slate-200" data-testid="interv-pdf-item">
-                        <a href={`${backendUrl}${doc.url}`} onClick={(e) => { e.preventDefault(); openStoredFile(doc.url); }} target="_blank" rel="noreferrer" className="flex items-center gap-2 text-[#005F73] hover:underline text-sm truncate cursor-pointer" data-testid="interv-pdf-link">
+                        <a href={`${backendUrl}${doc.url}`} onClick={(e) => { e.preventDefault(); openStoredFile(doc.url, doc.filename); }} target="_blank" rel="noreferrer" className="flex items-center gap-2 text-[#005F73] hover:underline text-sm truncate cursor-pointer" data-testid="interv-pdf-link">
                           <FileText className="w-4 h-4 shrink-0" /> {doc.filename}
                         </a>
                         <button onClick={() => handleDeletePdf(doc.url)} className="text-slate-400 hover:text-red-600 shrink-0" data-testid="interv-pdf-delete">

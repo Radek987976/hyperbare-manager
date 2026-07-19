@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect, useLayoutEffect } from 'react';
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import NavTabs from './NavTabs';
+import { PdfViewerHost } from './PdfViewer';
 import { Badge } from './ui/badge';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -401,6 +402,7 @@ const Layout = ({ children }) => {
   return (
     <div className="main-layout">
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+      <PdfViewerHost />
 
       <main className="main-content">
         {/* Mobile header */}

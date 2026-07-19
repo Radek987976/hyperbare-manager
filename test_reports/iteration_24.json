@@ -1,0 +1,46 @@
+{
+  "summary": "Verified both UI features: (1) Interventions modal footer + no horizontal overflow, (2) In-app PDF viewer opens via blob iframe. All PASS.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "detailed_results": {
+    "login": "PASS - admin@hypermaint.fr / admin123 logs in, dashboard loads.",
+    "interventions_modal": {
+      "status": "PASS",
+      "dialog_box": "x=384 y=45 w=672 h=810 (viewport 1440x900)",
+      "annuler_within_viewport": true,
+      "enregistrer_within_viewport": true,
+      "annuler_box": "y=802, h=36 -> bottom=838 < 900",
+      "enregistrer_box": "y=802, h=36 -> bottom=838 < 900",
+      "horizontal_overflow": "None (scrollWidth=clientWidth=670)",
+      "internal_body_scrollable": "Yes (scrollHeight=809, clientHeight=658)"
+    },
+    "pdf_viewer_spareparts": {
+      "status": "PASS",
+      "opened_from": "Stock pièces > LB78 search > Voir détails / Fichiers > sparepart-doc-link (Fiche technique Flexible Haute Pression.pdf)",
+      "pdf-viewer-modal_present": true,
+      "pdf-viewer-frame_present": true,
+      "iframe_src_is_blob": true,
+      "iframe_src": "blob:https://chamber-maintenance.preview.emergentagent.com/f27ce926-...",
+      "pdf-viewer-newtab_button": true,
+      "pdf-viewer-download_button": true,
+      "pdf-viewer-filename": "Fiche technique Flexible Haute Pression.pdf",
+      "network_request": "GET /api/uploads/spareparts/8ca62cee-863d-4d62-a7eb-b0bf7e542039.pdf -> 200 application/pdf",
+      "console_errors": 0
+    },
+    "pdf_viewer_interventions": "SKIPPED - not explicitly retested; instructions said skip if none. The PdfViewerHost is shared in Layout so behavior is identical."
+  },
+  "test_report_links": [],
+  "action_items": [],
+  "critical_code_review_comments": [],
+  "updated_files": [],
+  "success_rate": {"backend": "N/A (frontend-only)", "frontend": "100%"},
+  "test_credentials": "admin@hypermaint.fr / admin123",
+  "seed_data_creation": "None",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Interventions modal has fixed header + scrollable body (overflow-y-auto overflow-x-hidden) + sticky footer with Annuler/Enregistrer visible in 900px viewport. PDF viewer uses blob iframe via window event 'emergent:open-pdf'. To trigger PDF viewer on spare parts: search 'LB78' > click MoreVertical action > 'Voir détails / Fichiers' menuitem > click sparepart-doc-link."
+}

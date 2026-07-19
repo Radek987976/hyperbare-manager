@@ -711,7 +711,7 @@ const Inspections = () => {
                       <div key={doc.url} className="flex items-center justify-between p-2 rounded border border-slate-200" data-testid="pdf-doc-item">
                         <a
                           href={`${process.env.REACT_APP_BACKEND_URL}${doc.url}`}
-                          onClick={(e) => { e.preventDefault(); openStoredFile(doc.url); }}
+                          onClick={(e) => { e.preventDefault(); openStoredFile(doc.url, doc.filename); }}
                           target="_blank"
                           rel="noreferrer"
                           className="flex items-center gap-2 text-[#005F73] hover:underline text-sm truncate cursor-pointer"

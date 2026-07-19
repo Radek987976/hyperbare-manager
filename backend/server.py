@@ -1,4 +1,4 @@
-from fastapi import FastAPI, APIRouter, HTTPException, Depends, status, UploadFile, File, Form
+from fastapi import FastAPI, APIRouter, HTTPException, Depends, status, UploadFile, File, Form, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi.staticfiles import StaticFiles
 from dotenv import load_dotenv
@@ -3508,8 +3508,8 @@ async def delete_inspection_procedure(
 
 # Serve uploaded files
 @api_router.get("/uploads/{folder}/{filename}")
-async def get_uploaded_file(folder: str, filename: str):
-    """Serve uploaded files from persistent object storage."""
+async def get_uploaded_file(folder: str, filename: str, request: Request):
+    """Serve uploaded files from persistent object storage (with HTTP Range support)."""
     allowed = ["equipments", "inspections", "subequipments", "spareparts",
                "workorders", "interventions", "documents", "contractors",
                "gas_cylinders", "contracts"]
@@ -3524,14 +3524,36 @@ async def get_uploaded_file(folder: str, filename: str):
             return FileResponse(file_path, media_type=_content_type_for(filename))
         raise HTTPException(status_code=404, detail="Fichier non trouvé")
     
+    media_type = content_type or _content_type_for(filename)
     ext = get_file_extension(filename)
     inline = ext in [".pdf", ".jpg", ".jpeg", ".png", ".gif", ".webp"]
     disposition = "inline" if inline else "attachment"
-    return Response(
-        content=data,
-        media_type=content_type or _content_type_for(filename),
-        headers={"Content-Disposition": f'{disposition}; filename="{filename}"'},
-    )
+    total = len(data)
+    base_headers = {
+        "Content-Disposition": f'{disposition}; filename="{filename}"',
+        "Accept-Ranges": "bytes",
+    }
+
+    # Range support is required by Chrome's built-in PDF viewer (otherwise: blank page)
+    range_header = request.headers.get("range") or request.headers.get("Range")
+    if range_header and range_header.startswith("bytes="):
+        try:
+            start_s, end_s = range_header.replace("bytes=", "").split("-")
+            start = int(start_s) if start_s else 0
+            end = int(end_s) if end_s else total - 1
+        except (ValueError, IndexError):
+            start, end = 0, total - 1
+        start = max(0, start)
+        end = min(end, total - 1)
+        chunk = data[start:end + 1]
+        headers = {
+            **base_headers,
+            "Content-Range": f"bytes {start}-{end}/{total}",
+            "Content-Length": str(len(chunk)),
+        }
+        return Response(content=chunk, status_code=206, media_type=media_type, headers=headers)
+
+    return Response(content=data, media_type=media_type, headers=base_headers)
 
 # ==================== MAINTENANCE REPORT ====================
 

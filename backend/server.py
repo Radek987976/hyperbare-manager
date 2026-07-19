@@ -13,6 +13,7 @@ import json
 import re
 import shutil
 import requests
+import unicodedata
 import asyncio
 import resend
 import secrets
@@ -5129,20 +5130,34 @@ def _read_tabular_rows(file_path: Path, ext: str):
     return df.to_dict("records")
 
 
+def _norm_key(k):
+    """Normalise un intitulé de colonne: sans accents, majuscules, sans espaces/_/-."""
+    try:
+        s = unicodedata.normalize('NFKD', str(k)).encode('ascii', 'ignore').decode()
+    except Exception:
+        s = str(k)
+    return s.upper().replace(' ', '').replace('_', '').replace('-', '').strip()
+
+
 def _cell(row: dict, *keys):
+    # Recherche tolérante: insensible à la casse, aux accents, espaces et underscores.
+    norm_row = {}
+    for rk, rv in row.items():
+        nk = _norm_key(rk)
+        if nk not in norm_row:
+            norm_row[nk] = rv
     for k in keys:
-        if k in row:
-            v = row[k]
-            if v is None:
+        v = norm_row.get(_norm_key(k))
+        if v is None:
+            continue
+        try:
+            if isinstance(v, float) and pd.isna(v):
                 continue
-            try:
-                if isinstance(v, float) and pd.isna(v):
-                    continue
-            except Exception:
-                pass
-            s = str(v).strip()
-            if s and s.lower() != "nan":
-                return s
+        except Exception:
+            pass
+        s = str(v).strip()
+        if s and s.lower() != "nan":
+            return s
     return None
 
 
@@ -5185,7 +5200,7 @@ async def import_spare_parts_from_rows(rows: list) -> dict:
     imported, updated, errors = 0, 0, []
     for i, row in enumerate(rows):
         nom = _cell(row, "NOM", "DESIGNATION", "DÉSIGNATION", "LIBELLE")
-        ref = _cell(row, "REFERENCE_FABRICANT", "REFERENCE FABRICANT", "REFERENCE", "RÉFÉRENCE", "REF")
+        ref = _cell(row, "REFERENCE_FABRICANT", "REFERENCE FABRICANT", "REFERENCE_FARBICANT", "REFERENCE FARBICANT", "REFERENCE", "RÉFÉRENCE", "REF")
         if not nom and not ref:
             errors.append(f"Ligne {i + 2}: NOM ou REFERENCE_FABRICANT obligatoire")
             continue

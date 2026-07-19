@@ -402,3 +402,9 @@ spare_parts: {id, nom, reference_fabricant, equipment_type, quantite_stock, seui
 - NOTE: total=0 tant que l'utilisateur n'a pas renseigné les pièces prévues sur les maintenances. Sous-traitance NON incluse (contrats gérés à part, choix user).
 - Mineur non bloquant: overlay dev CRA "ResizeObserver loop" visible en preview (disparaît en build prod).
 - Redéploiement requis pour la production.
+
+### 2026-07-19 (suite) — Export prévisionnel Excel + pré-remplissage historique (VÉRIFIÉ testing_agent 100%, iter 27)
+- **Export Excel prévisionnel**: server.py GET /api/budget/forecast/{annee}/export → xlsx 2 feuilles (Synthese + Detail_Pieces). Refactor: _compute_forecast(annee) partagé. Budget.jsx: bouton "Export Excel" (export-forecast-btn) visible après Calculer, télécharge via blob. budgetAPI.exportForecast ajouté.
+- **Pré-remplir depuis l'historique**: server.py GET /api/work-orders/{id}/suggested-pieces → pièces de la dernière intervention liée (par work_order_id, sinon même équipement+titre). WorkOrders.jsx: bouton "Pré-remplir depuis l'historique" (prefill-history-btn) visible en édition d'une maintenance préventive → remplit pieces_prevues. workOrdersAPI.getSuggestedPieces ajouté.
+- Vérifié via curl (export xlsx OK; suggested-pieces renvoie qte 2) + testing_agent frontend 100%.
+- Redéploiement requis pour la production.

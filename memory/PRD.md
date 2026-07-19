@@ -1,5 +1,15 @@
 # HyperbareManager - PRD (Product Requirements Document)
 
+## Changelog (2026-06-20) — Prestataires par spécialité + Technicien par rôle + prestataire d'intervention (VÉRIFIÉ testing_agent iter 29, frontend 100%)
+- **Spécialités prestataire (1a)**: `ContractorBase.specialites: List[str]` = types d'équipements pris en charge (multi-sélection). `specialite` (texte libre) conservé pour compat. Contractors.jsx: grille de badges cliquables des types d'équipements (`contractor-specialites`, `specialite-toggle-{type}`), colonne tableau affiche les spécialités en badges. Édition pré-coche les spécialités existantes.
+- **Prestataire dans l'intervention (2b)**: `InterventionBase.prestataire_id: Optional[str]`. Interventions.jsx: champ « Prestataire externe » (`interv-prestataire-select`) filtré STRICTEMENT par les prestataires dont `specialites` contient le type de l'équipement sélectionné (si aucun → liste vide). Affiché dans le détail de l'intervention.
+- **Technicien par rôle (3)**: Interventions.jsx charge tous les utilisateurs si admin (`usersAPI.getAll`), sinon uniquement l'utilisateur courant ; saisie libre toujours possible (`allowCustom`).
+- **Export Excel prévisionnel (4)**: déjà existant (`export-forecast-btn`, `/api/budget/forecast/{annee}/export`) — vérifié HTTP 200 xlsx. Le choix user est Excel (pas PDF).
+- Vérifié: curl backend (specialites + prestataire_id persistés, export xlsx 200) + testing_agent frontend 100%, 0 erreur console.
+- Redéploiement requis pour la production.
+
+# HyperbareManager - PRD (Product Requirements Document)
+
 ## Énoncé du problème original
 Application web de GMAO (gestion de maintenance assistée par ordinateur) pour un caisson hyperbare unique contenant plusieurs équipements et sous-équipements.
 

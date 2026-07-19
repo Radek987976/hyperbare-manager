@@ -363,3 +363,8 @@ spare_parts: {id, nom, reference_fabricant, equipment_type, quantite_stock, seui
 - **EN ATTENTE validation utilisateur** (rendu PDF vérifiable uniquement dans un vrai navigateur; headless sans lecteur PDF).
 - **Backlog proposé (non tranché par user)**: (a) traçabilité "ajouté par technicien + date", (b) export ZIP audit de tous les documents, (c) indicateur de stockage admin.
 - **Bug UI en attente**: modal "Nouvelle intervention" (Interventions.jsx L462) — débordement horizontal + boutons Enregistrer/Annuler cachés (à restructurer header fixe / corps scroll / footer fixe).
+
+### 2026-07-19 (suite) — Lecteur PDF intégré + fix modal Intervention (VÉRIFIÉ testing_agent 100%, iter 24)
+- **Lecteur PDF intégré**: composant `components/PdfViewer.jsx` (`openPdf` + `PdfViewerHost`). `PdfViewerHost` monté une fois dans Layout.jsx, écoute l'événement window `emergent:open-pdf`, récupère le fichier en blob et l'affiche dans un `<iframe>` (modal). Boutons "Onglet" + "Télécharger". `openStoredFile` (lib/api.js) dispatch désormais l'événement. Fallback image pour non-PDF. Testids: pdf-viewer-modal, pdf-viewer-frame, pdf-viewer-newtab, pdf-viewer-download, pdf-viewer-filename.
+- **Fix modal "Nouvelle intervention"** (Interventions.jsx): DialogContent `p-0 gap-0 !flex flex-col overflow-hidden`, header fixe (border-b), corps `flex-1 overflow-y-auto overflow-x-hidden`, footer fixe (border-t). Boutons Annuler/Enregistrer toujours visibles, plus de débordement horizontal.
+- Vérifié: modal footer bottom=838<900, scrollWidth=clientWidth (pas d'overflow), corps scrollable; PDF viewer iframe src blob, réseau 200 application/pdf, 0 erreur console.

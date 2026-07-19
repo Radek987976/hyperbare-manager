@@ -384,3 +384,8 @@ spare_parts: {id, nom, reference_fabricant, equipment_type, quantite_stock, seui
 - **Import tolérant** (server.py `_cell`): matching insensible casse/accents/espaces/underscores + alias typo "REFERENCE_FARBICANT". Corrige le bug prod "nom = référence" dû à l'en-tête mal orthographié. Vérifié via import Excel réel.
 - **complete_work_order**: ne régénère plus de maintenance si équipement réformé (fix récurrence).
 - EN ATTENTE: redéploiement production pour activer ces correctifs backend en live. Nettoyage stock (vidage+réimport) proposé mais non exécuté (en attente réponse user sur impact interventions/photos).
+
+### 2026-07-19 (suite) — Boutons d'ajustement de quantité agrandis
+- **SpareParts.jsx** modal "Ajuster le stock": boutons -1/+1 agrandis (h-14, text-xl, icônes w-6, bordure 2px, survol rouge/vert), champ quantité h-12 text-lg centré.
+- **index.css** (global): flèches natives des `input[type=number]` (::-webkit-inner/outer-spin-button) toujours visibles + agrandies (width 1.75rem, height 2.5rem) → s'applique à tous les champs de quantité de l'app.
+- Front compile OK. À valider visuellement par l'utilisateur (screenshot tool ne gère pas les flux authentifiés). Redéploiement requis pour la production.

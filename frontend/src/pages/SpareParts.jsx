@@ -632,28 +632,29 @@ const SpareParts = () => {
                   onChange={(e) => setStockAdjustment(e.target.value)}
                   placeholder="Ex: 5 ou -3"
                   data-testid="input-adjustment"
+                  className="h-12 text-lg text-center"
                 />
               </div>
 
-              <div className="flex gap-2">
+              <div className="flex gap-3">
                 <Button 
                   variant="outline" 
-                  className="flex-1"
+                  className="flex-1 h-14 text-xl font-semibold border-2 hover:bg-red-50 hover:border-red-300"
                   onClick={() => handleStockAdjust(-1)}
                   disabled={saving || selectedPart.quantite_stock <= 0}
                   data-testid="decrease-stock-btn"
                 >
-                  <MinusCircle className="w-4 h-4 mr-2" />
+                  <MinusCircle className="w-6 h-6 mr-2" />
                   -1
                 </Button>
                 <Button 
                   variant="outline" 
-                  className="flex-1"
+                  className="flex-1 h-14 text-xl font-semibold border-2 hover:bg-emerald-50 hover:border-emerald-300"
                   onClick={() => handleStockAdjust(1)}
                   disabled={saving}
                   data-testid="increase-stock-btn"
                 >
-                  <PlusCircle className="w-4 h-4 mr-2" />
+                  <PlusCircle className="w-6 h-6 mr-2" />
                   +1
                 </Button>
               </div>

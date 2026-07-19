@@ -1,0 +1,20 @@
+{
+  "summary": "Tested frontend for prestataire field on preventive maintenance and separated prestations totals in Budget prévisionnel. All required testids present, EUR->XPF conversion working (100 EUR ≈ 11 930,0 XPF), 2 distinct totals shown separately, no console/API errors.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [],
+  "action_items": [],
+  "critical_code_review_comments": [],
+  "updated_files": [],
+  "success_rate": {"backend": "n/a", "frontend": "100%"},
+  "test_credentials": "admin@hypermaint.fr / admin123",
+  "seed_data_creation": "None - modal cancelled without saving",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Verified: (1) WorkOrders modal 'Nouvelle maintenance' with type=Préventive shows 'Prestation externe (sous-traitant)' block with select-prestataire, input-cout-prestataire, select-devise-prestataire (XPF/EUR). EUR entry displays '≈ X XPF' estimate correctly. (2) Budget /budget shows two distinct totals: 'Total pièces 2026' (data-testid=forecast-total) and 'Total prestations externes 2026' (data-testid=forecast-total-prestations), with table column 'Prestation/an (XPF)' and cells data-testid=forecast-prestation-cell. GET /api/budget/forecast/2026 returned 200. No console errors. Note: total_prestations shows 0 FCFP in this preview environment (no prestataire currently assigned to any preventive) — that is data-dependent, feature/UI works.",
+  "rca of the issue": "N/A - all features working as expected"
+}

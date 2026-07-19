@@ -477,6 +477,9 @@ class WorkOrderBase(BaseModel):
     compteur_declenchement: Optional[float] = None  # Compteur horaire au moment où la maintenance doit être faite
     technicien_assigne: Optional[str] = None
     pieces_prevues: List[dict] = []  # Pièces consommées par intervention [{spare_part_id, quantite}]
+    cout_prestataire: Optional[float] = None  # Coût prestation externe par passage
+    prestataire_id: Optional[str] = None  # Prestataire (contractor) qui réalise la maintenance
+    devise_prestataire: str = Field(default="XPF", description="XPF ou EUR")
     photos: List[str] = []
     documents: List[dict] = []
 
@@ -4940,11 +4943,13 @@ async def get_budget_forecast(annee: int, current_user: dict = Depends(get_curre
 async def _compute_forecast(annee: int):
     equipments = {e["id"]: e for e in await db.equipments.find({}, {"_id": 0}).to_list(2000)}
     spare_parts = {p["id"]: p for p in await db.spare_parts.find({}, {"_id": 0}).to_list(20000)}
+    contractors = {c["id"]: c for c in await db.contractors.find({}, {"_id": 0}).to_list(2000)}
     work_orders = await db.work_orders.find({"type_maintenance": "preventive"}, {"_id": 0}).to_list(5000)
 
     seen_wo = set()
     lignes = []
     grand_total = 0.0
+    grand_total_prestations = 0.0
     for wo in work_orders:
         # Éviter les doublons de récurrence : ne garder que le plus récent par (equipment, titre)
         key = (wo.get("equipment_id"), (wo.get("titre") or "").strip().lower())
@@ -5005,6 +5010,14 @@ async def _compute_forecast(annee: int):
             })
 
         grand_total += wo_total
+
+        # Coût prestataire (prestation externe) par passage — affiché séparément des pièces
+        cout_prest = wo.get("cout_prestataire") or 0
+        prest_xpf_unit = cout_prest * EUR_TO_XPF if (wo.get("devise_prestataire") or "XPF") == "EUR" else cout_prest
+        prest_annuel = round(prest_xpf_unit * occ_round, 1)
+        grand_total_prestations += prest_annuel
+        prestataire = contractors.get(wo.get("prestataire_id"))
+
         lignes.append({
             "work_order_id": wo["id"],
             "maintenance": wo.get("titre"),
@@ -5016,13 +5029,19 @@ async def _compute_forecast(annee: int):
             "note": note,
             "pieces": piece_lines,
             "cout_total_xpf": round(wo_total, 1),
+            "prestataire_id": wo.get("prestataire_id"),
+            "prestataire_nom": prestataire.get("nom") if prestataire else None,
+            "cout_prestataire_unitaire_xpf": round(prest_xpf_unit, 1) if cout_prest else 0,
+            "cout_prestation_annuel_xpf": prest_annuel,
         })
 
-    lignes.sort(key=lambda x: x["cout_total_xpf"], reverse=True)
+    lignes.sort(key=lambda x: (x["cout_total_xpf"] + x["cout_prestation_annuel_xpf"]), reverse=True)
     return {
         "annee": annee,
         "total_previsionnel_xpf": round(grand_total, 1),
         "total_previsionnel_eur": round(grand_total * XPF_TO_EUR, 2),
+        "total_prestations_xpf": round(grand_total_prestations, 1),
+        "total_prestations_eur": round(grand_total_prestations * XPF_TO_EUR, 2),
         "nombre_maintenances": len(lignes),
         "lignes": lignes,
     }
@@ -5035,16 +5054,20 @@ async def export_budget_forecast(annee: int, current_user: dict = Depends(get_cu
 
     synthese_rows = []
     detail_rows = []
+    prestation_rows = []
     for l in data["lignes"]:
-        if not l.get("pieces"):
+        has_pieces = bool(l.get("pieces"))
+        has_prest = (l.get("cout_prestation_annuel_xpf") or 0) > 0
+        if not has_pieces and not has_prest:
             continue
         synthese_rows.append({
             "Équipement": l.get("equipment_ref"),
             "Maintenance": l.get("maintenance"),
             "Périodicité": l.get("periodicite") or "",
             "Occurrences/an": l.get("occurrences_par_an"),
-            "Source pièces": l.get("source_pieces") or "",
             "Coût pièces (XPF)": l.get("cout_total_xpf"),
+            "Prestataire": l.get("prestataire_nom") or "",
+            "Coût prestation/an (XPF)": l.get("cout_prestation_annuel_xpf"),
         })
         for p in l["pieces"]:
             detail_rows.append({
@@ -5058,22 +5081,34 @@ async def export_budget_forecast(annee: int, current_user: dict = Depends(get_cu
                 "Prix unitaire (XPF)": p.get("prix_unitaire_xpf"),
                 "Coût annuel (XPF)": p.get("cout_xpf"),
             })
+        if has_prest:
+            prestation_rows.append({
+                "Équipement": l.get("equipment_ref"),
+                "Maintenance": l.get("maintenance"),
+                "Prestataire": l.get("prestataire_nom") or "",
+                "Coût par passage (XPF)": l.get("cout_prestataire_unitaire_xpf"),
+                "Occurrences/an": l.get("occurrences_par_an"),
+                "Coût annuel (XPF)": l.get("cout_prestation_annuel_xpf"),
+            })
 
     synthese_rows.append({
         "Équipement": "TOTAL",
         "Maintenance": "",
         "Périodicité": "",
         "Occurrences/an": "",
-        "Source pièces": "",
         "Coût pièces (XPF)": data["total_previsionnel_xpf"],
+        "Prestataire": "",
+        "Coût prestation/an (XPF)": data.get("total_prestations_xpf", 0),
     })
 
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine='openpyxl') as writer:
-        pd.DataFrame(synthese_rows or [{"Info": "Aucune pièce prévue définie"}]).to_excel(
+        pd.DataFrame(synthese_rows or [{"Info": "Aucune donnée"}]).to_excel(
             writer, sheet_name='Synthese', index=False)
         pd.DataFrame(detail_rows or [{"Info": "Aucune pièce prévue définie"}]).to_excel(
             writer, sheet_name='Detail_Pieces', index=False)
+        pd.DataFrame(prestation_rows or [{"Info": "Aucune prestation définie"}]).to_excel(
+            writer, sheet_name='Prestations', index=False)
     output.seek(0)
     return StreamingResponse(
         output,

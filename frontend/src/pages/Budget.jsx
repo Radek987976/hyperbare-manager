@@ -423,18 +423,29 @@ const Budget = () => {
         </CardHeader>
         {forecast && (
           <CardContent>
-            <div className="mb-4 p-4 bg-blue-50 rounded-lg">
-              <p className="text-sm text-blue-700">Total prévisionnel pièces {selectedYear}</p>
-              <p className="text-2xl font-bold text-blue-900" data-testid="forecast-total">
-                {formatCurrency(forecast.total_previsionnel_xpf, 'XPF')}
-              </p>
-              <p className="text-xs text-blue-600">
-                ≈ {formatCurrency(forecast.total_previsionnel_eur, 'EUR')} — {forecast.nombre_maintenances} maintenances préventives analysées
-              </p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+              <div className="p-4 bg-blue-50 rounded-lg">
+                <p className="text-sm text-blue-700">Total pièces {selectedYear}</p>
+                <p className="text-2xl font-bold text-blue-900" data-testid="forecast-total">
+                  {formatCurrency(forecast.total_previsionnel_xpf, 'XPF')}
+                </p>
+                <p className="text-xs text-blue-600">
+                  ≈ {formatCurrency(forecast.total_previsionnel_eur, 'EUR')} — {forecast.nombre_maintenances} maintenances analysées
+                </p>
+              </div>
+              <div className="p-4 bg-amber-50 rounded-lg">
+                <p className="text-sm text-amber-700">Total prestations externes {selectedYear}</p>
+                <p className="text-2xl font-bold text-amber-900" data-testid="forecast-total-prestations">
+                  {formatCurrency(forecast.total_prestations_xpf || 0, 'XPF')}
+                </p>
+                <p className="text-xs text-amber-600">
+                  ≈ {formatCurrency(forecast.total_prestations_eur || 0, 'EUR')} — sous-traitance (affiché séparément)
+                </p>
+              </div>
             </div>
-            {forecast.lignes.filter(l => l.pieces.length > 0).length === 0 ? (
+            {forecast.lignes.filter(l => l.pieces.length > 0 || l.cout_prestation_annuel_xpf > 0).length === 0 ? (
               <p className="text-sm text-gray-500 text-center py-6">
-                Aucune pièce prévue n'est définie sur les maintenances préventives. Renseignez les « Pièces prévues par intervention » dans chaque maintenance (page Maintenance préventive) pour alimenter le prévisionnel.
+                Aucune pièce prévue ni prestation définie sur les maintenances préventives. Renseignez les « Pièces prévues » et/ou la « Prestation externe » dans chaque maintenance (page Maintenance préventive).
               </p>
             ) : (
               <Table>
@@ -444,11 +455,12 @@ const Budget = () => {
                     <TableHead>Maintenance</TableHead>
                     <TableHead>Périodicité</TableHead>
                     <TableHead className="text-center">Occ./an</TableHead>
-                    <TableHead className="text-right">Coût pièces (XPF)</TableHead>
+                    <TableHead className="text-right">Pièces (XPF)</TableHead>
+                    <TableHead className="text-right">Prestation/an (XPF)</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {forecast.lignes.filter(l => l.pieces.length > 0).map((l) => (
+                  {forecast.lignes.filter(l => l.pieces.length > 0 || l.cout_prestation_annuel_xpf > 0).map((l) => (
                     <React.Fragment key={l.work_order_id}>
                       <TableRow className="cursor-pointer hover:bg-slate-50" onClick={() => setExpandedWo(expandedWo === l.work_order_id ? null : l.work_order_id)} data-testid="forecast-row">
                         <TableCell className="font-medium">{l.equipment_ref}</TableCell>
@@ -456,6 +468,10 @@ const Budget = () => {
                         <TableCell className="text-xs">{l.periodicite || '-'}{l.note ? ' ⚠️' : ''}</TableCell>
                         <TableCell className="text-center">{l.occurrences_par_an}</TableCell>
                         <TableCell className="text-right font-medium">{formatCurrency(l.cout_total_xpf, 'XPF')}</TableCell>
+                        <TableCell className="text-right font-medium text-amber-700" data-testid="forecast-prestation-cell">
+                          {l.cout_prestation_annuel_xpf > 0 ? formatCurrency(l.cout_prestation_annuel_xpf, 'XPF') : '-'}
+                          {l.prestataire_nom ? <span className="block text-[10px] text-slate-400">{l.prestataire_nom}</span> : null}
+                        </TableCell>
                       </TableRow>
                       {expandedWo === l.work_order_id && l.pieces.map((p, i) => (
                         <TableRow key={i} className="bg-slate-50 text-xs">
@@ -463,6 +479,7 @@ const Budget = () => {
                           <TableCell colSpan={2} className="text-slate-600">↳ {p.nom} ({p.reference}) — {p.quantite_par_intervention}/interv.</TableCell>
                           <TableCell className="text-center">{p.quantite_annuelle} u</TableCell>
                           <TableCell className="text-right">{formatCurrency(p.cout_xpf, 'XPF')}</TableCell>
+                          <TableCell></TableCell>
                         </TableRow>
                       ))}
                     </React.Fragment>

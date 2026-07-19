@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
-import { workOrdersAPI, equipmentsAPI, caissonAPI, usersAPI, equipmentTypesAPI, sparePartsAPI, openStoredFile } from '../lib/api';
+import { workOrdersAPI, equipmentsAPI, caissonAPI, usersAPI, equipmentTypesAPI, sparePartsAPI, contractorsAPI, openStoredFile } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
 import { 
   formatDate, 
@@ -106,6 +106,7 @@ const WorkOrders = () => {
   const [showCustomTechnicien, setShowCustomTechnicien] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [spareParts, setSpareParts] = useState([]);
+  const [contractors, setContractors] = useState([]);
   const [pieceToAdd, setPieceToAdd] = useState('');
   const [pieceQte, setPieceQte] = useState('1');
   
@@ -124,7 +125,10 @@ const WorkOrders = () => {
     periodicite_heures: '',
     compteur_declenchement: '',
     technicien_assigne: '',
-    pieces_prevues: []
+    pieces_prevues: [],
+    cout_prestataire: '',
+    prestataire_id: '',
+    devise_prestataire: 'XPF'
   });
 
   useEffect(() => {
@@ -222,7 +226,10 @@ const WorkOrders = () => {
       periodicite_heures: '',
       compteur_declenchement: '',
       technicien_assigne: '',
-      pieces_prevues: []
+      pieces_prevues: [],
+      cout_prestataire: '',
+      prestataire_id: '',
+      devise_prestataire: 'XPF'
     });
     setShowCustomTechnicien(false);
     setShowModal(true);
@@ -243,7 +250,10 @@ const WorkOrders = () => {
       periodicite_heures: wo.periodicite_heures?.toString() || '',
       compteur_declenchement: wo.compteur_declenchement?.toString() || '',
       technicien_assigne: wo.technicien_assigne || '',
-      pieces_prevues: wo.pieces_prevues || []
+      pieces_prevues: wo.pieces_prevues || [],
+      cout_prestataire: wo.cout_prestataire?.toString() || '',
+      prestataire_id: wo.prestataire_id || '',
+      devise_prestataire: wo.devise_prestataire || 'XPF'
     });
     // Check if technicien is not in the list
     const isInList = technicians.some(t => `${t.prenom} ${t.nom}` === wo.technicien_assigne);
@@ -268,7 +278,10 @@ const WorkOrders = () => {
           (selectedEq && selectedEq.type === 'compresseur' && formData.periodicite_heures ? 
             (selectedEq.compteur_horaire || 0) + parseInt(formData.periodicite_heures) : null),
         equipment_id: formData.equipment_id || null,
-        caisson_id: formData.caisson_id || null
+        caisson_id: formData.caisson_id || null,
+        cout_prestataire: formData.cout_prestataire ? parseFloat(formData.cout_prestataire) : null,
+        prestataire_id: formData.prestataire_id || null,
+        devise_prestataire: formData.devise_prestataire || 'XPF'
       };
       
       if (selectedWorkOrder) {
@@ -782,6 +795,44 @@ const WorkOrders = () => {
                     ))}
                   </div>
                 )}
+
+                <div className="pt-3 mt-2 border-t">
+                  <Label>Prestation externe (sous-traitant)</Label>
+                  <p className="text-xs text-slate-500 -mt-0.5 mb-2">Coût par passage facturé par le prestataire pour cette maintenance.</p>
+                  <div className="space-y-2">
+                    <SearchableSelect
+                      value={formData.prestataire_id}
+                      onValueChange={(v) => handleSelectChange('prestataire_id', v)}
+                      data-testid="select-prestataire"
+                      placeholder="Sélectionner un prestataire (optionnel)"
+                      searchPlaceholder="Rechercher un prestataire..."
+                      options={contractors.map(c => ({ value: c.id, label: c.nom }))}
+                    />
+                    <div className="flex gap-2">
+                      <div className="flex-1">
+                        <Input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          value={formData.cout_prestataire}
+                          onChange={(e) => setFormData({ ...formData, cout_prestataire: e.target.value })}
+                          placeholder="Coût par passage"
+                          data-testid="input-cout-prestataire"
+                        />
+                      </div>
+                      <SearchableSelect
+                        value={formData.devise_prestataire}
+                        onValueChange={(v) => handleSelectChange('devise_prestataire', v)}
+                        data-testid="select-devise-prestataire"
+                        className="w-28"
+                        options={[{ value: 'XPF', label: 'XPF' }, { value: 'EUR', label: 'EUR' }]}
+                      />
+                    </div>
+                    {formData.devise_prestataire === 'EUR' && formData.cout_prestataire && (
+                      <p className="text-xs text-slate-500">≈ {(parseFloat(formData.cout_prestataire) * 119.3).toLocaleString('fr-FR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} XPF / passage</p>
+                    )}
+                  </div>
+                </div>
               </div>
             )}
           </div>

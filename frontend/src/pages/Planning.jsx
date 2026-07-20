@@ -164,7 +164,7 @@ export default function Planning() {
             className="w-[220px]"
             data-testid="planning-equipment-filter"
             placeholder="Tous les équipements"
-            options={[{ value: 'all', label: 'Tous les équipements' }, ...equipments.map(eq => ({ value: eq.id, label: eq.reference || eq.type }))]}
+            options={[{ value: 'all', label: 'Tous les équipements' }, ...equipments.filter(eq => eq.statut !== 'reforme').map(eq => ({ value: eq.id, label: eq.reference || eq.type }))]}
           />
           <div className="flex rounded-lg border border-slate-200 overflow-hidden" data-testid="view-toggle">
             <button

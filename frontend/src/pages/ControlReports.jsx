@@ -645,7 +645,7 @@ const ControlReports = () => {
                     value={formData.equipment_id}
                     onValueChange={(v) => setFormData({ ...formData, equipment_id: v })}
                     placeholder="Aucun"
-                    options={equipments.map(eq => ({ value: eq.id, label: `${eq.type} - ${eq.reference}` }))}
+                    options={equipments.filter(eq => eq.statut !== 'reforme').map(eq => ({ value: eq.id, label: `${eq.type} - ${eq.reference}` }))}
                   />
                 </div>
 

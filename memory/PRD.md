@@ -1,5 +1,9 @@
 # HyperbareManager - PRD (Product Requirements Document)
 
+## Changelog (2026-06-20k) — Masquer les équipements réformés (contrôle réglementaire + planning)
+- ControlReports.jsx (/pv-controle) + Inspections.jsx (/controles): sélecteur « Équipement concerné » exclut `statut === 'reforme'`. Planning.jsx: filtre « Tous les équipements » exclut les réformés. Maintenance préventive (WorkOrders.jsx) filtrait déjà les réformés.
+- Vérifié navigateur: recherche « COMANEX » (réformé) → « Aucun résultat » dans le formulaire de contrôle réglementaire.
+
 ## Changelog (2026-06-20j) — Intervention: masquer les équipements réformés
 - Interventions.jsx: la liste déroulante « Équipement » du formulaire exclut les équipements `statut === 'reforme'`. Vérifié navigateur (recherche « COMANEX » réformé → aucun résultat).
 

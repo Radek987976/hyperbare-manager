@@ -554,7 +554,7 @@ const Inspections = () => {
                 onValueChange={(v) => handleSelectChange('equipment_id', v === "caisson" ? "" : v)}
                 data-testid="input-equipment"
                 placeholder="Caisson entier"
-                options={[{ value: 'caisson', label: 'Caisson entier' }, ...equipments.map(eq => ({ value: eq.id, label: `${equipmentTypeLabels[eq.type] || eq.type} - ${eq.reference}` }))]}
+                options={[{ value: 'caisson', label: 'Caisson entier' }, ...equipments.filter(eq => eq.statut !== 'reforme').map(eq => ({ value: eq.id, label: `${equipmentTypeLabels[eq.type] || eq.type} - ${eq.reference}` }))]}
               />
             </div>
             <div className="space-y-2">

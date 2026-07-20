@@ -5284,6 +5284,11 @@ TEMPLATES = {
         "headers": ["NOM", "REFERENCE_FABRICANT", "TYPE_EQUIPEMENT", "QUANTITE_STOCK", "SEUIL_MINIMUM", "EMPLACEMENT", "FOURNISSEUR", "PRIX_UNITAIRE", "DEVISE"],
         "example": ["Filtre à air", "P21-BAUER", "Compresseur", "12", "3", "Armoire A2", "Bauer France", "45.90", "EUR"],
     },
+    "prestataires": {
+        "sheet": "Prestataires",
+        "headers": ["NOM", "TYPE", "SPECIALITES", "CONTACT_NOM", "EMAIL", "TELEPHONE", "ADRESSE", "SIRET", "NOTES"],
+        "example": ["Incendie Moz", "prestataire", "Extincteur hyperbare; Cuve incendie", "Jean Dupont", "contact@incendie-moz.pf", "40 12 34 56", "Zone industrielle, Papeete", "123 456 789", "Prestataire extincteurs"],
+    },
 }
 
 
@@ -5345,7 +5350,7 @@ async def import_excel_file(
         result = {"imported": 0, "errors": [], "type": import_type}
 
         if import_type == "prestataires":
-            result = await import_contractors_from_excel(temp_path)
+            result = await import_contractors_from_rows(_read_tabular_rows(temp_path, ext))
         elif import_type == "bouteilles":
             result = await import_gas_cylinders_from_excel(temp_path)
         elif import_type == "budget":
@@ -5770,6 +5775,54 @@ async def import_controls_from_rows(rows: list) -> dict:
             imported += 1
     return {"imported": imported, "updated": updated, "errors": errors, "type": "controles"}
 
+
+
+async def import_contractors_from_rows(rows: list) -> dict:
+    """Import prestataires/fournisseurs depuis un fichier. Anti-duplication par NOM (mise à jour sinon insertion).
+    SPECIALITES = types d'équipements séparés par ';' ou ','."""
+    imported, updated, errors = 0, 0, []
+    valid_types = {"prestataire", "fournisseur", "organisme_controle"}
+    # Types d'équipements connus (pour normaliser la casse des spécialités saisies)
+    known_types = {t["nom"].strip().lower(): t["nom"] async for t in db.equipment_types.find({}, {"_id": 0, "nom": 1})}
+    for i, row in enumerate(rows):
+        nom = _cell(row, "NOM", "PRESTATAIRE", "FOURNISSEUR", "RAISON_SOCIALE")
+        if not nom:
+            errors.append(f"Ligne {i + 2}: NOM obligatoire")
+            continue
+        raw_type = (_cell(row, "TYPE") or "prestataire").strip().lower().replace(" ", "_").replace("é", "e")
+        ctype = raw_type if raw_type in valid_types else "prestataire"
+        # Spécialités (types d'équipements) séparées par ; ou ,
+        spec_raw = _cell(row, "SPECIALITES", "SPÉCIALITÉS", "SPECIALITE", "SPÉCIALITÉ", "TYPES_EQUIPEMENTS", "TYPE_EQUIPEMENT")
+        specialites = []
+        if spec_raw:
+            for part in re.split(r"[;,]", spec_raw):
+                s = part.strip()
+                if not s:
+                    continue
+                specialites.append(known_types.get(s.lower(), s))
+        doc = {
+            "nom": nom,
+            "type": ctype,
+            "specialite": spec_raw or None,
+            "specialites": specialites,
+            "contact_nom": _cell(row, "CONTACT_NOM", "CONTACT", "CONTACT NOM"),
+            "contact_email": _cell(row, "EMAIL", "CONTACT_EMAIL", "MAIL", "E-MAIL"),
+            "contact_telephone": _cell(row, "TELEPHONE", "TÉLÉPHONE", "TEL", "CONTACT_TELEPHONE"),
+            "adresse": _cell(row, "ADRESSE"),
+            "siret": _cell(row, "SIRET", "N_IDENTIFICATION", "IDENTIFICATION"),
+            "notes": _cell(row, "NOTES", "COMMENTAIRE", "OBSERVATIONS"),
+        }
+        existing = await db.contractors.find_one({"nom": nom})
+        if existing:
+            await db.contractors.update_one({"id": existing["id"]}, {"$set": {k: v for k, v in doc.items() if v is not None or k == "specialites"}})
+            updated += 1
+        else:
+            doc["id"] = str(uuid.uuid4())
+            doc["documents"] = []
+            doc["created_at"] = datetime.now(timezone.utc).isoformat()
+            await db.contractors.insert_one(doc)
+            imported += 1
+    return {"imported": imported, "updated": updated, "errors": errors, "type": "prestataires"}
 
 
 async def import_contractors_from_excel(file_path: Path) -> dict:

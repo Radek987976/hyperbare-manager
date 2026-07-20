@@ -1,5 +1,10 @@
 # HyperbareManager - PRD (Product Requirements Document)
 
+## Changelog (2026-06-20c) — Import Excel des prestataires/fournisseurs (modèle + fichier réel)
+- **Modèle téléchargeable** : `TEMPLATES["prestataires"]` (feuille Prestataires) → colonnes NOM, TYPE, SPECIALITES, CONTACT_NOM, EMAIL, TELEPHONE, ADRESSE, SIRET, NOTES. Bouton « Télécharger le modèle (.xlsx) » activé pour le type « prestataires » dans Import.jsx.
+- **Import réel** : nouvelle `import_contractors_from_rows()` (remplace le seed codé en dur dans le dispatch `/api/import/excel`). SPECIALITES = types d'équipements séparés par « ; » ou « , », normalisés sur les types connus. TYPE validé (prestataire/fournisseur/organisme_controle). Anti-doublon par NOM (update sinon insert).
+- Vérifié curl: modèle 200, import 2 créés (spécialités parsées), ré-import → 2 mis à jour (idempotent). Frontend: bouton visible pour Prestataires.
+
 ## Changelog (2026-06-20b) — Fix: prestataire vide dans Maintenance préventive (WorkOrders)
 - **Bug**: le formulaire Maintenance préventive (`WorkOrders.jsx`) affichait « Aucun résultat » pour la « Prestation externe (sous-traitant) » — `loadData` ne chargeait jamais `contractorsAPI.getAll()` (régression iter 28), la liste `contractors` restait vide.
 - **Fix**: chargement des prestataires ajouté dans `loadData` + filtrage STRICT par spécialité (`matchingContractors`) identique aux interventions : seuls les prestataires dont `specialites` contient le type de l'équipement sélectionné sont proposés (emptyText sinon).

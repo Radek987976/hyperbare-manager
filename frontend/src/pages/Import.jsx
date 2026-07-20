@@ -33,7 +33,7 @@ const IMPORT_TYPES = [
   { 
     value: 'prestataires', 
     label: 'Prestataires & Fournisseurs', 
-    description: 'Importer la liste des prestataires, fournisseurs et organismes de contrôle',
+    description: 'Importer la liste des prestataires, fournisseurs et organismes de contrôle. Colonnes : NOM, TYPE (prestataire/fournisseur/organisme_controle), SPECIALITES (types d\'équipements séparés par ;), CONTACT_NOM, EMAIL, TELEPHONE, ADRESSE, SIRET, NOTES. Anti-doublon par NOM.',
     icon: '🏢'
   },
   { 
@@ -292,7 +292,7 @@ const Import = () => {
                 {IMPORT_TYPES.find(t => t.value === selectedType)?.description}
               </p>
             )}
-            {['equipements', 'sous-equipements', 'interventions', 'maintenance', 'controles', 'pieces'].includes(selectedType) && (
+            {['equipements', 'sous-equipements', 'interventions', 'maintenance', 'controles', 'pieces', 'prestataires'].includes(selectedType) && (
               <Button
                 type="button"
                 variant="outline"
@@ -412,7 +412,7 @@ const Import = () => {
           
           <div>
             <h4 className="font-medium text-gray-900">Prestataires & Fournisseurs</h4>
-            <p>Colonnes recommandées : Nom, Type (prestataire/fournisseur/organisme_controle), Spécialité, Contact, Email, Téléphone</p>
+            <p>Colonnes : <strong>NOM</strong>*, TYPE (prestataire/fournisseur/organisme_controle), <strong>SPECIALITES</strong> (types d'équipements séparés par « ; » — ex : « Extincteur hyperbare; Cuve incendie »), CONTACT_NOM, EMAIL, TELEPHONE, ADRESSE, SIRET, NOTES. Mise à jour si le NOM existe déjà.</p>
           </div>
           
           <div>

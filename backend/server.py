@@ -446,7 +446,8 @@ class SubEquipmentBase(BaseModel):
     nom: str
     reference: str
     numero_serie: Optional[str] = None
-    parent_equipment_id: str  # Lien vers l'équipement parent
+    parent_equipment_id: Optional[str] = None  # Parent principal (rétro-compat)
+    parent_equipment_ids: List[str] = []  # Tous les équipements parents (multi-affiliation)
     description: Optional[str] = None
     date_installation: Optional[str] = None
     statut: str = Field(default="en_service", description="en_service, maintenance, hors_service")
@@ -1379,8 +1380,18 @@ async def delete_equipment(equipment_id: str, current_user: dict = Depends(get_c
     result = await db.equipments.delete_one({"id": equipment_id})
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Équipement non trouvé")
-    # Supprimer aussi les sous-équipements liés
-    await db.subequipments.delete_many({"parent_equipment_id": equipment_id})
+    # Sous-équipements: retirer cet équipement de leurs parents SANS jamais supprimer le sous-équipement
+    await db.subequipments.update_many(
+        {"$or": [{"parent_equipment_id": equipment_id}, {"parent_equipment_ids": equipment_id}]},
+        {"$pull": {"parent_equipment_ids": equipment_id}},
+    )
+    # Réaffecter le parent principal si celui supprimé l'était (aucune suppression de sous-équipement)
+    async for s in db.subequipments.find({"parent_equipment_id": equipment_id}, {"_id": 0, "id": 1, "parent_equipment_ids": 1}):
+        remaining = s.get("parent_equipment_ids") or []
+        await db.subequipments.update_one(
+            {"id": s["id"]},
+            {"$set": {"parent_equipment_id": remaining[0] if remaining else None}},
+        )
     return {"message": "Équipement supprimé"}
 
 # Route pour mettre à jour le compteur horaire d'un compresseur
@@ -1439,14 +1450,33 @@ async def update_compteur_horaire(
 
 # ==================== SUB-EQUIPMENT ROUTES ====================
 
+def _normalize_parent_ids(data) -> list:
+    """Fusionne parent_equipment_id (principal) et parent_equipment_ids (multi) en une liste dédupliquée ordonnée."""
+    ids = list(getattr(data, "parent_equipment_ids", None) or [])
+    primary = getattr(data, "parent_equipment_id", None)
+    if primary and primary not in ids:
+        ids.insert(0, primary)
+    seen = set()
+    result = []
+    for x in ids:
+        if x and x not in seen:
+            seen.add(x)
+            result.append(x)
+    return result
+
 @api_router.post("/subequipments", response_model=SubEquipment)
 async def create_subequipment(data: SubEquipmentCreate, current_user: dict = Depends(get_current_user)):
-    # Vérifier que l'équipement parent existe
-    parent = await db.equipments.find_one({"id": data.parent_equipment_id})
-    if not parent:
-        raise HTTPException(status_code=404, detail="Équipement parent non trouvé")
-    
-    subequipment = SubEquipment(**data.model_dump())
+    parent_ids = _normalize_parent_ids(data)
+    if not parent_ids:
+        raise HTTPException(status_code=400, detail="Au moins un équipement parent est requis")
+    for pid in parent_ids:
+        if not await db.equipments.find_one({"id": pid}, {"_id": 0, "id": 1}):
+            raise HTTPException(status_code=404, detail="Équipement parent non trouvé")
+
+    payload = data.model_dump()
+    payload["parent_equipment_ids"] = parent_ids
+    payload["parent_equipment_id"] = parent_ids[0]
+    subequipment = SubEquipment(**payload)
     doc = subequipment.model_dump()
     doc["created_at"] = doc["created_at"].isoformat()
     await db.subequipments.insert_one(doc)
@@ -1459,9 +1489,16 @@ async def get_subequipments(
 ):
     query = {}
     if parent_equipment_id:
-        query["parent_equipment_id"] = parent_equipment_id
-    
+        query["$or"] = [
+            {"parent_equipment_id": parent_equipment_id},
+            {"parent_equipment_ids": parent_equipment_id},
+        ]
+
     subequipments = await db.subequipments.find(query, {"_id": 0}).to_list(1000)
+    # Rétro-compat: garantir parent_equipment_ids peuplé pour les anciens documents
+    for s in subequipments:
+        if not s.get("parent_equipment_ids") and s.get("parent_equipment_id"):
+            s["parent_equipment_ids"] = [s["parent_equipment_id"]]
     return subequipments
 
 @api_router.get("/subequipments/{subequipment_id}", response_model=SubEquipment)
@@ -1469,11 +1506,22 @@ async def get_subequipment(subequipment_id: str, current_user: dict = Depends(ge
     subequipment = await db.subequipments.find_one({"id": subequipment_id}, {"_id": 0})
     if not subequipment:
         raise HTTPException(status_code=404, detail="Sous-équipement non trouvé")
+    if not subequipment.get("parent_equipment_ids") and subequipment.get("parent_equipment_id"):
+        subequipment["parent_equipment_ids"] = [subequipment["parent_equipment_id"]]
     return subequipment
 
 @api_router.put("/subequipments/{subequipment_id}", response_model=SubEquipment)
 async def update_subequipment(subequipment_id: str, data: SubEquipmentCreate, current_user: dict = Depends(get_current_user)):
-    result = await db.subequipments.update_one({"id": subequipment_id}, {"$set": data.model_dump()})
+    parent_ids = _normalize_parent_ids(data)
+    if not parent_ids:
+        raise HTTPException(status_code=400, detail="Au moins un équipement parent est requis")
+    for pid in parent_ids:
+        if not await db.equipments.find_one({"id": pid}, {"_id": 0, "id": 1}):
+            raise HTTPException(status_code=404, detail="Équipement parent non trouvé")
+    payload = data.model_dump()
+    payload["parent_equipment_ids"] = parent_ids
+    payload["parent_equipment_id"] = parent_ids[0]
+    result = await db.subequipments.update_one({"id": subequipment_id}, {"$set": payload})
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Sous-équipement non trouvé")
     subequipment = await db.subequipments.find_one({"id": subequipment_id}, {"_id": 0})
@@ -5742,6 +5790,7 @@ async def import_subequipments_from_rows(rows: list) -> dict:
             "reference": ref,
             "numero_serie": _cell(row, "N_SERIE", "NUMERO_SERIE"),
             "parent_equipment_id": pid,
+            "parent_equipment_ids": [pid],
             "description": _cell(row, "DESCRIPTION", "TYPE"),
             "date_installation": _parse_date(_cell(row, "DATE_INSTALLATION", "DATE INSTALLATION")),
             "statut": statut if statut in ("en_service", "maintenance", "hors_service") else "en_service",
@@ -6279,6 +6328,7 @@ async def create_indexes():
         await db.equipments.create_index("statut")
         await db.equipments.create_index("reference")
         await db.subequipments.create_index("parent_equipment_id")
+        await db.subequipments.create_index("parent_equipment_ids")
         await db.formations.create_index("date_debut")
         await db.gas_cylinders.create_index("type_gaz")
         logger.info("Index MongoDB créés/vérifiés")

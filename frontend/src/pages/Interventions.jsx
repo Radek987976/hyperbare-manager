@@ -172,7 +172,10 @@ function Interventions() {
   const isCompressor = (selectedEquipment?.type || '').toLowerCase() === 'compresseur';
   // Sous-équipements rattachés à l'équipement sélectionné (pour le curatif)
   const availableSubEquipments = formData.equipment_id
-    ? data.subEquipments.filter(s => s.parent_equipment_id === formData.equipment_id)
+    ? data.subEquipments.filter(s =>
+        s.parent_equipment_id === formData.equipment_id ||
+        (Array.isArray(s.parent_equipment_ids) && s.parent_equipment_ids.includes(formData.equipment_id))
+      )
     : [];
 
   // Pièces détachées destinées au type de l'équipement sélectionné

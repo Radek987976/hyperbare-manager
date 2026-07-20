@@ -1,5 +1,13 @@
 # HyperbareManager - PRD (Product Requirements Document)
 
+## Changelog (2026-06-20e) — Sous-équipements multi-parents (manomètre rattaché à plusieurs équipements)
+- **Modèle**: `SubEquipmentBase.parent_equipment_ids: List[str]` (multi) + `parent_equipment_id` conservé comme parent principal (rétro-compat, = 1er de la liste). Helper `_normalize_parent_ids`.
+- **Endpoints**: create/update valident chaque parent, stockent la liste + principal. `GET /subequipments?parent_equipment_id=X` matche `parent_equipment_id == X OU X ∈ parent_equipment_ids`. Rétro-compat en lecture (anciens docs → [parent_equipment_id]).
+- **Suppression d'équipement** (choix user « pas de suppression ») : retire l'équipement des parents du sous-équipement mais ne supprime JAMAIS le sous-équipement (même s'il n'a plus aucun parent → parent_equipment_id=None). Réaffecte le parent principal.
+- **Frontend** SubEquipments.jsx: sélecteur parent → multi-sélection (chips ajout/suppression, `parent-equipment-chips`, `remove-parent-{id}`, `input-parent-equipment`). Affichage liste/détail = tous les parents. Filtres adaptés. Interventions.jsx: sous-équipements proposés si l'équipement choisi est l'un de leurs parents.
+- Import sous-équipements: peuple aussi `parent_equipment_ids`. Index Mongo ajouté.
+- Vérifié curl (multi-parent OK, filtre par E1/E2 OK, suppression E1 puis E2 → sous-équipement conservé, détaché) + navigateur (chips, 0 erreur). Données existantes inchangées.
+
 ## Changelog (2026-06-20d) — Corrélation interventions ↔ maintenances préventives (outil admin)
 - **Endpoint** `POST /api/admin/correlate-interventions?apply=false|true&threshold=0.9` (admin): relie les interventions non liées (`maintenance_preventive_id` null) à la maintenance préventive du MÊME équipement dont le titre correspond au texte de l'action (préfixe/exact prioritaire via `_match_score`, sinon similarité difflib ≥ seuil). apply=false = aperçu (dry-run, aucune modif) ; apply=true = applique via `bulk_write` (rapide). Passe les interventions rattachées en type « préventive ».
 - **UI** Import.jsx : carte « Corréler interventions ↔ maintenances préventives » → bouton « Aperçu de la corrélation » (correlate-preview-btn) → dialog avec compteurs + exemples (Action → Maintenance) → bouton « Appliquer (N) » (correlate-apply-btn). `importAPI.correlateInterventions(apply)`.

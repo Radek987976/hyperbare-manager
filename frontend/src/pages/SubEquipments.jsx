@@ -73,7 +73,7 @@ const SubEquipments = () => {
     nom: '',
     reference: '',
     numero_serie: '',
-    parent_equipment_id: '',
+    parent_equipment_ids: [],
     description: '',
     date_installation: '',
     statut: 'en_service'
@@ -126,7 +126,7 @@ const SubEquipments = () => {
       nom: '',
       reference: '',
       numero_serie: '',
-      parent_equipment_id: '',
+      parent_equipment_ids: [],
       description: '',
       date_installation: '',
       statut: 'en_service'
@@ -140,7 +140,7 @@ const SubEquipments = () => {
       nom: item.nom,
       reference: item.reference,
       numero_serie: item.numero_serie || '',
-      parent_equipment_id: item.parent_equipment_id,
+      parent_equipment_ids: parentIdsOf(item),
       description: item.description || '',
       date_installation: item.date_installation || '',
       statut: item.statut
@@ -154,17 +154,18 @@ const SubEquipments = () => {
   };
 
   const handleSave = async () => {
-    if (!formData.nom || !formData.reference || !formData.parent_equipment_id) {
-      alert('Le nom, la référence et l\'équipement parent sont obligatoires');
+    if (!formData.nom || !formData.reference || !formData.parent_equipment_ids.length) {
+      alert('Le nom, la référence et au moins un équipement parent sont obligatoires');
       return;
     }
     
     setSaving(true);
     try {
+      const payload = { ...formData, parent_equipment_id: formData.parent_equipment_ids[0] };
       if (selectedItem) {
-        await subEquipmentsAPI.update(selectedItem.id, formData);
+        await subEquipmentsAPI.update(selectedItem.id, payload);
       } else {
-        await subEquipmentsAPI.create(formData);
+        await subEquipmentsAPI.create(payload);
       }
       await loadData();
       setShowModal(false);
@@ -251,18 +252,34 @@ const SubEquipments = () => {
     return parent ? `${parent.type} - ${parent.reference}` : '-';
   };
 
+  const parentIdsOf = (item) => {
+    if (item.parent_equipment_ids && item.parent_equipment_ids.length) return item.parent_equipment_ids;
+    return item.parent_equipment_id ? [item.parent_equipment_id] : [];
+  };
+
+  const getParentNames = (item) => {
+    const names = parentIdsOf(item).map((pid) => {
+      const p = equipments.find((e) => e.id === pid);
+      return p ? `${p.type} - ${p.reference}` : null;
+    }).filter(Boolean);
+    return names.length ? names.join(', ') : '-';
+  };
+
   const parentTypeOf = (item) => {
-    const p = equipments.find(e => e.id === item.parent_equipment_id);
+    const p = equipments.find(e => e.id === (parentIdsOf(item)[0]));
     return p ? p.type : null;
   };
+  const parentTypesOf = (item) => parentIdsOf(item)
+    .map((pid) => equipments.find((e) => e.id === pid)?.type)
+    .filter(Boolean);
   const parentTypes = [...new Set(equipments.map(e => e.type).filter(Boolean))]
     .sort((a, b) => a.localeCompare(b, 'fr', { sensitivity: 'base' }));
 
   const filtered = subEquipments.filter(item => {
     const matchSearch = item.nom.toLowerCase().includes(searchTerm.toLowerCase()) ||
                        item.reference.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchParent = filterParent === 'all' || item.parent_equipment_id === filterParent;
-    const matchParentType = filterParentType === 'all' || parentTypeOf(item) === filterParentType;
+    const matchParent = filterParent === 'all' || parentIdsOf(item).includes(filterParent);
+    const matchParentType = filterParentType === 'all' || parentTypesOf(item).includes(filterParentType);
     return matchSearch && matchParent && matchParentType;
   }).sort((a, b) => (a.nom || '').localeCompare(b.nom || '', 'fr', { sensitivity: 'base', numeric: true }));
 
@@ -354,7 +371,7 @@ const SubEquipments = () => {
                 <TableRow key={item.id} className={item.statut === 'hors_service' ? 'opacity-50 grayscale' : ''}>
                   <TableCell className="font-medium">{item.nom}</TableCell>
                   <TableCell>{item.reference}</TableCell>
-                  <TableCell>{getParentName(item.parent_equipment_id)}</TableCell>
+                  <TableCell>{getParentNames(item)}</TableCell>
                   <TableCell>
                     <Badge className={getStatusClass(item.statut)}>
                       {statusLabels[item.statut] || item.statut}
@@ -410,13 +427,42 @@ const SubEquipments = () => {
           
           <div className="space-y-4 py-4 max-h-[60vh] overflow-y-auto">
             <div className="space-y-2">
-              <Label>Équipement parent *</Label>
+              <Label>Équipements parents *</Label>
+              <p className="text-xs text-slate-500">Un sous-équipement (ex. un manomètre) peut être rattaché à plusieurs équipements.</p>
+              {formData.parent_equipment_ids.length > 0 && (
+                <div className="flex flex-wrap gap-2" data-testid="parent-equipment-chips">
+                  {formData.parent_equipment_ids.map((pid) => {
+                    const eq = equipments.find((e) => e.id === pid);
+                    return (
+                      <span key={pid} className="inline-flex items-center gap-1 pl-3 pr-1 py-1 rounded-full bg-[#005F73]/10 text-[#005F73] text-sm">
+                        {eq ? `${eq.type} - ${eq.reference}` : pid}
+                        <button
+                          type="button"
+                          data-testid={`remove-parent-${pid}`}
+                          onClick={() => setFormData((prev) => ({ ...prev, parent_equipment_ids: prev.parent_equipment_ids.filter((x) => x !== pid) }))}
+                          className="ml-1 rounded-full hover:bg-[#005F73]/20 w-5 h-5 flex items-center justify-center"
+                        >
+                          ×
+                        </button>
+                      </span>
+                    );
+                  })}
+                </div>
+              )}
               <SearchableSelect
-                value={formData.parent_equipment_id}
-                onValueChange={(v) => handleSelectChange('parent_equipment_id', v)}
+                value=""
+                onValueChange={(v) => {
+                  if (v && !formData.parent_equipment_ids.includes(v)) {
+                    setFormData((prev) => ({ ...prev, parent_equipment_ids: [...prev.parent_equipment_ids, v] }));
+                  }
+                }}
                 data-testid="input-parent-equipment"
-                placeholder="Sélectionner l'équipement parent"
-                options={equipments.map(eq => ({ value: eq.id, label: `${eq.type} - ${eq.reference}` }))}
+                placeholder="Ajouter un équipement parent"
+                searchPlaceholder="Rechercher un équipement..."
+                options={equipments
+                  .filter((eq) => !formData.parent_equipment_ids.includes(eq.id))
+                  .map(eq => ({ value: eq.id, label: `${eq.type} - ${eq.reference}` }))}
+                emptyText="Tous les équipements sont déjà ajoutés"
               />
             </div>
             
@@ -513,8 +559,8 @@ const SubEquipments = () => {
                   <p className="font-medium">{selectedItem.reference}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-slate-500">Équipement parent</p>
-                  <p className="font-medium">{getParentName(selectedItem.parent_equipment_id)}</p>
+                  <p className="text-sm text-slate-500">Équipements parents</p>
+                  <p className="font-medium">{getParentNames(selectedItem)}</p>
                 </div>
                 <div>
                   <p className="text-sm text-slate-500">Statut</p>

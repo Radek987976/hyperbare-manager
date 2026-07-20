@@ -1,5 +1,8 @@
 # HyperbareManager - PRD (Product Requirements Document)
 
+## Changelog (2026-06-20j) — Intervention: masquer les équipements réformés
+- Interventions.jsx: la liste déroulante « Équipement » du formulaire exclut les équipements `statut === 'reforme'`. Vérifié navigateur (recherche « COMANEX » réformé → aucun résultat).
+
 ## Changelog (2026-06-20i) — Corrections d'affichage mobile (modales + listes déroulantes)
 - **Modales** (`components/ui/dialog.jsx`): ajout de `max-h-[90dvh] overflow-y-auto overscroll-contain` au `DialogContent` de base → sur smartphone le contenu ne dépasse plus en haut de l'écran (champ auparavant caché après rotation paysage→portrait) et défile en interne. Corrige toutes les modales de l'app (plusieurs n'avaient pas de hauteur max).
 - **Listes déroulantes** (`components/ui/searchable-select.jsx`): `Popover` passé en `modal` → la liste (portail hors modale) défile désormais correctement sur mobile (le scroll-lock de la modale la bloquait auparavant). Sélection d'option toujours fonctionnelle.

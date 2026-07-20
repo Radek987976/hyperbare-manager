@@ -525,6 +525,7 @@ function Interventions() {
                   placeholder="Sélectionner un équipement"
                   searchPlaceholder="Rechercher un équipement..."
                   options={[...data.equipments]
+                    .filter(e => e.statut !== 'reforme')
                     .sort((a, b) => (a.reference || '').localeCompare(b.reference || ''))
                     .map(e => ({ value: e.id, label: `${e.reference}${e.type ? ` (${e.type})` : ''}` }))}
                   data-testid="interv-equipment-select"

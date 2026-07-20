@@ -5418,7 +5418,7 @@ TEMPLATES = {
     "sous-equipements": {
         "sheet": "Sous-equipements",
         "headers": ["PARENT_EQUIPEMENT", "NOM", "REFERENCE", "N_SERIE", "DATE_INSTALLATION", "STATUT", "DESCRIPTION"],
-        "example": ["Pupitre de commande", "Manomètre HP CHPF", "MANO-CHPF-01", "", "01/09/2000", "en_service", "Manomètre haute pression (soupape/déverseur/manomètre)"],
+        "example": ["Pupitre de commande; Compresseur BAUER 01", "Manomètre HP CHPF", "MANO-CHPF-01", "", "01/09/2000", "en_service", "Plusieurs équipements parents séparés par ';'"],
     },
     "maintenance": {
         "sheet": "Maintenances",
@@ -5774,29 +5774,45 @@ async def import_subequipments_from_rows(rows: list) -> dict:
         if e.get("numero_serie"):
             by_ref.setdefault(str(e["numero_serie"]).strip().lower(), e["id"])
     for i, row in enumerate(rows):
-        parent = _cell(row, "PARENT_EQUIPEMENT", "PARENT", "EQUIPEMENT")
+        parent_raw = _cell(row, "PARENT_EQUIPEMENT", "PARENT_EQUIPEMENTS", "PARENTS", "PARENT", "EQUIPEMENT")
         nom = _cell(row, "NOM", "DESIGNATION", "DÉSIGNATION")
-        if not parent or not nom:
+        if not parent_raw or not nom:
             errors.append(f"Ligne {i + 2}: PARENT_EQUIPEMENT et NOM obligatoires")
             continue
-        pid = by_ref.get(parent.strip().lower())
-        if not pid:
-            errors.append(f"Ligne {i + 2}: équipement parent introuvable ('{parent}')")
+        # Plusieurs parents séparés par ';' ou ','
+        pids, missing = [], []
+        for part in re.split(r"[;,]", parent_raw):
+            p = part.strip()
+            if not p:
+                continue
+            x = by_ref.get(p.lower())
+            if x:
+                if x not in pids:
+                    pids.append(x)
+            else:
+                missing.append(p)
+        if not pids:
+            errors.append(f"Ligne {i + 2}: aucun équipement parent trouvé ('{parent_raw}')")
             continue
+        if missing:
+            errors.append(f"Ligne {i + 2}: parent(s) ignoré(s) car introuvable(s): {', '.join(missing)}")
         ref = _cell(row, "REFERENCE", "RÉFÉRENCE", "REF") or nom
         statut = (_cell(row, "STATUT") or "en_service").lower()
         fields = {
             "nom": nom,
             "reference": ref,
             "numero_serie": _cell(row, "N_SERIE", "NUMERO_SERIE"),
-            "parent_equipment_id": pid,
-            "parent_equipment_ids": [pid],
+            "parent_equipment_id": pids[0],
+            "parent_equipment_ids": pids,
             "description": _cell(row, "DESCRIPTION", "TYPE"),
             "date_installation": _parse_date(_cell(row, "DATE_INSTALLATION", "DATE INSTALLATION")),
             "statut": statut if statut in ("en_service", "maintenance", "hors_service") else "en_service",
         }
         clean = {k: v for k, v in fields.items() if v is not None}
-        existing = await db.subequipments.find_one({"reference": ref, "parent_equipment_id": pid}, {"_id": 0, "id": 1})
+        existing = await db.subequipments.find_one(
+            {"reference": ref, "$or": [{"parent_equipment_id": {"$in": pids}}, {"parent_equipment_ids": {"$in": pids}}]},
+            {"_id": 0, "id": 1},
+        )
         if existing:
             await db.subequipments.update_one({"id": existing["id"]}, {"$set": clean})
             updated += 1

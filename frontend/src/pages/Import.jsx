@@ -69,7 +69,7 @@ const IMPORT_TYPES = [
   {
     value: 'sous-equipements',
     label: 'Sous-équipements (soupapes, manomètres, déverseurs)',
-    description: 'Importer les sous-équipements rattachés à un équipement parent. Colonnes : PARENT_EQUIPEMENT, NOM, REFERENCE, N_SERIE, DATE_INSTALLATION, STATUT, DESCRIPTION.',
+    description: 'Importer les sous-équipements rattachés à un ou plusieurs équipements parents. Colonnes : PARENT_EQUIPEMENT (plusieurs parents possibles séparés par « ; »), NOM, REFERENCE, N_SERIE, DATE_INSTALLATION, STATUT, DESCRIPTION.',
     icon: '⚙️'
   },
   {

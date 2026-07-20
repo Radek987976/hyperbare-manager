@@ -1,5 +1,9 @@
 # HyperbareManager - PRD (Product Requirements Document)
 
+## Changelog (2026-06-20f) — Import sous-équipements multi-parents
+- `import_subequipments_from_rows`: colonne PARENT_EQUIPEMENT accepte plusieurs équipements séparés par « ; » ou « , » → `parent_equipment_ids` + `parent_equipment_id` (1er). Parents introuvables ignorés avec avertissement (import continue si ≥1 parent valide). Anti-doublon par référence + intersection des parents. Modèle Excel mis à jour (exemple multi-parents). Description Import.jsx mise à jour.
+- Vérifié curl: « ZZEQ-A; ZZEQ-B » → 2 parents ; parent inconnu ignoré (warning) ; import OK.
+
 ## Changelog (2026-06-20e) — Sous-équipements multi-parents (manomètre rattaché à plusieurs équipements)
 - **Modèle**: `SubEquipmentBase.parent_equipment_ids: List[str]` (multi) + `parent_equipment_id` conservé comme parent principal (rétro-compat, = 1er de la liste). Helper `_normalize_parent_ids`.
 - **Endpoints**: create/update valident chaque parent, stockent la liste + principal. `GET /subequipments?parent_equipment_id=X` matche `parent_equipment_id == X OU X ∈ parent_equipment_ids`. Rétro-compat en lecture (anciens docs → [parent_equipment_id]).

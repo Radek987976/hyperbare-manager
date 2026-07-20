@@ -1,5 +1,9 @@
 # HyperbareManager - PRD (Product Requirements Document)
 
+## Changelog (2026-06-20l) — Filtre par date d'intervention
+- Interventions.jsx: ajout de deux champs date (« du » / « au ») filtrant `date_intervention` (comparaison YYYY-MM-DD, gère le format ISO). Bouton « Effacer ». `data-testid` interv-filter-date-from / -to / -reset.
+- Vérifié navigateur: période 01→31/07/2026 n'affiche que les interventions de juillet.
+
 ## Changelog (2026-06-20k) — Masquer les équipements réformés (contrôle réglementaire + planning)
 - ControlReports.jsx (/pv-controle) + Inspections.jsx (/controles): sélecteur « Équipement concerné » exclut `statut === 'reforme'`. Planning.jsx: filtre « Tous les équipements » exclut les réformés. Maintenance préventive (WorkOrders.jsx) filtrait déjà les réformés.
 - Vérifié navigateur: recherche « COMANEX » (réformé) → « Aucun résultat » dans le formulaire de contrôle réglementaire.

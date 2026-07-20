@@ -1,5 +1,11 @@
 # HyperbareManager - PRD (Product Requirements Document)
 
+## Changelog (2026-06-20h) — Propagation dynamique des sous-équipements via "_GENERAL"
+- **Règle**: un sous-équipement rattaché à un équipement `PREFIX_GENERAL` est automatiquement associé à tous les équipements du même préfixe (texte avant le 1er "_"). Ex: CHA_GENERAL → CHA_CHRONIQUE, CHA_SAS, CHA_URGENCE. Dynamique (aucune duplication de liens ; suit les équipements ajoutés plus tard).
+- **Backend** `GET /subequipments?parent_equipment_id=X`: calcule les `match_ids` = X + id(s) des `PREFIX_GENERAL` de même préfixe, puis filtre. Utilisé par le détail équipement, etc.
+- **Frontend** helper partagé `subEquipmentMatchesEquipment` (lib/utils.js) utilisé dans Interventions.jsx (sous-équipements proposés) et SubEquipments.jsx (filtre par équipement). Helpers `equipmentPrefix`, `subEquipmentParentIds`.
+- Vérifié curl (CHA_CHRONIQUE & CHA_SAS voient le sous-équipement de CHA_GENERAL ; pas de fuite vers PUP_*) + navigateur (dropdown intervention propose le sous-équipement general). Aucune donnée modifiée.
+
 ## Changelog (2026-06-20g) — Intervention: sélection de plusieurs sous-équipements
 - **Modèle**: `InterventionBase.sous_equipement_ids: List[str]` (multi) + `sous_equipement_id` conservé (principal, = 1er, rétro-compat).
 - **Frontend** Interventions.jsx: champ « Sous-équipement(s) » en multi-sélection (chips ajout/suppression, `interv-sub-chips`, `interv-remove-sub-{id}`, `interv-subequipment-select`), filtré par l'équipement choisi (parents multiples pris en compte). Libellé liste + détail affichent tous les sous-équipements (getSubEquipmentNames). Payload envoie ids + principal.

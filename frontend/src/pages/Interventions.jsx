@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { interventionsAPI, workOrdersAPI, sparePartsAPI, usersAPI, equipmentsAPI, subEquipmentsAPI, contractorsAPI, openStoredFile } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
-import { formatDate } from '../lib/utils';
+import { formatDate, subEquipmentMatchesEquipment } from '../lib/utils';
 import { Card, CardContent } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
@@ -172,10 +172,7 @@ function Interventions() {
   const isCompressor = (selectedEquipment?.type || '').toLowerCase() === 'compresseur';
   // Sous-équipements rattachés à l'équipement sélectionné (pour le curatif)
   const availableSubEquipments = formData.equipment_id
-    ? data.subEquipments.filter(s =>
-        s.parent_equipment_id === formData.equipment_id ||
-        (Array.isArray(s.parent_equipment_ids) && s.parent_equipment_ids.includes(formData.equipment_id))
-      )
+    ? data.subEquipments.filter(s => subEquipmentMatchesEquipment(s, formData.equipment_id, data.equipments))
     : [];
 
   // Pièces détachées destinées au type de l'équipement sélectionné

@@ -171,3 +171,30 @@ export function daysUntil(dateString) {
   const diff = date - today;
   return Math.ceil(diff / (1000 * 60 * 60 * 24));
 }
+
+// Préfixe d'une référence d'équipement (texte avant le premier "_"), ex: "CHA_GENERAL" -> "CHA"
+export function equipmentPrefix(reference) {
+  if (!reference) return '';
+  const idx = String(reference).indexOf('_');
+  return idx === -1 ? String(reference) : String(reference).slice(0, idx);
+}
+
+// Parents directs d'un sous-équipement (compat mono/multi)
+export function subEquipmentParentIds(sub) {
+  if (sub?.parent_equipment_ids && sub.parent_equipment_ids.length) return sub.parent_equipment_ids;
+  return sub?.parent_equipment_id ? [sub.parent_equipment_id] : [];
+}
+
+// Un sous-équipement est-il associé à un équipement ?
+// Règle: rattachement direct OU rattaché à un "PREFIX_GENERAL" du même préfixe que l'équipement.
+export function subEquipmentMatchesEquipment(sub, equipmentId, equipments) {
+  const parents = subEquipmentParentIds(sub);
+  if (parents.includes(equipmentId)) return true;
+  const eq = (equipments || []).find(e => e.id === equipmentId);
+  if (!eq || !eq.reference) return false;
+  const prefix = equipmentPrefix(eq.reference);
+  return parents.some(pid => {
+    const p = (equipments || []).find(e => e.id === pid);
+    return p && p.reference && p.reference.endsWith('_GENERAL') && equipmentPrefix(p.reference) === prefix;
+  });
+}

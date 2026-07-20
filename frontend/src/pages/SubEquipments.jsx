@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { subEquipmentsAPI, equipmentsAPI, openStoredFile } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
-import { formatDate, statusLabels, getStatusClass } from '../lib/utils';
+import { formatDate, statusLabels, getStatusClass, subEquipmentMatchesEquipment } from '../lib/utils';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
@@ -278,7 +278,7 @@ const SubEquipments = () => {
   const filtered = subEquipments.filter(item => {
     const matchSearch = item.nom.toLowerCase().includes(searchTerm.toLowerCase()) ||
                        item.reference.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchParent = filterParent === 'all' || parentIdsOf(item).includes(filterParent);
+    const matchParent = filterParent === 'all' || subEquipmentMatchesEquipment(item, filterParent, equipments);
     const matchParentType = filterParentType === 'all' || parentTypesOf(item).includes(filterParentType);
     return matchSearch && matchParent && matchParentType;
   }).sort((a, b) => (a.nom || '').localeCompare(b.nom || '', 'fr', { sensitivity: 'base', numeric: true }));

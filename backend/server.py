@@ -1490,9 +1490,18 @@ async def get_subequipments(
 ):
     query = {}
     if parent_equipment_id:
+        # Expansion dynamique: un sous-équipement rattaché à "PREFIX_GENERAL"
+        # est aussi associé à tous les équipements du même préfixe (avant le premier "_").
+        match_ids = [parent_equipment_id]
+        eq = await db.equipments.find_one({"id": parent_equipment_id}, {"_id": 0, "reference": 1})
+        if eq and eq.get("reference"):
+            prefix = str(eq["reference"]).split("_")[0]
+            async for g in db.equipments.find({"reference": {"$regex": f"^{re.escape(prefix)}_GENERAL$", "$options": "i"}}, {"_id": 0, "id": 1}):
+                if g["id"] not in match_ids:
+                    match_ids.append(g["id"])
         query["$or"] = [
-            {"parent_equipment_id": parent_equipment_id},
-            {"parent_equipment_ids": parent_equipment_id},
+            {"parent_equipment_id": {"$in": match_ids}},
+            {"parent_equipment_ids": {"$in": match_ids}},
         ]
 
     subequipments = await db.subequipments.find(query, {"_id": 0}).to_list(1000)

@@ -1,5 +1,12 @@
 # HyperbareManager - PRD (Product Requirements Document)
 
+## Changelog (2026-06-20m) — Tableaux de relevés personnalisés (Servomex + Air respirable) — VÉRIFIÉ
+- **Constat**: la fonctionnalité était déjà implémentée et fonctionnelle. Interventions.jsx détecte la maintenance sélectionnée (useEffect L121) et affiche le tableau de relevés adapté : `servomex_calibrage` (grille LOW/HIGH/ECHELLE × I1-I4) ou `air_respirable` (H2O, CO, CO2, huile, odeur/goût). Stockage backend dans `InterventionBase.mesures` (dict, server.py L512). Affichage dans le détail (L898-925).
+- **Cause du « tableau caché » vu au fork précédent**: la maintenance « Analyse de l'air respirable des compresseurs (6 mois) » était au statut `annulee` sur COMP_BAUER 01 (et COMP_LUCHAR réformé) → non sélectionnable dans la liste (filtre planifiee/en_cours) → le tableau ne pouvait pas apparaître. Seul COMP_BAUER 02 l'avait `planifiee`.
+- **Action (consigne user: activité sur équipements en service, uniquement sur ces maintenances)**: réactivation (`annulee`→`planifiee`) de « Analyse de l'air respirable » sur les compresseurs EN SERVICE (COMP_BAUER 01). COMP_LUCHAR (réformé) laissé en `annulee`. Servomex déjà `planifiee` sur les 2 pupitres en service. Aucune autre maintenance de BAUER 01 modifiée.
+- **Vérifié**: curl (POST intervention avec mesures air_respirable → persisté → supprimé) + navigateur (tableau Servomex sur PUP_CHRONIQUE OK, tableau Air respirable sur COMP_BAUER 01 & 02 OK).
+- Redéploiement production requis pour propager le code (la réactivation des données s'applique déjà, base partagée preview/prod).
+
 ## Changelog (2026-06-20l) — Filtre par date d'intervention
 - Interventions.jsx: ajout de deux champs date (« du » / « au ») filtrant `date_intervention` (comparaison YYYY-MM-DD, gère le format ISO). Bouton « Effacer ». `data-testid` interv-filter-date-from / -to / -reset.
 - Vérifié navigateur: période 01→31/07/2026 n'affiche que les interventions de juillet.

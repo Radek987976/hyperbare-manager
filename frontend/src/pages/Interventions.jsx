@@ -15,6 +15,31 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { SearchableSelect } from '../components/ui/searchable-select';
 import { History, Plus, Search, Eye, Loader2, Clock, User, Package, Wrench, Activity, FileText, Upload, Edit, Trash2, X } from 'lucide-react';
 
+// Paramètres de l'analyse de l'air respirable (Classeur2)
+const AIR_RESPIRABLE_ROWS = [
+  { key: 'h2o', label: "Vapeur d'eau H2O", max: 'max 100 mg/m³', unit: 'mg/m³' },
+  { key: 'co', label: 'Monoxyde de carbone CO', max: 'max 5 ppm', unit: 'ppm' },
+  { key: 'co2', label: 'Dioxyde de carbone CO2', max: 'max 500 ppm', unit: 'ppm' },
+  { key: 'huile', label: "Vapeur d'huile", max: 'max 0,5 mg/m³', unit: 'mg/m³' },
+  { key: 'odeur_gout', label: 'Odeur et goût', max: '', unit: '' },
+];
+const SERVOMEX_ROWS = ['LOW', 'HIGH', 'ECHELLE'];
+const SERVOMEX_COLS = ['I1', 'I2', 'I3', 'I4'];
+
+function defaultMesures(type) {
+  if (type === 'servomex_calibrage') {
+    const grille = {};
+    SERVOMEX_ROWS.forEach(r => { grille[r] = { I1: '', I2: '', I3: '', I4: '' }; });
+    return { type, grille };
+  }
+  if (type === 'air_respirable') {
+    const valeurs = {};
+    AIR_RESPIRABLE_ROWS.forEach(r => { valeurs[r.key] = ''; });
+    return { type, valeurs };
+  }
+  return null;
+}
+
 function Interventions() {
   const { user } = useAuth();
   const isAdmin = user?.role === 'admin';
@@ -61,7 +86,8 @@ function Interventions() {
     observations: '',
     duree_minutes: '',
     compteur_horaire: '',
-    pieces_utilisees: []
+    pieces_utilisees: [],
+    mesures: null
   };
   const [formData, setFormData] = useState(emptyForm);
 
@@ -90,6 +116,23 @@ function Interventions() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data.workOrders, _loc.state]);
+
+  // Détection automatique du tableau de relevés selon la maintenance sélectionnée
+  useEffect(() => {
+    if (!showModal) return;
+    const wo = data.workOrders.find(w => w.id === formData.maintenance_preventive_id);
+    const text = `${formData.titre || ''} ${wo?.titre || ''}`.toLowerCase();
+    let t = null;
+    if (text.includes('servomex') && text.includes('analyseur')) t = 'servomex_calibrage';
+    else if (text.includes("analyse de l'air respirable")) t = 'air_respirable';
+    setFormData(prev => {
+      if (t && (!prev.mesures || prev.mesures.type !== t)) {
+        return { ...prev, mesures: defaultMesures(t) };
+      }
+      return prev;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formData.titre, formData.maintenance_preventive_id, showModal]);
 
   async function loadData() {
     try {
@@ -213,7 +256,8 @@ function Interventions() {
         pieces_utilisees: formData.pieces_utilisees.map(p => ({
           spare_part_id: p.spare_part_id,
           quantite: p.quantite
-        }))
+        })),
+        mesures: formData.mesures || null
       };
       if (editingId) {
         await interventionsAPI.update(editingId, payload);
@@ -252,6 +296,7 @@ function Interventions() {
         quantite: p.quantite,
         nom: getPartName(p.spare_part_id),
       })),
+      mesures: item.mesures || null,
     });
     setShowCustomTechnicien(false);
     setShowDetailModal(false);
@@ -684,6 +729,72 @@ function Interventions() {
               <Label>Actions réalisées</Label>
               <Textarea name="actions_realisees" value={formData.actions_realisees} onChange={handleChange} rows={3} />
             </div>
+
+            {formData.mesures?.type === 'servomex_calibrage' && (
+              <div className="border rounded-lg p-4 bg-slate-50" data-testid="mesures-servomex">
+                <Label className="mb-3 block font-semibold text-[#005F73]">Calibrage de l'analyseur de gaz Servomex</Label>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm border-collapse">
+                    <thead>
+                      <tr>
+                        <th className="border p-2 bg-slate-100 text-left"></th>
+                        {SERVOMEX_COLS.map(c => <th key={c} className="border p-2 bg-slate-100 text-center">{c}</th>)}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {SERVOMEX_ROWS.map(row => (
+                        <tr key={row}>
+                          <td className="border p-2 font-medium bg-slate-100">{row}</td>
+                          {SERVOMEX_COLS.map(col => (
+                            <td key={col} className="border p-1">
+                              <Input
+                                value={formData.mesures.grille?.[row]?.[col] ?? ''}
+                                onChange={e => setFormData(prev => ({
+                                  ...prev,
+                                  mesures: { ...prev.mesures, grille: { ...prev.mesures.grille, [row]: { ...prev.mesures.grille[row], [col]: e.target.value } } }
+                                }))}
+                                className="h-9 text-center"
+                                data-testid={`servomex-${row}-${col}`}
+                              />
+                            </td>
+                          ))}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {formData.mesures?.type === 'air_respirable' && (
+              <div className="border rounded-lg p-4 bg-slate-50" data-testid="mesures-air-respirable">
+                <Label className="mb-3 block font-semibold text-[#005F73]">Analyse de l'air respirable des compresseurs (6 mois)</Label>
+                <div className="space-y-2">
+                  {AIR_RESPIRABLE_ROWS.map(r => (
+                    <div key={r.key} className="grid grid-cols-[1fr_auto] items-center gap-3">
+                      <div>
+                        <span className="text-sm font-medium text-slate-700">{r.label}</span>
+                        {r.max && <span className="text-xs text-slate-400 ml-2">{r.max}</span>}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Input
+                          value={formData.mesures.valeurs?.[r.key] ?? ''}
+                          onChange={e => setFormData(prev => ({
+                            ...prev,
+                            mesures: { ...prev.mesures, valeurs: { ...prev.mesures.valeurs, [r.key]: e.target.value } }
+                          }))}
+                          className="h-9 w-40"
+                          placeholder={r.key === 'odeur_gout' ? 'Conforme / Non conforme' : 'Valeur mesurée'}
+                          data-testid={`air-${r.key}`}
+                        />
+                        {r.unit && <span className="text-xs text-slate-500 w-14">{r.unit}</span>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <div>
               <Label>Observations</Label>
               <Textarea name="observations" value={formData.observations} onChange={handleChange} rows={2} />
@@ -783,6 +894,38 @@ function Interventions() {
               {selectedItem.observations && <p><strong>Observations:</strong> {selectedItem.observations}</p>}
               {selectedItem.duree_minutes ? <p><strong>Durée:</strong> {selectedItem.duree_minutes} min</p> : null}
               {selectedItem.compteur_horaire != null && <p><strong>Compteur horaire:</strong> {selectedItem.compteur_horaire?.toLocaleString()} h</p>}
+
+              {selectedItem.mesures?.type === 'servomex_calibrage' && (
+                <div className="border-t pt-3">
+                  <p className="font-semibold mb-2">Calibrage analyseur Servomex</p>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm border-collapse">
+                      <thead><tr><th className="border p-1 bg-slate-100"></th>{SERVOMEX_COLS.map(c => <th key={c} className="border p-1 bg-slate-100 text-center">{c}</th>)}</tr></thead>
+                      <tbody>
+                        {SERVOMEX_ROWS.map(row => (
+                          <tr key={row}>
+                            <td className="border p-1 font-medium bg-slate-100">{row}</td>
+                            {SERVOMEX_COLS.map(col => <td key={col} className="border p-1 text-center">{selectedItem.mesures.grille?.[row]?.[col] || '-'}</td>)}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+              {selectedItem.mesures?.type === 'air_respirable' && (
+                <div className="border-t pt-3">
+                  <p className="font-semibold mb-2">Analyse de l'air respirable (6 mois)</p>
+                  <div className="space-y-1">
+                    {AIR_RESPIRABLE_ROWS.map(r => (
+                      <div key={r.key} className="flex justify-between text-sm">
+                        <span className="text-slate-600">{r.label} {r.max && <span className="text-xs text-slate-400">({r.max})</span>}</span>
+                        <span className="font-medium">{selectedItem.mesures.valeurs?.[r.key] || '-'} {r.unit}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {/* Pièces utilisées */}
               {(selectedItem.pieces_utilisees || []).length > 0 && (

@@ -509,6 +509,7 @@ class InterventionBase(BaseModel):
     sous_equipement_id: Optional[str] = None  # Sous-équipement principal (rétro-compat)
     sous_equipement_ids: List[str] = []  # Sous-équipements concernés (multi-sélection)
     prestataire_id: Optional[str] = None  # Prestataire externe ayant réalisé l'intervention (optionnel)
+    mesures: Optional[dict] = None  # Relevés structurés (ex: calibrage Servomex, analyse air respirable)
     documents: List[dict] = []  # PV / documents PDF [{filename, url, uploaded_at}]
 
 class InterventionCreate(InterventionBase):

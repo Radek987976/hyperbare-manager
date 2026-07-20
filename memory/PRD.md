@@ -1,5 +1,10 @@
 # HyperbareManager - PRD (Product Requirements Document)
 
+## Changelog (2026-06-20i) — Corrections d'affichage mobile (modales + listes déroulantes)
+- **Modales** (`components/ui/dialog.jsx`): ajout de `max-h-[90dvh] overflow-y-auto overscroll-contain` au `DialogContent` de base → sur smartphone le contenu ne dépasse plus en haut de l'écran (champ auparavant caché après rotation paysage→portrait) et défile en interne. Corrige toutes les modales de l'app (plusieurs n'avaient pas de hauteur max).
+- **Listes déroulantes** (`components/ui/searchable-select.jsx`): `Popover` passé en `modal` → la liste (portail hors modale) défile désormais correctement sur mobile (le scroll-lock de la modale la bloquait auparavant). Sélection d'option toujours fonctionnelle.
+- Vérifié sur viewport smartphone 390×844: modale scrollable (haut accessible), dropdown scrollable (scrollTop 0→400), sélection OK.
+
 ## Changelog (2026-06-20h) — Propagation dynamique des sous-équipements via "_GENERAL"
 - **Règle**: un sous-équipement rattaché à un équipement `PREFIX_GENERAL` est automatiquement associé à tous les équipements du même préfixe (texte avant le 1er "_"). Ex: CHA_GENERAL → CHA_CHRONIQUE, CHA_SAS, CHA_URGENCE. Dynamique (aucune duplication de liens ; suit les équipements ajoutés plus tard).
 - **Backend** `GET /subequipments?parent_equipment_id=X`: calcule les `match_ids` = X + id(s) des `PREFIX_GENERAL` de même préfixe, puis filtre. Utilisé par le détail équipement, etc.

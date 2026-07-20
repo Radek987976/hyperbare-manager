@@ -107,7 +107,7 @@ export const SearchableSelect = React.forwardRef(function SearchableSelect(
     : placeholder;
 
   return (
-    <Popover open={open} onOpenChange={(o) => { setOpen(o); if (!o) setSearch(""); }}>
+    <Popover modal open={open} onOpenChange={(o) => { setOpen(o); if (!o) setSearch(""); }}>
       <PopoverTrigger asChild>
         <Button
           ref={ref}

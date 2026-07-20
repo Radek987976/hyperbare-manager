@@ -2065,6 +2065,109 @@ async def cleanup_fake_corrective(current_user: dict = Depends(require_admin)):
     result = await db.work_orders.delete_many(query)
     return {"success": True, "deleted": result.deleted_count, "titres": [d.get("titre") for d in to_delete]}
 
+def _norm_match_text(s: str) -> str:
+    """Normalise un texte pour comparaison: sans accents, minuscules, alphanum + espaces."""
+    try:
+        s = unicodedata.normalize('NFKD', str(s or '')).encode('ascii', 'ignore').decode()
+    except Exception:
+        s = str(s or '')
+    s = s.lower()
+    s = re.sub(r'[^a-z0-9 ]', ' ', s)
+    return re.sub(r'\s+', ' ', s).strip()
+
+
+def _match_score(action_text: str, maintenance_title: str) -> float:
+    """Score de correspondance entre le texte d'une action et un titre de maintenance.
+    Priorité au préfixe commun (l'action est le début du titre ou inversement)."""
+    a = _norm_match_text(action_text)
+    m = _norm_match_text(maintenance_title)
+    if not a or not m:
+        return 0.0
+    if a == m:
+        return 1.0
+    if m.startswith(a) or a.startswith(m):
+        return 0.97
+    if a in m or m in a:
+        return 0.9
+    from difflib import SequenceMatcher
+    return SequenceMatcher(None, a, m).ratio()
+
+
+@api_router.post("/admin/correlate-interventions")
+async def correlate_interventions(apply: bool = False, threshold: float = 0.9, current_user: dict = Depends(require_admin)):
+    """Relie automatiquement les interventions non rattachées à leur maintenance préventive
+    en comparant le texte de l'action au titre de la maintenance (même équipement).
+    apply=false => aperçu (dry-run) sans modification. apply=true => applique les liaisons."""
+    # Titres des maintenances préventives par équipement
+    prev_by_equip: dict = {}
+    async for wo in db.work_orders.find({"type_maintenance": "preventive"}, {"_id": 0, "id": 1, "titre": 1, "equipment_id": 1}):
+        eq = wo.get("equipment_id")
+        if not eq or not wo.get("titre"):
+            continue
+        prev_by_equip.setdefault(eq, [])
+        prev_by_equip[eq].append(wo)
+
+    # Références équipements pour l'affichage
+    eq_ref = {e["id"]: (e.get("reference") or e.get("type") or e["id"]) async for e in db.equipments.find({}, {"_id": 0, "id": 1, "reference": 1, "type": 1})}
+
+    query = {
+        "equipment_id": {"$nin": [None, ""]},
+        "$or": [{"maintenance_preventive_id": None}, {"maintenance_preventive_id": {"$exists": False}}, {"maintenance_preventive_id": ""}],
+    }
+    total = 0
+    matched = 0
+    unmatched = 0
+    examples = []
+    updates = []  # (intervention_id, wo_id, type)
+    async for it in db.interventions.find(query, {"_id": 0, "id": 1, "actions_realisees": 1, "titre": 1, "equipment_id": 1}):
+        total += 1
+        eq = it.get("equipment_id")
+        candidates = prev_by_equip.get(eq) or []
+        if not candidates:
+            unmatched += 1
+            continue
+        action_text = it.get("actions_realisees") or it.get("titre") or ""
+        best_wo = None
+        best_score = 0.0
+        for wo in candidates:
+            sc = _match_score(action_text, wo["titre"])
+            # départage: à score égal, préférer le titre le plus proche en longueur
+            if sc > best_score or (sc == best_score and best_wo and len(wo["titre"]) < len(best_wo["titre"])):
+                best_score = sc
+                best_wo = wo
+        if best_wo and best_score >= threshold:
+            matched += 1
+            updates.append((it["id"], best_wo["id"]))
+            if len(examples) < 25:
+                examples.append({
+                    "equipement": eq_ref.get(eq, eq),
+                    "action": (action_text or "")[:80],
+                    "maintenance": best_wo["titre"][:80],
+                    "score": round(best_score, 2),
+                })
+        else:
+            unmatched += 1
+
+    if apply and updates:
+        from pymongo import UpdateOne
+        ops = [
+            UpdateOne({"id": it_id}, {"$set": {"maintenance_preventive_id": wo_id, "type_intervention": "preventive"}})
+            for it_id, wo_id in updates
+        ]
+        for i in range(0, len(ops), 500):
+            await db.interventions.bulk_write(ops[i:i + 500], ordered=False)
+
+    return {
+        "applied": apply,
+        "total_sans_lien": total,
+        "matched": matched,
+        "unmatched": unmatched,
+        "threshold": threshold,
+        "examples": examples,
+    }
+
+
+
 @api_router.post("/interventions/{intervention_id}/documents")
 async def upload_intervention_document(
     intervention_id: str,

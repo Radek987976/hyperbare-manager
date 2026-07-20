@@ -1,5 +1,11 @@
 # HyperbareManager - PRD (Product Requirements Document)
 
+## Changelog (2026-06-20d) — Corrélation interventions ↔ maintenances préventives (outil admin)
+- **Endpoint** `POST /api/admin/correlate-interventions?apply=false|true&threshold=0.9` (admin): relie les interventions non liées (`maintenance_preventive_id` null) à la maintenance préventive du MÊME équipement dont le titre correspond au texte de l'action (préfixe/exact prioritaire via `_match_score`, sinon similarité difflib ≥ seuil). apply=false = aperçu (dry-run, aucune modif) ; apply=true = applique via `bulk_write` (rapide). Passe les interventions rattachées en type « préventive ».
+- **UI** Import.jsx : carte « Corréler interventions ↔ maintenances préventives » → bouton « Aperçu de la corrélation » (correlate-preview-btn) → dialog avec compteurs + exemples (Action → Maintenance) → bouton « Appliquer (N) » (correlate-apply-btn). `importAPI.correlateInterventions(apply)`.
+- **Vérifié preview**: dry-run 4861 sans lien → 4380 rattachées (seuil 0.9, quasi tous préfixe/exact), 481 sans correspondance. Apply ~10s, idempotent (re-run: 0 nouveau match, 481 restants). Seuil relevé à 0.9 (seulement 11 correspondances floues écartées → zéro faux positif).
+- Cible: production → après redéploiement, Import → Aperçu → Appliquer. Les 481 non rattachées (pas de maintenance préventive correspondante) restent à lier manuellement si souhaité.
+
 ## Changelog (2026-06-20c) — Import Excel des prestataires/fournisseurs (modèle + fichier réel)
 - **Modèle téléchargeable** : `TEMPLATES["prestataires"]` (feuille Prestataires) → colonnes NOM, TYPE, SPECIALITES, CONTACT_NOM, EMAIL, TELEPHONE, ADRESSE, SIRET, NOTES. Bouton « Télécharger le modèle (.xlsx) » activé pour le type « prestataires » dans Import.jsx.
 - **Import réel** : nouvelle `import_contractors_from_rows()` (remplace le seed codé en dur dans le dispatch `/api/import/excel`). SPECIALITES = types d'équipements séparés par « ; » ou « , », normalisés sur les types connus. TYPE validé (prestataire/fournisseur/organisme_controle). Anti-doublon par NOM (update sinon insert).

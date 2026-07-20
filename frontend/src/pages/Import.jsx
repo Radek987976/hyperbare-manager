@@ -96,6 +96,36 @@ const Import = () => {
   const [isInitDialogOpen, setIsInitDialogOpen] = useState(false);
   const [isInitializing, setIsInitializing] = useState(false);
   const [isCleaning, setIsCleaning] = useState(false);
+  const [isCorrelating, setIsCorrelating] = useState(false);
+  const [correlationPreview, setCorrelationPreview] = useState(null);
+
+  const handleCorrelatePreview = async () => {
+    setIsCorrelating(true);
+    setError('');
+    setResult(null);
+    try {
+      const res = await importAPI.correlateInterventions(false);
+      setCorrelationPreview(res.data);
+    } catch (err) {
+      setError(getErrorMessage(err));
+    } finally {
+      setIsCorrelating(false);
+    }
+  };
+
+  const handleCorrelateApply = async () => {
+    setIsCorrelating(true);
+    setError('');
+    try {
+      const res = await importAPI.correlateInterventions(true);
+      setResult({ type: 'correlate', message: `${res.data.matched} intervention(s) rattachée(s) à leur maintenance préventive.`, imported: res.data.matched });
+      setCorrelationPreview(null);
+    } catch (err) {
+      setError(getErrorMessage(err));
+    } finally {
+      setIsCorrelating(false);
+    }
+  };
 
   const handleCleanupFakeCorrective = async () => {
     if (!window.confirm('Supprimer les faux ordres correctifs pollués (« Formation CAH », « Y_Dépannage », « Y_Mise en service ») ? Les interventions réelles ne sont pas touchées.')) return;
@@ -261,6 +291,31 @@ const Import = () => {
               className="text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700 shrink-0" data-testid="cleanup-fake-corrective-btn">
               {isCleaning ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <XCircle className="h-4 w-4 mr-2" />}
               Nettoyer
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Corrélation interventions ↔ maintenances préventives */}
+      <Card className="border-teal-100">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Database className="h-5 w-5 text-teal-600" />
+            Corréler interventions ↔ maintenances préventives
+          </CardTitle>
+          <CardDescription>
+            Rattache automatiquement les interventions non liées à la maintenance préventive correspondante (même équipement, titre similaire à l'action).
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center justify-between gap-4">
+            <p className="text-sm text-gray-600">
+              Évite d'ouvrir chaque intervention terminée pour choisir sa maintenance. Un aperçu vous montre le nombre de correspondances avant d'appliquer.
+            </p>
+            <Button variant="outline" onClick={handleCorrelatePreview} disabled={isCorrelating}
+              className="text-teal-700 border-teal-200 hover:bg-teal-50 shrink-0" data-testid="correlate-preview-btn">
+              {isCorrelating ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Database className="h-4 w-4 mr-2" />}
+              Aperçu de la corrélation
             </Button>
           </div>
         </CardContent>
@@ -445,6 +500,41 @@ const Import = () => {
           </div>
         </CardContent>
       </Card>
+
+      {/* Correlation preview dialog */}
+      <AlertDialog open={correlationPreview !== null} onOpenChange={(open) => { if (!open) setCorrelationPreview(null); }}>
+        <AlertDialogContent className="max-w-lg">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Aperçu de la corrélation</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3 text-sm">
+                <p>
+                  <strong>{correlationPreview?.matched || 0}</strong> intervention(s) seront rattachées à leur maintenance préventive
+                  {' '}sur <strong>{correlationPreview?.total_sans_lien || 0}</strong> non liées ({correlationPreview?.unmatched || 0} sans correspondance).
+                </p>
+                {correlationPreview?.examples?.length > 0 && (
+                  <div className="border rounded-md max-h-64 overflow-y-auto divide-y">
+                    {correlationPreview.examples.map((ex, i) => (
+                      <div key={i} className="p-2">
+                        <div className="text-xs text-gray-400">{ex.equipement} · score {ex.score}</div>
+                        <div className="text-gray-700"><span className="text-gray-500">Action :</span> {ex.action}</div>
+                        <div className="text-teal-700"><span className="text-gray-500">→ Maintenance :</span> {ex.maintenance}</div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <p className="text-xs text-gray-400">Les interventions rattachées passent en type « préventive ». Cette action ne supprime aucune donnée.</p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annuler</AlertDialogCancel>
+            <AlertDialogAction onClick={handleCorrelateApply} disabled={isCorrelating || !correlationPreview?.matched} data-testid="correlate-apply-btn">
+              {isCorrelating ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Application...</> : `Appliquer (${correlationPreview?.matched || 0})`}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Init Dialog */}
       <AlertDialog open={isInitDialogOpen} onOpenChange={setIsInitDialogOpen}>

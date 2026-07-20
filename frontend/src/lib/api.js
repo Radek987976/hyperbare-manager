@@ -405,6 +405,7 @@ export const importAPI = {
   initDefaultData: () => api.post('/init/default-data'),
   resetHistory: () => api.post('/admin/reset-history?confirm=RESET'),
   resetHistoryStatus: () => api.get('/admin/reset-history-status'),
+  correlateInterventions: (apply = false) => api.post(`/admin/correlate-interventions?apply=${apply}`),
 };
 
 export default api;

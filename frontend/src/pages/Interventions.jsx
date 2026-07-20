@@ -50,7 +50,7 @@ function Interventions() {
     work_order_id: '',
     maintenance_preventive_id: '',
     equipment_id: '',
-    sous_equipement_id: '',
+    sous_equipement_ids: [],
     prestataire_id: '',
     titre: '',
     date_intervention: new Date().toISOString().split('T')[0],
@@ -202,7 +202,8 @@ function Interventions() {
         maintenance_preventive_id: formData.type_intervention === 'preventive' ? formData.maintenance_preventive_id : null,
         titre: formData.type_intervention === 'curative' ? formData.titre : null,
         equipment_id: formData.equipment_id || null,
-        sous_equipement_id: formData.sous_equipement_id || null,
+        sous_equipement_ids: formData.sous_equipement_ids,
+        sous_equipement_id: formData.sous_equipement_ids[0] || null,
         prestataire_id: formData.prestataire_id || null,
         date_intervention: formData.date_intervention,
         technicien: formData.technicien,
@@ -236,7 +237,9 @@ function Interventions() {
       work_order_id: item.work_order_id || '',
       maintenance_preventive_id: item.maintenance_preventive_id || '',
       equipment_id: item.equipment_id || '',
-      sous_equipement_id: item.sous_equipement_id || '',
+      sous_equipement_ids: (item.sous_equipement_ids && item.sous_equipement_ids.length)
+        ? item.sous_equipement_ids
+        : (item.sous_equipement_id ? [item.sous_equipement_id] : []),
       prestataire_id: item.prestataire_id || '',
       titre: item.titre || '',
       date_intervention: item.date_intervention || new Date().toISOString().split('T')[0],
@@ -326,6 +329,15 @@ function Interventions() {
     return s ? (s.nom || s.reference) : null;
   }
 
+  function subIdsOf(item) {
+    if (item.sous_equipement_ids && item.sous_equipement_ids.length) return item.sous_equipement_ids;
+    return item.sous_equipement_id ? [item.sous_equipement_id] : [];
+  }
+
+  function getSubEquipmentNames(item) {
+    return subIdsOf(item).map(getSubEquipmentName).filter(Boolean).join(', ');
+  }
+
   function getContractorName(id) {
     const c = data.contractors.find(x => x.id === id);
     return c ? c.nom : null;
@@ -339,7 +351,7 @@ function Interventions() {
     const parts = [];
     if (item.titre) parts.push(item.titre);
     const eq = getEquipmentName(item.equipment_id);
-    const sub = getSubEquipmentName(item.sous_equipement_id);
+    const sub = getSubEquipmentNames(item);
     const loc = [eq, sub].filter(Boolean).join(' › ');
     if (loc) parts.push(loc);
     return parts.join(' — ') || (item.work_order_id ? getWoTitle(item.work_order_id) : '-');
@@ -448,8 +460,8 @@ function Interventions() {
                     {getEquipmentName(item.equipment_id) ? (
                       <span className="text-sm">
                         {getEquipmentName(item.equipment_id)}
-                        {getSubEquipmentName(item.sous_equipement_id) && (
-                          <span className="text-slate-400"> › {getSubEquipmentName(item.sous_equipement_id)}</span>
+                        {getSubEquipmentNames(item) && (
+                          <span className="text-slate-400"> › {getSubEquipmentNames(item)}</span>
                         )}
                       </span>
                     ) : <span className="text-slate-400">-</span>}
@@ -512,7 +524,7 @@ function Interventions() {
                 <Label>Équipement *</Label>
                 <SearchableSelect
                   value={formData.equipment_id}
-                  onValueChange={v => setFormData(p => ({ ...p, equipment_id: v, sous_equipement_id: '', maintenance_preventive_id: '' }))}
+                  onValueChange={v => setFormData(p => ({ ...p, equipment_id: v, sous_equipement_ids: [], maintenance_preventive_id: '' }))}
                   placeholder="Sélectionner un équipement"
                   searchPlaceholder="Rechercher un équipement..."
                   options={[...data.equipments]
@@ -522,14 +534,40 @@ function Interventions() {
                 />
               </div>
               <div>
-                <Label>Sous-équipement</Label>
+                <Label>Sous-équipement(s)</Label>
+                {formData.sous_equipement_ids.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mb-2" data-testid="interv-sub-chips">
+                    {formData.sous_equipement_ids.map((sid) => {
+                      const s = data.subEquipments.find(x => x.id === sid);
+                      return (
+                        <span key={sid} className="inline-flex items-center gap-1 pl-3 pr-1 py-1 rounded-full bg-[#005F73]/10 text-[#005F73] text-sm">
+                          {s ? (s.nom || s.reference) : sid}
+                          <button
+                            type="button"
+                            data-testid={`interv-remove-sub-${sid}`}
+                            onClick={() => setFormData(p => ({ ...p, sous_equipement_ids: p.sous_equipement_ids.filter(x => x !== sid) }))}
+                            className="ml-1 rounded-full hover:bg-[#005F73]/20 w-5 h-5 flex items-center justify-center"
+                          >
+                            ×
+                          </button>
+                        </span>
+                      );
+                    })}
+                  </div>
+                )}
                 <SearchableSelect
-                  value={formData.sous_equipement_id}
-                  onValueChange={v => setFormData(p => ({ ...p, sous_equipement_id: v }))}
-                  placeholder={formData.equipment_id ? 'Optionnel' : 'Choisir un équipement d\'abord'}
+                  value=""
+                  onValueChange={v => {
+                    if (v && !formData.sous_equipement_ids.includes(v)) {
+                      setFormData(p => ({ ...p, sous_equipement_ids: [...p.sous_equipement_ids, v] }));
+                    }
+                  }}
+                  placeholder={formData.equipment_id ? 'Ajouter un sous-équipement (optionnel)' : 'Choisir un équipement d\'abord'}
                   searchPlaceholder="Rechercher un sous-équipement..."
-                  options={availableSubEquipments.map(s => ({ value: s.id, label: `${s.nom || s.reference}${s.reference && s.nom ? ` (${s.reference})` : ''}` }))}
-                  emptyText="Aucun sous-équipement"
+                  options={availableSubEquipments
+                    .filter(s => !formData.sous_equipement_ids.includes(s.id))
+                    .map(s => ({ value: s.id, label: `${s.nom || s.reference}${s.reference && s.nom ? ` (${s.reference})` : ''}` }))}
+                  emptyText={formData.equipment_id ? 'Aucun autre sous-équipement' : 'Choisir un équipement d\'abord'}
                   data-testid="interv-subequipment-select"
                 />
               </div>

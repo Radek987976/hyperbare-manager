@@ -506,7 +506,8 @@ class InterventionBase(BaseModel):
     duree_minutes: Optional[int] = None
     compteur_horaire: Optional[float] = None  # Compteur horaire au moment de l'intervention (pour compresseurs)
     equipment_id: Optional[str] = None  # Équipement concerné
-    sous_equipement_id: Optional[str] = None  # Sous-équipement concerné (optionnel)
+    sous_equipement_id: Optional[str] = None  # Sous-équipement principal (rétro-compat)
+    sous_equipement_ids: List[str] = []  # Sous-équipements concernés (multi-sélection)
     prestataire_id: Optional[str] = None  # Prestataire externe ayant réalisé l'intervention (optionnel)
     documents: List[dict] = []  # PV / documents PDF [{filename, url, uploaded_at}]
 

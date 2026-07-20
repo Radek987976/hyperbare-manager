@@ -1,5 +1,10 @@
 # HyperbareManager - PRD (Product Requirements Document)
 
+## Changelog (2026-06-20g) — Intervention: sélection de plusieurs sous-équipements
+- **Modèle**: `InterventionBase.sous_equipement_ids: List[str]` (multi) + `sous_equipement_id` conservé (principal, = 1er, rétro-compat).
+- **Frontend** Interventions.jsx: champ « Sous-équipement(s) » en multi-sélection (chips ajout/suppression, `interv-sub-chips`, `interv-remove-sub-{id}`, `interv-subequipment-select`), filtré par l'équipement choisi (parents multiples pris en compte). Libellé liste + détail affichent tous les sous-équipements (getSubEquipmentNames). Payload envoie ids + principal.
+- Vérifié curl (2 sous-équipements persistés + principal) + navigateur (chips, 0 erreur).
+
 ## Changelog (2026-06-20f) — Import sous-équipements multi-parents
 - `import_subequipments_from_rows`: colonne PARENT_EQUIPEMENT accepte plusieurs équipements séparés par « ; » ou « , » → `parent_equipment_ids` + `parent_equipment_id` (1er). Parents introuvables ignorés avec avertissement (import continue si ≥1 parent valide). Anti-doublon par référence + intersection des parents. Modèle Excel mis à jour (exemple multi-parents). Description Import.jsx mise à jour.
 - Vérifié curl: « ZZEQ-A; ZZEQ-B » → 2 parents ; parent inconnu ignoré (warning) ; import OK.

@@ -25,7 +25,7 @@ import {
   DialogFooter,
 } from '../components/ui/dialog';
 import { SearchableSelect } from '../components/ui/searchable-select';
-import { useColumnFilters, applyTableFilters, distinctValues, ColumnFilter } from '../components/ui/table-column-filter';
+import { useColumnFilters, useSessionState, applyTableFilters, distinctValues, ColumnFilter } from '../components/ui/table-column-filter';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -82,8 +82,8 @@ const Contractors = () => {
   const [contractors, setContractors] = useState([]);
   const [equipmentTypes, setEquipmentTypes] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
-  const { sort: colSort, setSort: setColSort, filters: colFilters, setColumnFilter: setColColumnFilter, clearAll: clearColFilters, hasActive: hasColFilters } = useColumnFilters({ key: 'nom', dir: 'asc' });
+  const [searchTerm, setSearchTerm] = useSessionState('contractors:search', '');
+  const { sort: colSort, setSort: setColSort, filters: colFilters, setColumnFilter: setColColumnFilter, clearAll: clearColFilters, hasActive: hasColFilters } = useColumnFilters({ key: 'nom', dir: 'asc' }, 'contractors:cols');
   
   // Dialog states
   const [isDialogOpen, setIsDialogOpen] = useState(false);

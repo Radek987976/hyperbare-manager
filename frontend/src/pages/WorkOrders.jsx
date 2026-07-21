@@ -35,7 +35,7 @@ import {
   DialogFooter,
 } from '../components/ui/dialog';
 import { SearchableSelect } from '../components/ui/searchable-select';
-import { useColumnFilters, applyTableFilters, distinctValues, ColumnFilter } from '../components/ui/table-column-filter';
+import { useColumnFilters, useSessionState, applyTableFilters, distinctValues, ColumnFilter } from '../components/ui/table-column-filter';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -85,7 +85,7 @@ const WorkOrders = () => {
   const [technicians, setTechnicians] = useState([]);
   const [caisson, setCaisson] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchTerm, setSearchTerm] = useSessionState('workorders:search', '');
   const _loc = useLocation();
   useEffect(() => { if (_loc.state?.q) setSearchTerm(_loc.state.q); }, [_loc.state]);
   useEffect(() => {
@@ -95,7 +95,7 @@ const WorkOrders = () => {
       if (wo) { setSelectedWorkOrder(wo); setShowDetailModal(true); }
     }
   }, [workOrders, _loc.state]);
-  const { sort: colSort, setSort: setColSort, filters: colFilters, setColumnFilter: setColColumnFilter, clearAll: clearColFilters, hasActive: hasColFilters } = useColumnFilters(null);
+  const { sort: colSort, setSort: setColSort, filters: colFilters, setColumnFilter: setColColumnFilter, clearAll: clearColFilters, hasActive: hasColFilters } = useColumnFilters(null, 'workorders:cols');
   const [activeTab, setActiveTab] = useState('all');
   
   const [showModal, setShowModal] = useState(false);

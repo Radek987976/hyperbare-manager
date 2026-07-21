@@ -1,5 +1,13 @@
 # HyperbareManager - PRD (Product Requirements Document)
 
+## Changelog (2026-06-21o) — Registre PDF des contrôles + filtres persistants
+- **Registre des contrôles réglementaires en PDF (audit)** :
+  - `GET /reports/pdf/registre-controles` : PDF **paysage A4** avec en-tête officiel CHPF (`make_header_canvas` désormais paramétrable `page_w`/`page_h` pour supporter le paysage). Ligne de synthèse (Total / Valides / Expirés / À planifier), tableau (Titre, Type, Équipement, Périodicité, Dernière réalisation, Prochaine échéance, Statut, Organisme, Résultat), **lignes expirées en rouge**, pied de page signatures. Vérifié : HTTP 200 + rendu visuel OK.
+  - UI : nouvelle carte « Registre des contrôles réglementaires » sur la page Rapports (`Reports.jsx`) avec Aperçu/Imprimer + Télécharger. `reportsAPI.registreControlesPDF()`.
+- **Filtres persistants (même session)** :
+  - Hook `useSessionState(key, default)` + `useColumnFilters(initialSort, storageKey)` persistent recherche, tris et filtres Excel dans `sessionStorage` (conservés tant que l'onglet reste ouvert).
+  - Appliqué à Équipements, Sous-équipements, Interventions (+ plage de dates), Maintenance préventive, Stock pièces, Prestataires, Contrats, Bouteilles de gaz. Clés `<page>:search` / `<page>:cols`. Vérifié écran : recherche « ARI » conservée après aller-retour Tableau de bord → Équipements.
+
 ## Changelog (2026-06-21n) — Transfert maintenances → contrôles + registre d'export
 - **Transfert vers Contrôles réglementaires (admin, page Import)** :
   - `GET /admin/transfer-candidates?q=` : liste les maintenances préventives transférables (titre, équipement, périodicité, nb interventions liées). Filtre texte.

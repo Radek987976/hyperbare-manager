@@ -13,7 +13,7 @@ import { Skeleton } from '../components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '../components/ui/dialog';
 import { SearchableSelect } from '../components/ui/searchable-select';
-import { useColumnFilters, applyTableFilters, distinctValues, ColumnFilter } from '../components/ui/table-column-filter';
+import { useColumnFilters, useSessionState, applyTableFilters, distinctValues, ColumnFilter } from '../components/ui/table-column-filter';
 import { History, Plus, Search, Eye, Loader2, Clock, User, Package, Wrench, Activity, FileText, Upload, Edit, Trash2, X, Printer } from 'lucide-react';
 
 // Paramètres de l'analyse de l'air respirable (Classeur2)
@@ -55,10 +55,10 @@ function Interventions() {
     contractors: []
   });
   const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
-  const { sort: colSort, setSort: setColSort, filters: colFilters, setColumnFilter: setColColumnFilter, clearAll: clearColFilters, hasActive: hasColFilters } = useColumnFilters(null);
-  const [filterDateFrom, setFilterDateFrom] = useState('');
-  const [filterDateTo, setFilterDateTo] = useState('');
+  const [searchTerm, setSearchTerm] = useSessionState('interventions:search', '');
+  const { sort: colSort, setSort: setColSort, filters: colFilters, setColumnFilter: setColColumnFilter, clearAll: clearColFilters, hasActive: hasColFilters } = useColumnFilters(null, 'interventions:cols');
+  const [filterDateFrom, setFilterDateFrom] = useSessionState('interventions:dateFrom', '');
+  const [filterDateTo, setFilterDateTo] = useSessionState('interventions:dateTo', '');
   const [page, setPage] = useState(1);
   const PAGE_SIZE = 25;
   const _loc = useLocation();

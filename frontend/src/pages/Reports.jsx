@@ -41,12 +41,14 @@ const Reports = () => {
     checkliste: (y, m) => `/api/reports/pdf/check-liste/${y}/${m}`,
     'pv-mensuel': (y, m) => `/api/reports/pdf/pv-controle-mensuel/${y}/${m}`,
     'pv-annuel': (y, m) => `/api/reports/pdf/pv-controle-annuel/${y}`,
+    registre: (y, m) => `/api/reports/pdf/registre-controles`,
   };
   const planApi = {
     plan: (y, m) => reportsAPI.planMaintenancePDF(y),
     checkliste: (y, m) => reportsAPI.checkListePDF(y, m),
     'pv-mensuel': (y, m) => reportsAPI.pvMensuelPDF(y, m),
     'pv-annuel': (y, m) => reportsAPI.pvAnnuelPDF(y),
+    registre: (y, m) => reportsAPI.registreControlesPDF(),
   };
 
   const previewPlan = (kind, filename) => {
@@ -392,6 +394,42 @@ const Reports = () => {
               </Card>
             ))}
           </div>
+
+          {/* Registre des contrôles réglementaires */}
+          <Card className="hover:shadow-md transition-shadow border-[#005F73]/20 bg-[#005F73]/[0.03]">
+            <CardContent className="p-6">
+              <div className="flex items-start gap-4">
+                <div className="w-12 h-12 bg-[#005F73] rounded-lg flex items-center justify-center flex-shrink-0">
+                  <ClipboardCheck className="w-6 h-6 text-white" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="font-semibold text-lg text-slate-900">Registre des contrôles réglementaires</h3>
+                  <p className="text-sm text-slate-500 mt-1">
+                    Registre complet de tous les contrôles réglementaires (échéances, statut, organisme, résultat) avec en-tête officiel CHPF — destiné aux dossiers d'audit. Les contrôles expirés apparaissent en rouge.
+                  </p>
+                  <div className="flex flex-wrap gap-2 mt-4">
+                    <Button
+                      variant="outline"
+                      onClick={() => previewPlan('registre', 'registre_controles.pdf')}
+                      className="border-[#005F73] text-[#005F73] hover:bg-[#005F73]/10"
+                      data-testid="preview-registre-btn"
+                    >
+                      <Eye className="w-4 h-4 mr-2" /> Aperçu / Imprimer
+                    </Button>
+                    <Button
+                      onClick={() => downloadPlan('registre', 'registre_controles.pdf')}
+                      disabled={loading.registre}
+                      className="bg-[#005F73] hover:bg-[#004a5c]"
+                      data-testid="download-registre-btn"
+                    >
+                      {loading.registre ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Download className="w-4 h-4 mr-2" />}
+                      Télécharger le registre PDF
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </CardContent>
       </Card>
 

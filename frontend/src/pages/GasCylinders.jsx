@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { gasCylindersAPI, contractorsAPI } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
 import { formatDate, getErrorMessage } from '../lib/utils';
-import { useColumnFilters, applyTableFilters, distinctValues, ColumnFilter } from '../components/ui/table-column-filter';
+import { useColumnFilters, useSessionState, applyTableFilters, distinctValues, ColumnFilter } from '../components/ui/table-column-filter';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
@@ -92,8 +92,8 @@ const GasCylinders = () => {
   const [contractors, setContractors] = useState([]);
   const [alerts, setAlerts] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
-  const { sort: colSort, setSort: setColSort, filters: colFilters, setColumnFilter: setColColumnFilter, clearAll: clearColFilters, hasActive: hasColFilters } = useColumnFilters({ key: 'numero_bouteille', dir: 'asc' });
+  const [searchTerm, setSearchTerm] = useSessionState('gascylinders:search', '');
+  const { sort: colSort, setSort: setColSort, filters: colFilters, setColumnFilter: setColColumnFilter, clearAll: clearColFilters, hasActive: hasColFilters } = useColumnFilters({ key: 'numero_bouteille', dir: 'asc' }, 'gascylinders:cols');
   
   // Dialog states
   const [isDialogOpen, setIsDialogOpen] = useState(false);

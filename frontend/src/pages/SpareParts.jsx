@@ -24,7 +24,7 @@ import {
   DialogFooter,
 } from '../components/ui/dialog';
 import { SearchableSelect } from '../components/ui/searchable-select';
-import { useColumnFilters, applyTableFilters, distinctValues, ColumnFilter } from '../components/ui/table-column-filter';
+import { useColumnFilters, useSessionState, applyTableFilters, distinctValues, ColumnFilter } from '../components/ui/table-column-filter';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import {
   DropdownMenu,
@@ -65,8 +65,8 @@ const SpareParts = () => {
   const [spareParts, setSpareParts] = useState([]);
   const [equipmentTypes, setEquipmentTypes] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
-  const { sort, setSort, filters, setColumnFilter, clearAll, hasActive } = useColumnFilters({ key: 'nom', dir: 'asc' });
+  const [searchTerm, setSearchTerm] = useSessionState('spareparts:search', '');
+  const { sort, setSort, filters, setColumnFilter, clearAll, hasActive } = useColumnFilters({ key: 'nom', dir: 'asc' }, 'spareparts:cols');
   const [showLowStock, setShowLowStock] = useState(false);
   
   const [showModal, setShowModal] = useState(false);

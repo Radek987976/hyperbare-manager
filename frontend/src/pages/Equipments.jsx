@@ -32,7 +32,7 @@ import {
   DialogFooter,
 } from '../components/ui/dialog';
 import { SearchableSelect } from '../components/ui/searchable-select';
-import { useColumnFilters, applyTableFilters, distinctValues, ColumnFilter } from '../components/ui/table-column-filter';
+import { useColumnFilters, useSessionState, applyTableFilters, distinctValues, ColumnFilter } from '../components/ui/table-column-filter';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -80,8 +80,8 @@ const Equipments = () => {
   const [technicians, setTechnicians] = useState([]);
   const [caisson, setCaisson] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
-  const { sort, setSort, filters, setColumnFilter, clearAll, hasActive } = useColumnFilters({ key: 'reference', dir: 'asc' });
+  const [searchTerm, setSearchTerm] = useSessionState('equipments:search', '');
+  const { sort, setSort, filters, setColumnFilter, clearAll, hasActive } = useColumnFilters({ key: 'reference', dir: 'asc' }, 'equipments:cols');
   
   const [showModal, setShowModal] = useState(false);
   const [showDetailModal, setShowDetailModal] = useState(false);

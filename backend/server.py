@@ -29,7 +29,7 @@ from openpyxl import load_workbook
 
 # PDF Generation
 from reportlab.lib import colors
-from reportlab.lib.pagesizes import A4
+from reportlab.lib.pagesizes import A4, landscape
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import cm, mm
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image as RLImage
@@ -4421,7 +4421,7 @@ def _build_header_table(intitule: str, page_str: str, avail_w: float = None, dat
     return t
 
 
-def make_header_canvas(intitule: str, margin: float = 1.5 * cm):
+def make_header_canvas(intitule: str, margin: float = 1.5 * cm, page_w: float = A4[0], page_h: float = A4[1]):
     """Fabrique un canvas qui dessine le cartouche officiel (avec « Page X sur Y ») en haut de CHAQUE page."""
     class _HeaderCanvas(pdfcanvas.Canvas):
         def __init__(self, *args, **kwargs):
@@ -4442,10 +4442,10 @@ def make_header_canvas(intitule: str, margin: float = 1.5 * cm):
 
         def _draw_header(self, total):
             page_str = f"Page : {self._pageNumber} sur {total}"
-            avail_w = A4[0] - 2 * margin
+            avail_w = page_w - 2 * margin
             t = _build_header_table(intitule, page_str, avail_w)
             w, h = t.wrapOn(self, avail_w, 6 * cm)
-            t.drawOn(self, margin, A4[1] - 1.4 * cm - h)
+            t.drawOn(self, margin, page_h - 1.4 * cm - h)
 
     return _HeaderCanvas
 
@@ -5320,6 +5320,93 @@ async def generate_pv_annuel_pdf(year: int, current_user: dict = Depends(get_cur
     buffer.seek(0)
     return StreamingResponse(buffer, media_type="application/pdf",
                              headers={"Content-Disposition": f"attachment; filename=pv_controle_annuel_{year}.pdf"})
+
+
+@api_router.get("/reports/pdf/registre-controles")
+async def generate_registre_controles_pdf(current_user: dict = Depends(get_current_user)):
+    """Registre des contrôles réglementaires (PDF paysage, en-tête officiel CHPF) pour les dossiers d'audit."""
+    inspections = await db.inspections.find({}, {"_id": 0}).to_list(10000)
+    eq_map = {e["id"]: e async for e in db.equipments.find({}, {"_id": 0, "id": 1, "reference": 1, "type": 1})}
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+
+    def _fmt(d):
+        if not d:
+            return "—"
+        try:
+            return datetime.fromisoformat(str(d).replace("Z", "+00:00")).strftime("%d/%m/%Y")
+        except Exception:
+            return str(d)[:10]
+
+    RESULTAT_LABELS = {"conforme": "Conforme", "non_conforme": "Non conforme", "avec_reserves": "Avec réserves"}
+
+    rows = []
+    n_valide = n_expire = n_planifier = 0
+    for insp in sorted(inspections, key=lambda x: (str(x.get("date_validite") or "9999"))):
+        eq = eq_map.get(insp.get("equipment_id"), {})
+        eq_label = (f"{eq.get('reference', '')}" + (f" ({eq.get('type')})" if eq.get("type") else "")) if eq else "—"
+        dv = insp.get("date_validite")
+        dr = insp.get("date_realisation")
+        if dv and str(dv)[:10] < today:
+            statut = "Expiré"
+            n_expire += 1
+        elif dr:
+            statut = "Valide"
+            n_valide += 1
+        else:
+            statut = "À planifier"
+            n_planifier += 1
+        rows.append({
+            "titre": insp.get("titre", ""),
+            "type": insp.get("type_controle", ""),
+            "equipement": eq_label,
+            "periodicite": insp.get("periodicite", ""),
+            "derniere": _fmt(dr),
+            "echeance": _fmt(dv),
+            "statut": statut,
+            "organisme": insp.get("organisme_certificateur") or "—",
+            "resultat": RESULTAT_LABELS.get(insp.get("resultat"), insp.get("resultat") or "—"),
+        })
+
+    buffer = io.BytesIO()
+    page = landscape(A4)
+    doc = SimpleDocTemplate(buffer, pagesize=page, rightMargin=1.0 * cm, leftMargin=1.0 * cm, topMargin=4.9 * cm, bottomMargin=1.5 * cm)
+    styles = create_pdf_styles()
+    elements = []
+
+    total = len(rows)
+    elements.append(Paragraph(
+        f"Total : {total} contrôle(s) — Valides : {n_valide} · Expirés : {n_expire} · À planifier : {n_planifier}",
+        styles['SectionHeader']))
+    elements.append(Spacer(1, 6))
+
+    if rows:
+        data = [[_PH("Titre"), _PH("Type"), _PH("Équipement"), _PH("Périodicité"),
+                 _PH("Dernière réalisation"), _PH("Prochaine échéance"), _PH("Statut"),
+                 _PH("Organisme"), _PH("Résultat")]]
+        expired_rows = []
+        for r in rows:
+            if r["statut"] == "Expiré":
+                expired_rows.append(len(data))
+            data.append([_P(r["titre"]), _P(r["type"]), _P(r["equipement"]), _P(r["periodicite"]),
+                         _P(r["derniere"]), _P(r["echeance"]), _P(r["statut"]),
+                         _P(r["organisme"]), _P(r["resultat"])])
+        t = Table(data, colWidths=[6.6 * cm, 3.2 * cm, 3.6 * cm, 2.2 * cm, 2.8 * cm, 2.8 * cm, 2.0 * cm, 3.2 * cm, 2.3 * cm], repeatRows=1)
+        style = create_table_style()
+        for rr in expired_rows:
+            style.add('TEXTCOLOR', (0, rr), (-1, rr), colors.HexColor('#C0271A'))
+            style.add('FONTNAME', (6, rr), (6, rr), 'Helvetica-Bold')
+        t.setStyle(style)
+        elements.append(t)
+    else:
+        elements.append(Paragraph("Aucun contrôle réglementaire enregistré.", styles['PDFNormal']))
+
+    elements.extend(_pv_footer(styles))
+    doc.build(elements, canvasmaker=make_header_canvas(
+        "Registre des contrôles réglementaires du caisson hyperbare CHPF",
+        margin=1.0 * cm, page_w=page[0], page_h=page[1]))
+    buffer.seek(0)
+    return StreamingResponse(buffer, media_type="application/pdf",
+                             headers={"Content-Disposition": f"attachment; filename=registre_controles_{today}.pdf"})
 
 
 

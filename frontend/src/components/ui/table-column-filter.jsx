@@ -7,10 +7,60 @@ import { cn } from '../../lib/utils';
 
 const norm = (v) => (v === null || v === undefined || v === '') ? '(Vides)' : String(v);
 
+// Hook générique : état persisté en sessionStorage (conservé tant que l'onglet reste ouvert)
+export function useSessionState(key, defaultValue) {
+  const [value, setValue] = React.useState(() => {
+    if (!key) return defaultValue;
+    try {
+      const raw = sessionStorage.getItem(key);
+      return raw !== null ? JSON.parse(raw) : defaultValue;
+    } catch {
+      return defaultValue;
+    }
+  });
+  React.useEffect(() => {
+    if (!key) return;
+    try { sessionStorage.setItem(key, JSON.stringify(value)); } catch { /* ignore */ }
+  }, [key, value]);
+  return [value, setValue];
+}
+
 // Hook de gestion des tris/filtres de colonnes
-export function useColumnFilters(initialSort = null) {
-  const [sort, setSort] = React.useState(initialSort); // { key, dir }
-  const [filters, setFilters] = React.useState({}); // { key: string[] | undefined }
+export function useColumnFilters(initialSort = null, storageKey = null) {
+  const sortKeyStore = storageKey ? `${storageKey}:sort` : null;
+  const filtersKeyStore = storageKey ? `${storageKey}:filters` : null;
+
+  const [sort, setSort] = React.useState(() => {
+    if (sortKeyStore) {
+      try {
+        const raw = sessionStorage.getItem(sortKeyStore);
+        if (raw !== null) return JSON.parse(raw);
+      } catch { /* ignore */ }
+    }
+    return initialSort;
+  }); // { key, dir }
+
+  const [filters, setFilters] = React.useState(() => {
+    if (filtersKeyStore) {
+      try {
+        const raw = sessionStorage.getItem(filtersKeyStore);
+        if (raw !== null) return JSON.parse(raw);
+      } catch { /* ignore */ }
+    }
+    return {};
+  }); // { key: string[] | undefined }
+
+  React.useEffect(() => {
+    if (sortKeyStore) {
+      try { sessionStorage.setItem(sortKeyStore, JSON.stringify(sort)); } catch { /* ignore */ }
+    }
+  }, [sortKeyStore, sort]);
+
+  React.useEffect(() => {
+    if (filtersKeyStore) {
+      try { sessionStorage.setItem(filtersKeyStore, JSON.stringify(filters)); } catch { /* ignore */ }
+    }
+  }, [filtersKeyStore, filters]);
 
   const setColumnFilter = (key, valuesArrayOrNull) => {
     setFilters((prev) => {

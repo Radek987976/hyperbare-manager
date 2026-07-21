@@ -329,6 +329,7 @@ export const reportsAPI = {
   checkListePDF: (year, month) => api.get(`/reports/pdf/check-liste/${year}/${month}`, { responseType: 'blob' }),
   pvMensuelPDF: (year, month) => api.get(`/reports/pdf/pv-controle-mensuel/${year}/${month}`, { responseType: 'blob' }),
   pvAnnuelPDF: (year) => api.get(`/reports/pdf/pv-controle-annuel/${year}`, { responseType: 'blob' }),
+  registreControlesPDF: () => api.get('/reports/pdf/registre-controles', { responseType: 'blob' }),
 };
 
 // ==================== NEW APIs ====================

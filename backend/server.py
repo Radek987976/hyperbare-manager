@@ -34,6 +34,7 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import cm, mm
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image as RLImage
 from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
+from reportlab.pdfgen import canvas as pdfcanvas
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -4109,29 +4110,28 @@ def create_table_style():
 LOGO_PATH = ROOT_DIR / "assets_logo.png"
 
 
-def create_official_header(intitule: str, meta_period: str = None, date_creation: str = "20/12/2024  RT"):
-    """En-tête officiel « Document d'enregistrement » CHPF (logo + intitulé + date/page)."""
+def _build_header_table(intitule: str, page_str: str, date_creation: str = "20/12/2024  RT"):
+    """Cartouche officiel CHPF (logo + « Document d'enregistrement » + titre + date création / page + date génération)."""
     styles = create_pdf_styles()
-    lbl = ParagraphStyle('OffLbl', parent=styles['Normal'], fontSize=9)
     doc_enr = ParagraphStyle('OffDoc', parent=styles['Normal'], fontSize=12, alignment=TA_CENTER)
-    big = ParagraphStyle('OffBig', parent=styles['Normal'], fontSize=15, alignment=TA_CENTER,
-                         fontName='Helvetica-Bold', leading=18, textColor=colors.HexColor('#005F73'))
+    big = ParagraphStyle('OffBig', parent=styles['Normal'], fontSize=14, alignment=TA_CENTER,
+                         fontName='Helvetica-Bold', leading=17, textColor=colors.HexColor('#005F73'))
     small = ParagraphStyle('OffMeta', parent=styles['Normal'], fontSize=9, leading=13)
 
     try:
-        logo = RLImage(str(LOGO_PATH), width=2.1 * cm, height=2.45 * cm)
+        logo = RLImage(str(LOGO_PATH), width=2.4 * cm, height=2.4 * cm, kind='proportional')
     except Exception:
         logo = Paragraph("", styles['Normal'])
 
-    mid_bot = [Paragraph("Intitulé :", lbl), Spacer(1, 3), Paragraph(intitule, big)]
+    gen = datetime.now().strftime('%d/%m/%Y')
     right_top = Paragraph("<u>Date de création :</u><br/>" + date_creation, small)
-    right_bot = Paragraph("<u>Page :</u> 1 sur 1" + (("<br/>" + meta_period) if meta_period else ""), small)
+    right_bot = Paragraph(page_str + "<br/>" + gen, small)
 
     data = [
         [logo, Paragraph("« Document d'enregistrement »", doc_enr), right_top],
-        ['', mid_bot, right_bot],
+        ['', Paragraph(intitule, big), right_bot],
     ]
-    t = Table(data, colWidths=[2.9 * cm, 9.6 * cm, 4.5 * cm], rowHeights=[1.4 * cm, 2.2 * cm])
+    t = Table(data, colWidths=[2.9 * cm, 9.6 * cm, 4.5 * cm], rowHeights=[1.3 * cm, 1.9 * cm])
     t.setStyle(TableStyle([
         ('SPAN', (0, 0), (0, 1)),
         ('GRID', (0, 0), (-1, -1), 0.8, colors.black),
@@ -4142,10 +4142,36 @@ def create_official_header(intitule: str, meta_period: str = None, date_creation
         ('TOPPADDING', (0, 0), (-1, -1), 4),
         ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
     ]))
-    return [t, Spacer(1, 8),
-            Paragraph(f"<font size=9 color='#777777'>Généré le {datetime.now().strftime('%d/%m/%Y à %H:%M')}</font>",
-                      styles['Normal']),
-            Spacer(1, 12)], styles
+    return t
+
+
+def make_header_canvas(intitule: str):
+    """Fabrique un canvas qui dessine le cartouche officiel (avec « Page X sur Y ») en haut de CHAQUE page."""
+    class _HeaderCanvas(pdfcanvas.Canvas):
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            self._saved_page_states = []
+
+        def showPage(self):
+            self._saved_page_states.append(dict(self.__dict__))
+            self._startPage()
+
+        def save(self):
+            total = len(self._saved_page_states)
+            for state in self._saved_page_states:
+                self.__dict__.update(state)
+                self._draw_header(total)
+                pdfcanvas.Canvas.showPage(self)
+            pdfcanvas.Canvas.save(self)
+
+        def _draw_header(self, total):
+            page_str = f"Page : {self._pageNumber} sur {total}"
+            t = _build_header_table(intitule, page_str)
+            avail_w = A4[0] - 3 * cm
+            w, h = t.wrapOn(self, avail_w, 6 * cm)
+            t.drawOn(self, 1.5 * cm, A4[1] - 1.4 * cm - h)
+
+    return _HeaderCanvas
 
 
 @api_router.get("/reports/pdf/statistics")
@@ -4759,8 +4785,9 @@ async def generate_air_respirable_pdf(payload: AirRespirableRequest, current_use
             annee = str(di)[:4] if len(str(di)) >= 4 else "…………………………"
 
     buffer = io.BytesIO()
-    doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=2 * cm, leftMargin=2 * cm, topMargin=2 * cm, bottomMargin=2 * cm)
-    elements, styles = create_official_header("Analyse de l'air respirable — caisson hyperbare CHPF", payload.date_intervention or datetime.now().strftime('%d/%m/%Y'))
+    doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=2 * cm, leftMargin=2 * cm, topMargin=4.9 * cm, bottomMargin=2 * cm)
+    styles = create_pdf_styles()
+    elements = []
 
     elements.append(Paragraph("LE COMPRESSEUR", styles['SectionHeader']))
     info = [
@@ -4807,7 +4834,7 @@ async def generate_air_respirable_pdf(payload: AirRespirableRequest, current_use
         elements.append(Paragraph(f"<b>Technicien</b> : {payload.technicien}", styles['PDFNormal']))
     elements.extend(_pv_footer(styles))
 
-    doc.build(elements)
+    doc.build(elements, canvasmaker=make_header_canvas("Analyse de l'air respirable — caisson hyperbare CHPF"))
     buffer.seek(0)
     filename = f"analyse_air_respirable_{(eq.get('reference') or 'compresseur').replace(' ', '_')}.pdf"
     return StreamingResponse(buffer, media_type="application/pdf",
@@ -4819,8 +4846,9 @@ async def generate_plan_maintenance_pdf(year: int, current_user: dict = Depends(
     """Plan de maintenance annuel : regroupé par mois puis par type d'équipement (hors journalières/hebdo)."""
     items, _ = await _build_plan_items(year)
     buffer = io.BytesIO()
-    doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=1.5 * cm, leftMargin=1.5 * cm, topMargin=2 * cm, bottomMargin=2 * cm)
-    elements, styles = create_official_header("Plan de maintenance du caisson hyperbare CHPF", f"Année {year} — hors journalières / hebdomadaires")
+    doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=1.5 * cm, leftMargin=1.5 * cm, topMargin=4.9 * cm, bottomMargin=2 * cm)
+    styles = create_pdf_styles()
+    elements = []
 
     for m in range(1, 13):
         month_items = [it for it in items if m in it['months']]
@@ -4841,7 +4869,7 @@ async def generate_plan_maintenance_pdf(year: int, current_user: dict = Depends(
 
     if len(elements) <= 4:
         elements.append(Paragraph("Aucune maintenance préventive planifiée pour cette année.", styles['PDFNormal']))
-    doc.build(elements)
+    doc.build(elements, canvasmaker=make_header_canvas("Plan de maintenance du caisson hyperbare CHPF"))
     buffer.seek(0)
     return StreamingResponse(buffer, media_type="application/pdf",
                              headers={"Content-Disposition": f"attachment; filename=plan_maintenance_{year}.pdf"})
@@ -4853,9 +4881,9 @@ async def generate_checkliste_pdf(year: int, month: int, current_user: dict = De
     items, _ = await _build_plan_items(year)
     month_items = [it for it in items if month in it['months']]
     buffer = io.BytesIO()
-    doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=1.5 * cm, leftMargin=1.5 * cm, topMargin=2 * cm, bottomMargin=2 * cm)
-    elements, styles = create_official_header("Check-liste mensuelle du caisson hyperbare CHPF", f"{FRENCH_MONTHS[month]} {year}")
-
+    doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=1.5 * cm, leftMargin=1.5 * cm, topMargin=4.9 * cm, bottomMargin=2 * cm)
+    styles = create_pdf_styles()
+    elements = []
     if month_items:
         by_type = {}
         for it in month_items:
@@ -4872,7 +4900,7 @@ async def generate_checkliste_pdf(year: int, month: int, current_user: dict = De
     else:
         elements.append(Paragraph("Aucune maintenance préventive prévue pour ce mois.", styles['PDFNormal']))
     elements.extend(_pv_footer(styles))
-    doc.build(elements)
+    doc.build(elements, canvasmaker=make_header_canvas("Check-liste mensuelle du caisson hyperbare CHPF"))
     buffer.seek(0)
     return StreamingResponse(buffer, media_type="application/pdf",
                              headers={"Content-Disposition": f"attachment; filename=checkliste_{year}_{month:02d}.pdf"})
@@ -4884,9 +4912,9 @@ async def generate_pv_mensuel_pdf(year: int, month: int, current_user: dict = De
     items, _ = await _build_plan_items(year)
     month_items = [it for it in items if month in it['months']]
     buffer = io.BytesIO()
-    doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=1.5 * cm, leftMargin=1.5 * cm, topMargin=2 * cm, bottomMargin=2 * cm)
-    elements, styles = create_official_header("Contrôle Mensuel du caisson hyperbare CHPF", f"{FRENCH_MONTHS[month]} {year}")
-
+    doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=1.5 * cm, leftMargin=1.5 * cm, topMargin=4.9 * cm, bottomMargin=2 * cm)
+    styles = create_pdf_styles()
+    elements = []
     if month_items:
         by_type = {}
         for it in month_items:
@@ -4903,7 +4931,7 @@ async def generate_pv_mensuel_pdf(year: int, month: int, current_user: dict = De
     else:
         elements.append(Paragraph("Aucune maintenance préventive prévue pour ce mois.", styles['PDFNormal']))
     elements.extend(_pv_footer(styles))
-    doc.build(elements)
+    doc.build(elements, canvasmaker=make_header_canvas("Contrôle Mensuel du caisson hyperbare CHPF"))
     buffer.seek(0)
     return StreamingResponse(buffer, media_type="application/pdf",
                              headers={"Content-Disposition": f"attachment; filename=pv_controle_mensuel_{year}_{month:02d}.pdf"})
@@ -4914,9 +4942,9 @@ async def generate_pv_annuel_pdf(year: int, current_user: dict = Depends(get_cur
     """PV de contrôle annuel : toutes les maintenances de l'année avec le nombre de fois / an."""
     items, _ = await _build_plan_items(year)
     buffer = io.BytesIO()
-    doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=1.5 * cm, leftMargin=1.5 * cm, topMargin=2 * cm, bottomMargin=2 * cm)
-    elements, styles = create_official_header("Contrôle Annuel du caisson hyperbare CHPF", f"Année {year}")
-
+    doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=1.5 * cm, leftMargin=1.5 * cm, topMargin=4.9 * cm, bottomMargin=2 * cm)
+    styles = create_pdf_styles()
+    elements = []
     if items:
         by_type = {}
         for it in items:
@@ -4939,7 +4967,7 @@ async def generate_pv_annuel_pdf(year: int, current_user: dict = Depends(get_cur
     else:
         elements.append(Paragraph("Aucune maintenance préventive planifiée pour cette année.", styles['PDFNormal']))
     elements.extend(_pv_footer(styles))
-    doc.build(elements)
+    doc.build(elements, canvasmaker=make_header_canvas("Contrôle Annuel du caisson hyperbare CHPF"))
     buffer.seek(0)
     return StreamingResponse(buffer, media_type="application/pdf",
                              headers={"Content-Disposition": f"attachment; filename=pv_controle_annuel_{year}.pdf"})

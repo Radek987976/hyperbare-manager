@@ -1,5 +1,13 @@
 # HyperbareManager - PRD (Product Requirements Document)
 
+## Changelog (2026-06-21c) — Cartouche officiel CHPF revu (logo + pagination dynamique)
+- Logo remplacé par le **logo CHPF** officiel (`/app/backend/assets_logo.png`, image001 2.png), affiché en `kind='proportional'`.
+- Suppression du label « Intitulé : » (seul le titre centré reste).
+- **Pagination dynamique** : « Page : X sur Y » reflète la page courante / total réel, via un canvas personnalisé `make_header_canvas(intitule)` (classe `_HeaderCanvas`, pattern deux-passes) qui dessine le cartouche en haut de **chaque** page. `_build_header_table()` construit le cartouche.
+- Ligne du bas droite : la période a été remplacée par la **date de génération** du document (date du jour).
+- Les 5 endpoints PDF (air respirable, plan, check-liste, PV mensuel, PV annuel) utilisent `doc.build(elements, canvasmaker=make_header_canvas(intitule))` avec `topMargin=4.9cm` pour laisser la place au cartouche. Import ajouté : `from reportlab.pdfgen import canvas as pdfcanvas`.
+- Vérifié via rendu pdftoppm (PV annuel 11 pages : en-tête répété, « Page 1 sur 11 », « Page 2 sur 11 »… + date de génération).
+
 ## Changelog (2026-06-21b) — En-tête officiel CHPF sur les PDF
 - Logo CHPF extrait de la capture fournie → `/app/backend/assets_logo.png`. Fonction `create_official_header(intitule, meta_period, date_creation)` reproduisant le modèle Word : cellule logo | « Document d'enregistrement » + Intitulé + titre centré | Date de création (20/12/2024 RT) + Page (1 sur 1) + période. Appliquée aux 5 PDF (air respirable, plan, check-liste, PV mensuel, PV annuel).
 - Vérifié via rendu pdftoppm (en-tête conforme sur PV mensuel + modèle air respirable).

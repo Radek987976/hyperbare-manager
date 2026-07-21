@@ -1671,7 +1671,7 @@ async def create_work_order(data: WorkOrderCreate, current_user: dict = Depends(
     await db.work_orders.insert_one(doc)
     return work_order
 
-@api_router.get("/work-orders", response_model=List[WorkOrder])
+@api_router.get("/work-orders")
 async def get_work_orders(
     statut: Optional[str] = None,
     type_maintenance: Optional[str] = None,
@@ -1687,6 +1687,54 @@ async def get_work_orders(
         query["priorite"] = priorite
     
     work_orders = await db.work_orders.find(query, {"_id": 0}).to_list(1000)
+
+    # Dernière réalisation (intervention préventive la plus récente) par maintenance préventive
+    last_by_wo = {}
+    async for it in db.interventions.find(
+        {"maintenance_preventive_id": {"$ne": None}},
+        {"_id": 0, "maintenance_preventive_id": 1, "date_intervention": 1}
+    ):
+        wid = it.get("maintenance_preventive_id")
+        d = it.get("date_intervention")
+        if not wid or not d:
+            continue
+        if wid not in last_by_wo or str(d) > str(last_by_wo[wid]):
+            last_by_wo[wid] = d
+
+    reformed = set()
+    async for e in db.equipments.find({"statut": "reforme"}, {"_id": 0, "id": 1}):
+        reformed.add(e["id"])
+
+    now = datetime.now()
+
+    def _parse(d):
+        if not d:
+            return None
+        try:
+            return datetime.fromisoformat(str(d).replace("Z", "+00:00")).replace(tzinfo=None)
+        except Exception:
+            try:
+                return datetime.strptime(str(d)[:10], "%Y-%m-%d")
+            except Exception:
+                return None
+
+    for wo in work_orders:
+        wo["is_late"] = False
+        wo["derniere_realisation"] = None
+        pj = wo.get("periodicite_jours")
+        # Retard = uniquement maintenances préventives actives, à périodicité en jours (> hebdo), équipement non réformé
+        if (wo.get("type_maintenance") != "preventive"
+                or wo.get("statut") in ("terminee", "annulee")
+                or (wo.get("equipment_id") in reformed)
+                or not pj or pj <= 7):
+            continue
+        last_raw = last_by_wo.get(wo.get("id"))
+        wo["derniere_realisation"] = last_raw
+        last_dt = _parse(last_raw)
+        if last_dt is None:
+            wo["is_late"] = True  # jamais réalisée
+        else:
+            wo["is_late"] = (now - last_dt).days > pj
     return work_orders
 
 async def _build_maintenance_history(entity_id: str):
@@ -4783,6 +4831,31 @@ async def _build_plan_items(year: int):
         except Exception:
             return str(d)[:10]
 
+    def _parse(d):
+        if not d:
+            return None
+        try:
+            return datetime.fromisoformat(str(d).replace('Z', '+00:00')).replace(tzinfo=None)
+        except Exception:
+            try:
+                return datetime.strptime(str(d)[:10], "%Y-%m-%d")
+            except Exception:
+                return None
+
+    now = datetime.now()
+
+    def _compute_late(wo, last_raw):
+        """En retard si jours écoulés depuis la dernière réalisation > périodicité (en jours).
+        Jamais réalisée = en retard. Seules les maintenances à périodicité en jours sont évaluées."""
+        pj = wo.get('periodicite_jours')
+        if not pj or pj <= 7:
+            return False, None
+        last_dt = _parse(last_raw)
+        if last_dt is None:
+            return True, None  # jamais faite
+        days = (now - last_dt).days
+        return (days > pj), days
+
     items = []
     for wo in wos:
         eqid = wo.get('equipment_id')
@@ -4794,6 +4867,8 @@ async def _build_plan_items(year: int):
         if not months:
             continue
         eq = eq_map.get(eqid, {}) if eqid else {}
+        last_raw = last_by_wo.get(wo.get('id'))
+        is_late, days_since = _compute_late(wo, last_raw)
         items.append({
             'wo_id': wo.get('id'),
             'titre': wo.get('titre', ''),
@@ -4802,7 +4877,9 @@ async def _build_plan_items(year: int):
             'periodicite': _periodicite_label(wo),
             'times_per_year': _times_per_year(wo),
             'months': sorted(months),
-            'derniere_realisation': _fmt(last_by_wo.get(wo.get('id'))),
+            'derniere_realisation': _fmt(last_raw),
+            'is_late': is_late,
+            'days_since': days_since,
         })
     return items, eq_map
 
@@ -4952,10 +5029,19 @@ async def generate_checkliste_pdf(year: int, month: int, current_user: dict = De
         for etype in sorted(by_type.keys()):
             elements.append(Paragraph(etype, styles['SectionHeader']))
             data = [[_PH("Intervention"), _PH("Équipement"), _PH("Périodicité"), _PH("Dernière réalisation"), _PH("Fait"), _PH("Date"), _PH("Obs.")]]
+            late_rows = []
             for it in sorted(by_type[etype], key=lambda x: x['titre']):
-                data.append([_P(it['titre']), _P(it['equipment_ref']), _P(it['periodicite']), _P(it['derniere_realisation'] or '—'), "[ ]", "", ""])
+                derniere = it['derniere_realisation'] or '—'
+                if it.get('is_late'):
+                    derniere = f"{derniere}  ⚠ Retard signalé" if it['derniere_realisation'] else "⚠ Jamais réalisée"
+                    late_rows.append(len(data))
+                data.append([_P(it['titre']), _P(it['equipment_ref']), _P(it['periodicite']), _P(derniere), "[ ]", "", ""])
             t = Table(data, colWidths=[6.0 * cm, 2.6 * cm, 1.8 * cm, 2.4 * cm, 1.0 * cm, 2.1 * cm, 3.0 * cm], repeatRows=1)
-            t.setStyle(create_table_style())
+            style = create_table_style()
+            for r in late_rows:
+                style.add('TEXTCOLOR', (0, r), (-1, r), colors.HexColor('#C0271A'))
+                style.add('FONTNAME', (3, r), (3, r), 'Helvetica-Bold')
+            t.setStyle(style)
             elements.append(t)
             elements.append(Spacer(1, 10))
     else:

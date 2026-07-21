@@ -53,7 +53,8 @@ import {
   Calendar,
   Building2,
   AlertTriangle,
-  CheckCircle
+  CheckCircle,
+  X
 } from 'lucide-react';
 
 const TYPES_CONTRAT = [
@@ -92,8 +93,7 @@ const Contracts = () => {
   const [equipments, setEquipments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [filterStatut, setFilterStatut] = useState('all');
-  const { sort: colSort, setSort: setColSort, filters: colFilters, setColumnFilter: setColColumnFilter } = useColumnFilters({ key: 'numero_contrat', dir: 'asc' });
+  const { sort: colSort, setSort: setColSort, filters: colFilters, setColumnFilter: setColColumnFilter, clearAll: clearColFilters, hasActive: hasColFilters } = useColumnFilters({ key: 'numero_contrat', dir: 'asc' });
   
   // Dialog states
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -263,8 +263,7 @@ const Contracts = () => {
     const matchesSearch = 
       contract.titre?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       contract.numero_contrat?.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatut = filterStatut === 'all' || contract.statut === filterStatut;
-    return matchesSearch && matchesStatut;
+    return matchesSearch;
   });
 
   const cxColumns = {
@@ -383,17 +382,16 @@ const Contracts = () => {
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-10"
+                data-testid="search-input"
               />
             </div>
-            <SearchableSelect
-              value={filterStatut}
-              onValueChange={setFilterStatut}
-              className="w-full sm:w-40"
-              data-testid="filter-statut-contract"
-              placeholder="Statut"
-              options={[{ value: 'all', label: 'Tous les statuts' }, ...STATUTS.map(s => ({ value: s.value, label: s.label }))]}
-            />
+            {(searchTerm || hasColFilters) && (
+              <Button variant="ghost" onClick={() => { setSearchTerm(''); clearColFilters(); }} className="shrink-0" data-testid="clear-filters-btn">
+                <X className="w-4 h-4 mr-1" /> Effacer tous les filtres
+              </Button>
+            )}
           </div>
+          <p className="text-xs text-slate-400 mt-2">Astuce : cliquez sur l'icône entonnoir dans chaque colonne pour trier et filtrer comme dans Excel.</p>
         </CardContent>
       </Card>
 

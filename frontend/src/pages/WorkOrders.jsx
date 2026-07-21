@@ -95,9 +95,7 @@ const WorkOrders = () => {
       if (wo) { setSelectedWorkOrder(wo); setShowDetailModal(true); }
     }
   }, [workOrders, _loc.state]);
-  const [filterStatut, setFilterStatut] = useState('all');
-  const [filterType, setFilterType] = useState('all');
-  const { sort: colSort, setSort: setColSort, filters: colFilters, setColumnFilter: setColColumnFilter } = useColumnFilters(null);
+  const { sort: colSort, setSort: setColSort, filters: colFilters, setColumnFilter: setColColumnFilter, clearAll: clearColFilters, hasActive: hasColFilters } = useColumnFilters(null);
   const [activeTab, setActiveTab] = useState('all');
   
   const [showModal, setShowModal] = useState(false);
@@ -397,9 +395,6 @@ const WorkOrders = () => {
       wo.titre.toLowerCase().includes(searchTerm.toLowerCase()) ||
       wo.description.toLowerCase().includes(searchTerm.toLowerCase());
     
-    const matchesStatut = filterStatut === 'all' || wo.statut === filterStatut;
-    const matchesType = filterType === 'all' || wo.type_maintenance === filterType;
-    
     // Tab filter
     const matchesTab = 
       activeTab === 'all' ||
@@ -407,8 +402,14 @@ const WorkOrders = () => {
       (activeTab === 'en_cours' && wo.statut === 'en_cours') ||
       (activeTab === 'terminee' && wo.statut === 'terminee');
     
-    return matchesSearch && matchesStatut && matchesType && matchesTab;
+    return matchesSearch && matchesTab;
   });
+
+  const clearFilters = () => {
+    setSearchTerm('');
+    clearColFilters();
+  };
+  const hasActiveFilters = searchTerm || hasColFilters;
 
   const getStatusCount = (status) => workOrders.filter(wo => wo.statut === status).length;
 
@@ -488,15 +489,13 @@ const WorkOrders = () => {
                 data-testid="search-input"
               />
             </div>
-            <SearchableSelect
-              value={filterType}
-              onValueChange={(v) => setFilterType(v)}
-              className="w-full md:w-44"
-              data-testid="filter-type"
-              placeholder="Type"
-              options={[{ value: 'all', label: 'Tous les types' }, ...TYPES_MAINTENANCE.map(type => ({ value: type, label: maintenanceTypeLabels[type] }))]}
-            />
+            {hasActiveFilters && (
+              <Button variant="ghost" onClick={clearFilters} className="shrink-0" data-testid="clear-filters-btn">
+                <X className="w-4 h-4 mr-1" /> Effacer tous les filtres
+              </Button>
+            )}
           </div>
+          <p className="text-xs text-slate-400 mt-2">Astuce : cliquez sur l'icône entonnoir dans chaque colonne pour trier et filtrer comme dans Excel.</p>
         </CardContent>
       </Card>
 
@@ -528,17 +527,18 @@ const WorkOrders = () => {
                   displayWorkOrders.map((wo) => {
                     const days = daysUntil(wo.date_planifiee);
                     const isOverdue = days !== null && days < 0 && wo.statut !== 'terminee' && wo.statut !== 'annulee';
+                    const isLate = !!wo.is_late;
                     
                     return (
                       <TableRow 
                         key={wo.id} 
-                        className={isOverdue ? 'bg-red-50/50' : ''}
+                        className={(isLate || isOverdue) ? 'bg-red-50/60' : ''}
                         data-testid={`work-order-row-${wo.id}`}
                       >
                         <TableCell>
                           <div className="flex items-center gap-2">
-                            {isOverdue && <AlertTriangle className="w-4 h-4 text-[#AE2012]" />}
-                            <span className="font-medium">{wo.titre}</span>
+                            {(isLate || isOverdue) && <AlertTriangle className="w-4 h-4 text-[#AE2012]" />}
+                            <span className={`font-medium ${isLate ? 'text-[#AE2012]' : ''}`}>{wo.titre}</span>
                           </div>
                         </TableCell>
                         <TableCell>
@@ -556,9 +556,16 @@ const WorkOrders = () => {
                           </Badge>
                         </TableCell>
                         <TableCell>
-                          <Badge className={`${getStatusClass(wo.statut)} text-xs`}>
-                            {statusLabels[wo.statut]}
-                          </Badge>
+                          <div className="flex flex-col gap-1">
+                            <Badge className={`${getStatusClass(wo.statut)} text-xs w-fit`}>
+                              {statusLabels[wo.statut]}
+                            </Badge>
+                            {isLate && (
+                              <Badge className="bg-[#AE2012] text-white text-xs w-fit" data-testid={`work-order-late-${wo.id}`}>
+                                Retard signalé
+                              </Badge>
+                            )}
+                          </div>
                         </TableCell>
                         <TableCell className="text-sm">
                           {getEquipmentLabel(wo.equipment_id)}

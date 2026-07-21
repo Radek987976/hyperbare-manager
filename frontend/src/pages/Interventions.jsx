@@ -56,9 +56,7 @@ function Interventions() {
   });
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [filterType, setFilterType] = useState('all');
-  const [filterEquipment, setFilterEquipment] = useState('all');
-  const { sort: colSort, setSort: setColSort, filters: colFilters, setColumnFilter: setColColumnFilter } = useColumnFilters(null);
+  const { sort: colSort, setSort: setColSort, filters: colFilters, setColumnFilter: setColColumnFilter, clearAll: clearColFilters, hasActive: hasColFilters } = useColumnFilters(null);
   const [filterDateFrom, setFilterDateFrom] = useState('');
   const [filterDateTo, setFilterDateTo] = useState('');
   const [page, setPage] = useState(1);
@@ -427,12 +425,10 @@ function Interventions() {
     const matchSearch = (i.technicien || '').toLowerCase().includes(term) || 
            (i.actions_realisees || '').toLowerCase().includes(term) ||
            getInterventionLabel(i).toLowerCase().includes(term);
-    const matchType = filterType === 'all' || i.type_intervention === filterType;
-    const matchEquip = filterEquipment === 'all' || i.equipment_id === filterEquipment;
     const d = (i.date_intervention || '').slice(0, 10);
     const matchDateFrom = !filterDateFrom || (d && d >= filterDateFrom);
     const matchDateTo = !filterDateTo || (d && d <= filterDateTo);
-    return matchSearch && matchType && matchEquip && matchDateFrom && matchDateTo;
+    return matchSearch && matchDateFrom && matchDateTo;
   });
 
   const intColumns = {
@@ -475,44 +471,24 @@ function Interventions() {
 
       <Card>
         <CardContent className="p-4">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            <div className="relative">
+          <div className="flex flex-col md:flex-row gap-3">
+            <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
               <Input placeholder="Rechercher..." value={searchTerm} onChange={e => { setSearchTerm(e.target.value); setPage(1); }} className="pl-10" data-testid="interv-search" />
             </div>
-            <SearchableSelect
-              value={filterType}
-              onValueChange={v => { setFilterType(v); setPage(1); }}
-              placeholder="Tous les types"
-              options={[
-                { value: 'all', label: 'Tous les types' },
-                { value: 'curative', label: 'Curative' },
-                { value: 'preventive', label: 'Préventive' },
-              ]}
-              data-testid="interv-filter-type"
-            />
-            <SearchableSelect
-              value={filterEquipment}
-              onValueChange={v => { setFilterEquipment(v); setPage(1); }}
-              placeholder="Tous les équipements"
-              searchPlaceholder="Rechercher un équipement..."
-              options={[{ value: 'all', label: 'Tous les équipements' }, ...[...data.equipments]
-                .sort((a, b) => (a.reference || '').localeCompare(b.reference || ''))
-                .map(e => ({ value: e.id, label: `${e.reference}${e.type ? ` (${e.type})` : ''}` }))]}
-              data-testid="interv-filter-equipment"
-            />
+            {(searchTerm || filterDateFrom || filterDateTo || hasColFilters) && (
+              <Button variant="ghost" onClick={() => { setSearchTerm(''); setFilterDateFrom(''); setFilterDateTo(''); clearColFilters(); setPage(1); }} className="shrink-0" data-testid="clear-filters-btn">
+                <X className="w-4 h-4 mr-1" /> Effacer tous les filtres
+              </Button>
+            )}
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-[auto_1fr_auto_1fr_auto] items-center gap-3 mt-3">
+          <div className="grid grid-cols-1 md:grid-cols-[auto_1fr_auto_1fr] items-center gap-3 mt-3">
             <Label className="text-sm text-slate-600 whitespace-nowrap">Date d'intervention — du</Label>
             <Input type="date" value={filterDateFrom} onChange={e => { setFilterDateFrom(e.target.value); setPage(1); }} data-testid="interv-filter-date-from" />
             <Label className="text-sm text-slate-600 whitespace-nowrap">au</Label>
             <Input type="date" value={filterDateTo} onChange={e => { setFilterDateTo(e.target.value); setPage(1); }} data-testid="interv-filter-date-to" />
-            {(filterDateFrom || filterDateTo) && (
-              <Button variant="ghost" size="sm" onClick={() => { setFilterDateFrom(''); setFilterDateTo(''); setPage(1); }} className="text-slate-500 whitespace-nowrap" data-testid="interv-filter-date-reset">
-                <X className="w-4 h-4 mr-1" /> Effacer
-              </Button>
-            )}
           </div>
+          <p className="text-xs text-slate-400 mt-2">Astuce : cliquez sur l'icône entonnoir dans chaque colonne pour trier et filtrer comme dans Excel.</p>
         </CardContent>
       </Card>
 

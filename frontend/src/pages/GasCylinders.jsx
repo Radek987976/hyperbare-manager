@@ -59,7 +59,8 @@ import {
   AlertTriangle,
   RefreshCw,
   Calendar,
-  Droplets
+  Droplets,
+  X
 } from 'lucide-react';
 
 const GAS_TYPES = [
@@ -92,9 +93,7 @@ const GasCylinders = () => {
   const [alerts, setAlerts] = useState(null);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [filterType, setFilterType] = useState('all');
-  const [filterStatut, setFilterStatut] = useState('all');
-  const { sort: colSort, setSort: setColSort, filters: colFilters, setColumnFilter: setColColumnFilter } = useColumnFilters({ key: 'numero_bouteille', dir: 'asc' });
+  const { sort: colSort, setSort: setColSort, filters: colFilters, setColumnFilter: setColColumnFilter, clearAll: clearColFilters, hasActive: hasColFilters } = useColumnFilters({ key: 'numero_bouteille', dir: 'asc' });
   
   // Dialog states
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -271,9 +270,7 @@ const GasCylinders = () => {
     const matchesSearch = 
       cylinder.numero_bouteille?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       cylinder.localisation?.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesType = filterType === 'all' || cylinder.type_gaz === filterType;
-    const matchesStatut = filterStatut === 'all' || cylinder.statut === filterStatut;
-    return matchesSearch && matchesType && matchesStatut;
+    return matchesSearch;
   });
 
   const gcColumns = {
@@ -396,25 +393,16 @@ const GasCylinders = () => {
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     className="pl-10"
+                    data-testid="search-input"
                   />
                 </div>
-                <SearchableSelect
-                  value={filterType}
-                  onValueChange={setFilterType}
-                  className="w-full sm:w-40"
-                  data-testid="filter-type-gaz"
-                  placeholder="Type de gaz"
-                  options={[{ value: 'all', label: 'Tous les gaz' }, ...GAS_TYPES.map(type => ({ value: type.value, label: type.label }))]}
-                />
-                <SearchableSelect
-                  value={filterStatut}
-                  onValueChange={setFilterStatut}
-                  className="w-full sm:w-40"
-                  data-testid="filter-statut-gaz"
-                  placeholder="Statut"
-                  options={[{ value: 'all', label: 'Tous les statuts' }, ...STATUTS.map(s => ({ value: s.value, label: s.label }))]}
-                />
+                {(searchTerm || hasColFilters) && (
+                  <Button variant="ghost" onClick={() => { setSearchTerm(''); clearColFilters(); }} className="shrink-0" data-testid="clear-filters-btn">
+                    <X className="w-4 h-4 mr-1" /> Effacer tous les filtres
+                  </Button>
+                )}
               </div>
+              <p className="text-xs text-slate-400 mt-2">Astuce : cliquez sur l'icône entonnoir dans chaque colonne pour trier et filtrer comme dans Excel.</p>
             </CardContent>
           </Card>
 

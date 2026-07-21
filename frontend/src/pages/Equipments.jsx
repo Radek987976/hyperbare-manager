@@ -468,7 +468,7 @@ const Equipments = () => {
             </div>
             {hasActiveFilters && (
               <Button variant="ghost" onClick={clearFilters} className="shrink-0">
-                <X className="w-4 h-4 mr-1" /> Réinitialiser les filtres
+                <X className="w-4 h-4 mr-1" /> Effacer tous les filtres
               </Button>
             )}
           </div>

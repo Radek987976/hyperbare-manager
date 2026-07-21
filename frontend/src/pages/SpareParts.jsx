@@ -66,8 +66,7 @@ const SpareParts = () => {
   const [equipmentTypes, setEquipmentTypes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [filterType, setFilterType] = useState('all');
-  const { sort, setSort, filters, setColumnFilter } = useColumnFilters({ key: 'nom', dir: 'asc' });
+  const { sort, setSort, filters, setColumnFilter, clearAll, hasActive } = useColumnFilters({ key: 'nom', dir: 'asc' });
   const [showLowStock, setShowLowStock] = useState(false);
   
   const [showModal, setShowModal] = useState(false);
@@ -309,10 +308,9 @@ const SpareParts = () => {
       part.nom.toLowerCase().includes(searchTerm.toLowerCase()) ||
       part.reference_fabricant.toLowerCase().includes(searchTerm.toLowerCase());
     
-    const matchesType = filterType === 'all' || part.equipment_type === filterType;
     const matchesLowStock = !showLowStock || isLowStock(part);
     
-    return matchesSearch && matchesType && matchesLowStock;
+    return matchesSearch && matchesLowStock;
   });
 
   const lowStockCount = spareParts.filter(isLowStock).length;
@@ -401,15 +399,13 @@ const SpareParts = () => {
                 data-testid="search-input"
               />
             </div>
-            <SearchableSelect
-              value={filterType}
-              onValueChange={(v) => setFilterType(v)}
-              className="w-full md:w-48"
-              data-testid="filter-type"
-              placeholder="Type d'équipement"
-              options={[{ value: 'all', label: 'Tous les types' }, ...equipmentTypes.map(type => ({ value: type.nom, label: type.nom }))]}
-            />
+            {(searchTerm || hasActive) && (
+              <Button variant="ghost" onClick={() => { setSearchTerm(''); clearAll(); }} className="shrink-0" data-testid="clear-filters-btn">
+                <X className="w-4 h-4 mr-1" /> Effacer tous les filtres
+              </Button>
+            )}
           </div>
+          <p className="text-xs text-slate-400 mt-2">Astuce : cliquez sur l'icône entonnoir dans chaque colonne pour trier et filtrer comme dans Excel.</p>
         </CardContent>
       </Card>
 

@@ -60,9 +60,7 @@ const SubEquipments = () => {
   const [equipments, setEquipments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [filterParent, setFilterParent] = useState('all');
-  const [filterParentType, setFilterParentType] = useState('all');
-  const { sort: colSort, setSort: setColSort, filters: colFilters, setColumnFilter: setColColumnFilter } = useColumnFilters(null);
+  const { sort: colSort, setSort: setColSort, filters: colFilters, setColumnFilter: setColColumnFilter, clearAll: clearColFilters, hasActive: hasColFilters } = useColumnFilters(null);
   
   const [showModal, setShowModal] = useState(false);
   const [showDetailModal, setShowDetailModal] = useState(false);
@@ -280,9 +278,7 @@ const SubEquipments = () => {
   const filtered = subEquipments.filter(item => {
     const matchSearch = item.nom.toLowerCase().includes(searchTerm.toLowerCase()) ||
                        item.reference.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchParent = filterParent === 'all' || subEquipmentMatchesEquipment(item, filterParent, equipments);
-    const matchParentType = filterParentType === 'all' || parentTypesOf(item).includes(filterParentType);
-    return matchSearch && matchParent && matchParentType;
+    return matchSearch;
   }).sort((a, b) => {
     const byNom = (a.nom || '').localeCompare(b.nom || '', 'fr', { sensitivity: 'base', numeric: true });
     if (byNom !== 0) return byNom;
@@ -339,26 +335,17 @@ const SubEquipments = () => {
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="pl-10"
+                  data-testid="search-input"
                 />
               </div>
             </div>
-            <SearchableSelect
-              value={filterParentType}
-              onValueChange={setFilterParentType}
-              className="w-[220px]"
-              data-testid="filter-parent-type"
-              placeholder="Filtrer par type parent"
-              options={[{ value: 'all', label: 'Tous les types' }, ...parentTypes.map(t => ({ value: t, label: t }))]}
-            />
-            <SearchableSelect
-              value={filterParent}
-              onValueChange={setFilterParent}
-              className="w-[250px]"
-              data-testid="filter-parent"
-              placeholder="Filtrer par équipement"
-              options={[{ value: 'all', label: 'Tous les équipements' }, ...equipments.map(eq => ({ value: eq.id, label: `${eq.type} - ${eq.reference}` }))]}
-            />
+            {(searchTerm || hasColFilters) && (
+              <Button variant="ghost" onClick={() => { setSearchTerm(''); clearColFilters(); }} className="shrink-0" data-testid="clear-filters-btn">
+                <X className="w-4 h-4 mr-1" /> Effacer tous les filtres
+              </Button>
+            )}
           </div>
+          <p className="text-xs text-slate-400 mt-2">Astuce : cliquez sur l'icône entonnoir dans chaque colonne pour trier et filtrer comme dans Excel.</p>
         </CardContent>
       </Card>
 

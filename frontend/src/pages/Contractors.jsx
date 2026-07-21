@@ -55,7 +55,8 @@ import {
   MapPin,
   Wrench,
   Package,
-  Shield
+  Shield,
+  X
 } from 'lucide-react';
 
 const TYPES = [
@@ -82,8 +83,7 @@ const Contractors = () => {
   const [equipmentTypes, setEquipmentTypes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [filterType, setFilterType] = useState('all');
-  const { sort: colSort, setSort: setColSort, filters: colFilters, setColumnFilter: setColColumnFilter } = useColumnFilters({ key: 'nom', dir: 'asc' });
+  const { sort: colSort, setSort: setColSort, filters: colFilters, setColumnFilter: setColColumnFilter, clearAll: clearColFilters, hasActive: hasColFilters } = useColumnFilters({ key: 'nom', dir: 'asc' });
   
   // Dialog states
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -205,8 +205,7 @@ const Contractors = () => {
       contractor.specialite?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (contractor.specialites || []).some(s => s.toLowerCase().includes(searchTerm.toLowerCase())) ||
       contractor.contact_nom?.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesType = filterType === 'all' || contractor.type === filterType;
-    return matchesSearch && matchesType;
+    return matchesSearch;
   });
 
   const coColumns = {
@@ -322,17 +321,16 @@ const Contractors = () => {
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-10"
+                data-testid="search-input"
               />
             </div>
-            <SearchableSelect
-              value={filterType}
-              onValueChange={setFilterType}
-              className="w-full sm:w-48"
-              data-testid="filter-type"
-              placeholder="Type"
-              options={[{ value: 'all', label: 'Tous les types' }, ...TYPES.map(type => ({ value: type.value, label: type.label }))]}
-            />
+            {(searchTerm || hasColFilters) && (
+              <Button variant="ghost" onClick={() => { setSearchTerm(''); clearColFilters(); }} className="shrink-0" data-testid="clear-filters-btn">
+                <X className="w-4 h-4 mr-1" /> Effacer tous les filtres
+              </Button>
+            )}
           </div>
+          <p className="text-xs text-slate-400 mt-2">Astuce : cliquez sur l'icône entonnoir dans chaque colonne pour trier et filtrer comme dans Excel.</p>
         </CardContent>
       </Card>
 

@@ -1,5 +1,13 @@
 # HyperbareManager - PRD (Product Requirements Document)
 
+## Changelog (2026-06-21m) — Retard signalé + nettoyage des filtres hérités
+- **Retard signalé (règle périodicité, choix user 1a)** : une maintenance préventive est « en retard » si le nombre de jours depuis sa **dernière réalisation** dépasse sa **périodicité en jours** (> hebdo), ou si elle n'a **jamais** été réalisée. Réformés/terminés/annulés exclus.
+  - Backend `_build_plan_items` : chaque item porte `is_late` + `days_since`. Endpoint `GET /work-orders` enrichi (retrait du response_model strict) avec `is_late` + `derniere_realisation` par maintenance préventive. Vérifié curl : 60 maintenances en retard sur 222 préventives.
+  - PDF **Check-liste** (`/reports/pdf/check-liste`) : lignes en retard en rouge (`#C0271A`), colonne « Dernière réalisation » en gras + « ⚠ Retard signalé » / « ⚠ Jamais réalisée ».
+  - UI **Maintenance préventive** (WorkOrders.jsx) : ligne rouge (`bg-red-50/60`), titre rouge, icône AlertTriangle, badge rouge « Retard signalé » (data-testid `work-order-late-{id}`). Vérifié écran : 60 badges + surlignage.
+- **Nettoyage filtres hérités (choix user d=oui)** : suppression des anciens sélecteurs de filtre (menus déroulants) sur Équipements, Sous-équipements, Interventions, Maintenance préventive, Stock pièces, Prestataires, Contrats, Bouteilles de gaz. Barre de recherche + filtres Excel par colonne conservés. Bouton **« Effacer tous les filtres »** (data-testid `clear-filters-btn`, visible si recherche/filtres actifs) → réinitialise recherche + filtres Excel (`clearAll`). Interventions conserve aussi le filtre par plage de dates.
+  - Note : **Documents.jsx** laissé inchangé (pas de filtres Excel — la suppression de ses dropdowns aurait supprimé tout filtrage). À convertir si souhaité.
+
 ## Changelog (2026-06-21k) — Filtres Excel étendus aux 5 tableaux restants
 - Filtres type Excel (`table-column-filter`) ajoutés à : **Sous-équipements** (défaut nom→réf conservé, sort initial null), **Prestataires** (défaut nom), **Contrats** (défaut n° contrat), **Bouteilles de gaz** (défaut n° bouteille), **Utilisateurs** (défaut nom). Colonne « Période » de Contrats laissée en libellé simple (plage de dates).
 - Users : logique de filtre déplacée dans le sous-composant `UserTable` (converti en corps de fonction avec son propre `useColumnFilters`).

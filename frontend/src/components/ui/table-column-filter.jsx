@@ -39,11 +39,19 @@ export function filterRows(rows, columnsConfig, filters) {
   );
 }
 
+const _DATE_RE = /^(\d{2})\/(\d{2})\/(\d{4})$/;
+const _sortKey = (v) => {
+  const s = (v === null || v === undefined) ? '' : String(v);
+  const m = s.match(_DATE_RE);
+  if (m) return `${m[3]}${m[2]}${m[1]}`; // AAAAMMJJ → tri chronologique
+  return s;
+};
+
 export function sortRows(rows, columnsConfig, sort) {
   if (!sort || !sort.key) return rows;
   const getV = columnsConfig[sort.key] || ((r) => r[sort.key]);
   const arr = [...rows].sort((a, b) =>
-    String(getV(a) ?? '').localeCompare(String(getV(b) ?? ''), 'fr', { sensitivity: 'base', numeric: true })
+    _sortKey(getV(a)).localeCompare(_sortKey(getV(b)), 'fr', { sensitivity: 'base', numeric: true })
   );
   if (sort.dir === 'desc') arr.reverse();
   return arr;

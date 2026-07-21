@@ -39,9 +39,9 @@ import {
   Cylinder,
   Calculator,
   Upload,
-  FileCheck,
-  FolderOpen,
+  FileCheck,  FolderOpen,
   ClipboardCheck,
+  ShieldCheck,
   CalendarDays
 } from 'lucide-react';
 import { usersAPI } from '../lib/api';
@@ -156,6 +156,7 @@ const Sidebar = ({ isOpen, onClose }) => {
     { to: '/contrats', icon: FileCheck, label: 'Contrats' },
     { to: '/documents', icon: FolderOpen, label: 'Documents' },
     { to: '/pv-controle', icon: ClipboardCheck, label: 'PV de contrôle' },
+    { to: '/controles', icon: ShieldCheck, label: 'Contrôles réglementaires' },
     { to: '/budget', icon: Calculator, label: 'Budget prévisionnel' },
     { to: '/rapports', icon: FileText, label: 'Rapports PDF' },
   ];

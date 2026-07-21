@@ -32,6 +32,7 @@ import {
   DialogFooter,
 } from '../components/ui/dialog';
 import { SearchableSelect } from '../components/ui/searchable-select';
+import { useColumnFilters, applyTableFilters, distinctValues, ColumnFilter } from '../components/ui/table-column-filter';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -80,9 +81,7 @@ const Equipments = () => {
   const [caisson, setCaisson] = useState(null);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [filterType, setFilterType] = useState('all');
-  const [filterStatut, setFilterStatut] = useState('all');
-  const [filterCriticite, setFilterCriticite] = useState('all');
+  const { sort, setSort, filters, setColumnFilter, clearAll, hasActive } = useColumnFilters({ key: 'reference', dir: 'asc' });
   
   const [showModal, setShowModal] = useState(false);
   const [showDetailModal, setShowDetailModal] = useState(false);
@@ -388,27 +387,30 @@ const Equipments = () => {
     }
   };
 
-  const filteredEquipments = equipments.filter(eq => {
-    const matchesSearch = 
-      eq.reference.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      eq.numero_serie.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      getTypeLabel(eq.type).toLowerCase().includes(searchTerm.toLowerCase());
-    
-    const matchesType = filterType === 'all' || eq.type === filterType;
-    const matchesStatut = filterStatut === 'all' || eq.statut === filterStatut;
-    const matchesCriticite = filterCriticite === 'all' || eq.criticite === filterCriticite;
-    
-    return matchesSearch && matchesType && matchesStatut && matchesCriticite;
-  }).sort((a, b) => (a.reference || '').localeCompare(b.reference || '', 'fr', { sensitivity: 'base', numeric: true }));
+  const columnsConfig = {
+    type: (e) => getTypeLabel(e.type),
+    reference: (e) => e.reference,
+    numero_serie: (e) => e.numero_serie,
+    criticite: (e) => criticiteLabels[e.criticite] || e.criticite,
+    statut: (e) => statusLabels[e.statut] || e.statut,
+    compteur: (e) => (e.compteur_horaire != null ? e.compteur_horaire : ''),
+    date_installation: (e) => formatDate(e.date_installation),
+  };
+
+  const searchFiltered = equipments.filter(eq =>
+    eq.reference.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    eq.numero_serie.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    getTypeLabel(eq.type).toLowerCase().includes(searchTerm.toLowerCase())
+  );
+  const distinctFor = (key) => distinctValues(searchFiltered, columnsConfig, key, filters);
+  const filteredEquipments = applyTableFilters(searchFiltered, columnsConfig, { filters, sort });
 
   const clearFilters = () => {
     setSearchTerm('');
-    setFilterType('all');
-    setFilterStatut('all');
-    setFilterCriticite('all');
+    clearAll();
   };
 
-  const hasActiveFilters = searchTerm || filterType !== 'all' || filterStatut !== 'all' || filterCriticite !== 'all';
+  const hasActiveFilters = searchTerm || hasActive;
 
   if (loading) {
     return (
@@ -464,36 +466,13 @@ const Equipments = () => {
                 data-testid="search-input"
               />
             </div>
-            <SearchableSelect
-              value={filterType}
-              onValueChange={(v) => setFilterType(v)}
-              className="w-full md:w-40"
-              data-testid="filter-type"
-              placeholder="Type"
-              options={[{ value: 'all', label: 'Tous les types' }, ...equipmentTypes.map(type => ({ value: type.nom, label: type.nom }))]}
-            />
-            <SearchableSelect
-              value={filterStatut}
-              onValueChange={(v) => setFilterStatut(v)}
-              className="w-full md:w-40"
-              data-testid="filter-statut"
-              placeholder="Statut"
-              options={[{ value: 'all', label: 'Tous les statuts' }, ...STATUTS.map(statut => ({ value: statut, label: statusLabels[statut] }))]}
-            />
-            <SearchableSelect
-              value={filterCriticite}
-              onValueChange={(v) => setFilterCriticite(v)}
-              className="w-full md:w-40"
-              data-testid="filter-criticite"
-              placeholder="Criticité"
-              options={[{ value: 'all', label: 'Toutes' }, ...CRITICITES.map(crit => ({ value: crit, label: criticiteLabels[crit] }))]}
-            />
             {hasActiveFilters && (
-              <Button variant="ghost" onClick={clearFilters} size="icon">
-                <X className="w-4 h-4" />
+              <Button variant="ghost" onClick={clearFilters} className="shrink-0">
+                <X className="w-4 h-4 mr-1" /> Réinitialiser les filtres
               </Button>
             )}
           </div>
+          <p className="text-xs text-slate-400 mt-2">Astuce : cliquez sur l'icône entonnoir dans chaque colonne pour trier et filtrer comme dans Excel.</p>
         </CardContent>
       </Card>
 
@@ -504,13 +483,13 @@ const Equipments = () => {
             <Table data-testid="equipments-table">
               <TableHeader>
                 <TableRow className="bg-slate-50">
-                  <TableHead className="font-semibold">Type</TableHead>
-                  <TableHead className="font-semibold">Référence</TableHead>
-                  <TableHead className="font-semibold">N° Série</TableHead>
-                  <TableHead className="font-semibold">Criticité</TableHead>
-                  <TableHead className="font-semibold">Statut</TableHead>
-                  <TableHead className="font-semibold">Compteur h</TableHead>
-                  <TableHead className="font-semibold">Installation</TableHead>
+                  <TableHead><ColumnFilter label="Type" columnKey="type" values={distinctFor('type')} filters={filters} sort={sort} setSort={setSort} setColumnFilter={setColumnFilter} /></TableHead>
+                  <TableHead><ColumnFilter label="Référence" columnKey="reference" values={distinctFor('reference')} filters={filters} sort={sort} setSort={setSort} setColumnFilter={setColumnFilter} /></TableHead>
+                  <TableHead><ColumnFilter label="N° Série" columnKey="numero_serie" values={distinctFor('numero_serie')} filters={filters} sort={sort} setSort={setSort} setColumnFilter={setColumnFilter} /></TableHead>
+                  <TableHead><ColumnFilter label="Criticité" columnKey="criticite" values={distinctFor('criticite')} filters={filters} sort={sort} setSort={setSort} setColumnFilter={setColumnFilter} /></TableHead>
+                  <TableHead><ColumnFilter label="Statut" columnKey="statut" values={distinctFor('statut')} filters={filters} sort={sort} setSort={setSort} setColumnFilter={setColumnFilter} /></TableHead>
+                  <TableHead><ColumnFilter label="Compteur h" columnKey="compteur" values={distinctFor('compteur')} filters={filters} sort={sort} setSort={setSort} setColumnFilter={setColumnFilter} /></TableHead>
+                  <TableHead><ColumnFilter label="Installation" columnKey="date_installation" values={distinctFor('date_installation')} filters={filters} sort={sort} setSort={setSort} setColumnFilter={setColumnFilter} /></TableHead>
                   <TableHead className="w-16"></TableHead>
                 </TableRow>
               </TableHeader>

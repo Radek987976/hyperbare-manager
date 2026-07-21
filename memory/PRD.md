@@ -1,5 +1,11 @@
 # HyperbareManager - PRD (Product Requirements Document)
 
+## Changelog (2026-06-21i) — Filtres type Excel (démo Équipements)
+- Nouveau composant réutilisable `components/ui/table-column-filter.jsx` : hook `useColumnFilters`, helpers `applyTableFilters`/`distinctValues`, composant `ColumnFilter` (entonnoir par colonne : Trier A→Z / Z→A, recherche, cases à cocher multi-sélection + « (Sélectionner tout) », OK/Annuler). Valeurs distinctes calculées selon les autres filtres (comportement Excel).
+- Appliqué au tableau **Équipements** (colonnes Type, Référence, N° Série, Criticité, Statut, Compteur h, Installation). Suppression des 3 anciens sélecteurs de filtre (remplacés). Recherche globale conservée + bouton « Réinitialiser les filtres ».
+- Vérifié UI : ouverture du menu, tri, et filtrage effectif (Statut = En service → 28 lignes, entonnoir actif).
+- EN ATTENTE VALIDATION UTILISATEUR avant déploiement sur les autres tableaux + points 1-3 (dernière connexion, changement de nom, tri global).
+
 ## Changelog (2026-06-21h) — Fix débordements généralisé (SearchableSelect)
 - Garde-fou global : `SearchableSelect` → `min-w-0` sur le bouton et sur le `<span>` du label (troncature fiable dans tout conteneur flex). Corrige les débordements partout.
 - WorkOrders : bloc « Pièces prévues » passé en `flex-1 min-w-0` + `shrink-0` sur quantité/bouton (même correctif que le bloc pièces d'Interventions). Vérifié UI.

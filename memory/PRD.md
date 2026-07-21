@@ -1,5 +1,8 @@
 # HyperbareManager - PRD (Product Requirements Document)
 
+## Changelog (2026-06-21g) — Fix débordement « Pièces utilisées » (Interventions)
+- Le bloc d'ajout de pièce débordait (bouton « Ajouter » coupé) car le `SearchableSelect` ne se tronquait pas. Ajout de `min-w-0` sur le conteneur flex + `shrink-0` sur quantité/bouton. Vérifié UI.
+
 ## Changelog (2026-06-21f) — Tri liste sous-équipements
 - Liste des sous-équipements (SubEquipments.jsx) triée par **nom puis référence** (alphabétique, numeric-aware). Vérifié UI.
 

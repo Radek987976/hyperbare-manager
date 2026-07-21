@@ -856,7 +856,7 @@ function Interventions() {
               <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
                 <p className="text-xs text-blue-600 mb-2 font-medium">Ajouter une pièce :</p>
                 <div className="flex gap-2 items-end">
-                  <div className="flex-1">
+                  <div className="flex-1 min-w-0">
                     <Label className="text-xs text-slate-500">Pièce détachée{selectedEquipment && matchingSpareParts.length > 0 ? ` (${selectedEquipment.type})` : ''}</Label>
                     <SearchableSelect
                       value={partSelect.part}
@@ -871,7 +871,7 @@ function Interventions() {
                       data-testid="interv-piece-select"
                     />
                   </div>
-                  <div className="w-24">
+                  <div className="w-20 shrink-0">
                     <Label className="text-xs text-slate-500">Quantité</Label>
                     <Input 
                       type="number" 
@@ -884,7 +884,7 @@ function Interventions() {
                     type="button"
                     onClick={addPiece}
                     disabled={!partSelect.part || !partSelect.qty}
-                    className="bg-[#005F73] hover:bg-[#004a5c]"
+                    className="bg-[#005F73] hover:bg-[#004a5c] shrink-0"
                   >
                     <Plus className="w-4 h-4 mr-1" />
                     Ajouter

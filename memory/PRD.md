@@ -1,5 +1,11 @@
 # HyperbareManager - PRD (Product Requirements Document)
 
+## Changelog (2026-06-21k) — Filtres Excel étendus aux 5 tableaux restants
+- Filtres type Excel (`table-column-filter`) ajoutés à : **Sous-équipements** (défaut nom→réf conservé, sort initial null), **Prestataires** (défaut nom), **Contrats** (défaut n° contrat), **Bouteilles de gaz** (défaut n° bouteille), **Utilisateurs** (défaut nom). Colonne « Période » de Contrats laissée en libellé simple (plage de dates).
+- Users : logique de filtre déplacée dans le sous-composant `UserTable` (converti en corps de fonction avec son propre `useColumnFilters`).
+- Tri par défaut nom→référence appliqué sur tous les nouveaux tableaux filtrables.
+- Vérifié UI : icônes entonnoir présentes sur les 5 pages ; filtre Utilisateurs Rôle=Administrateur → 1 ligne.
+
 ## Changelog (2026-06-21j) — Dernière connexion, profil (nom), filtres Excel étendus
 - **Dernière connexion** : `last_login` (ISO) enregistré à chaque login (server.py). Colonne « Dernière connexion » dans la page Utilisateurs (admins) via `formatDateTime` ; « Jamais » si absent.
 - **Profil self-service** : endpoint `PUT /users/me/profile` (nom, prénom). Layout : dialog renommé « Mon profil » avec champs Prénom/Nom + bouton « Enregistrer le nom » (au-dessus de la section mot de passe). `AuthContext.updateUserInfo` met à jour l'utilisateur + localStorage → barre latérale actualisée. `usersAPI.updateProfile`.

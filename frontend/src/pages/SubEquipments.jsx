@@ -26,6 +26,7 @@ import {
   DialogFooter,
 } from '../components/ui/dialog';
 import { SearchableSelect } from '../components/ui/searchable-select';
+import { useColumnFilters, applyTableFilters, distinctValues, ColumnFilter } from '../components/ui/table-column-filter';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -61,6 +62,7 @@ const SubEquipments = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterParent, setFilterParent] = useState('all');
   const [filterParentType, setFilterParentType] = useState('all');
+  const { sort: colSort, setSort: setColSort, filters: colFilters, setColumnFilter: setColColumnFilter } = useColumnFilters(null);
   
   const [showModal, setShowModal] = useState(false);
   const [showDetailModal, setShowDetailModal] = useState(false);
@@ -287,6 +289,15 @@ const SubEquipments = () => {
     return (a.reference || '').localeCompare(b.reference || '', 'fr', { sensitivity: 'base', numeric: true });
   });
 
+  const seColumns = {
+    nom: (i) => i.nom,
+    reference: (i) => i.reference,
+    parent: (i) => getParentNames(i),
+    statut: (i) => statusLabels[i.statut] || i.statut,
+  };
+  const seDistinct = (key) => distinctValues(filtered, seColumns, key, colFilters);
+  const displayItems = applyTableFilters(filtered, seColumns, { filters: colFilters, sort: colSort });
+
   if (loading) {
     return (
       <div className="space-y-6">
@@ -363,15 +374,15 @@ const SubEquipments = () => {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Nom</TableHead>
-                <TableHead>Référence</TableHead>
-                <TableHead>Équipement parent</TableHead>
-                <TableHead>Statut</TableHead>
+                <TableHead><ColumnFilter label="Nom" columnKey="nom" values={seDistinct('nom')} filters={colFilters} sort={colSort} setSort={setColSort} setColumnFilter={setColColumnFilter} /></TableHead>
+                <TableHead><ColumnFilter label="Référence" columnKey="reference" values={seDistinct('reference')} filters={colFilters} sort={colSort} setSort={setColSort} setColumnFilter={setColColumnFilter} /></TableHead>
+                <TableHead><ColumnFilter label="Équipement parent" columnKey="parent" values={seDistinct('parent')} filters={colFilters} sort={colSort} setSort={setColSort} setColumnFilter={setColColumnFilter} /></TableHead>
+                <TableHead><ColumnFilter label="Statut" columnKey="statut" values={seDistinct('statut')} filters={colFilters} sort={colSort} setSort={setColSort} setColumnFilter={setColColumnFilter} /></TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filtered.map((item) => (
+              {displayItems.map((item) => (
                 <TableRow key={item.id} className={item.statut === 'hors_service' ? 'opacity-50 grayscale' : ''}>
                   <TableCell className="font-medium">{item.nom}</TableCell>
                   <TableCell>{item.reference}</TableCell>
@@ -408,7 +419,7 @@ const SubEquipments = () => {
                   </TableCell>
                 </TableRow>
               ))}
-              {filtered.length === 0 && (
+              {displayItems.length === 0 && (
                 <TableRow>
                   <TableCell colSpan={5} className="text-center text-slate-500 py-8">
                     Aucun sous-équipement trouvé

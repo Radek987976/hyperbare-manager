@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { gasCylindersAPI, contractorsAPI } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
 import { formatDate, getErrorMessage } from '../lib/utils';
+import { useColumnFilters, applyTableFilters, distinctValues, ColumnFilter } from '../components/ui/table-column-filter';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
@@ -93,6 +94,7 @@ const GasCylinders = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState('all');
   const [filterStatut, setFilterStatut] = useState('all');
+  const { sort: colSort, setSort: setColSort, filters: colFilters, setColumnFilter: setColColumnFilter } = useColumnFilters({ key: 'numero_bouteille', dir: 'asc' });
   
   // Dialog states
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -274,6 +276,18 @@ const GasCylinders = () => {
     return matchesSearch && matchesType && matchesStatut;
   });
 
+  const gcColumns = {
+    numero_bouteille: (c) => c.numero_bouteille,
+    type_gaz: (c) => getGasTypeLabel(c.type_gaz),
+    volume: (c) => c.volume,
+    statut: (c) => getStatutLabel(c.statut),
+    localisation: (c) => c.localisation || '-',
+    date_expiration_gaz: (c) => formatDate(c.date_expiration_gaz),
+    date_prochaine_epreuve: (c) => formatDate(c.date_prochaine_epreuve),
+  };
+  const gcDistinct = (key) => distinctValues(filteredCylinders, gcColumns, key, colFilters);
+  const displayCylinders = applyTableFilters(filteredCylinders, gcColumns, { filters: colFilters, sort: colSort });
+
   // Stats by gas type
   const statsByType = GAS_TYPES.map(type => ({
     ...type,
@@ -410,25 +424,25 @@ const GasCylinders = () => {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>N° Bouteille</TableHead>
-                    <TableHead>Type de gaz</TableHead>
-                    <TableHead>Volume</TableHead>
-                    <TableHead>Statut</TableHead>
-                    <TableHead>Localisation</TableHead>
-                    <TableHead>Expiration gaz</TableHead>
-                    <TableHead>Prochaine épreuve</TableHead>
+                    <TableHead><ColumnFilter label="N° Bouteille" columnKey="numero_bouteille" values={gcDistinct('numero_bouteille')} filters={colFilters} sort={colSort} setSort={setColSort} setColumnFilter={setColColumnFilter} /></TableHead>
+                    <TableHead><ColumnFilter label="Type de gaz" columnKey="type_gaz" values={gcDistinct('type_gaz')} filters={colFilters} sort={colSort} setSort={setColSort} setColumnFilter={setColColumnFilter} /></TableHead>
+                    <TableHead><ColumnFilter label="Volume" columnKey="volume" values={gcDistinct('volume')} filters={colFilters} sort={colSort} setSort={setColSort} setColumnFilter={setColColumnFilter} /></TableHead>
+                    <TableHead><ColumnFilter label="Statut" columnKey="statut" values={gcDistinct('statut')} filters={colFilters} sort={colSort} setSort={setColSort} setColumnFilter={setColColumnFilter} /></TableHead>
+                    <TableHead><ColumnFilter label="Localisation" columnKey="localisation" values={gcDistinct('localisation')} filters={colFilters} sort={colSort} setSort={setColSort} setColumnFilter={setColColumnFilter} /></TableHead>
+                    <TableHead><ColumnFilter label="Expiration gaz" columnKey="date_expiration_gaz" values={gcDistinct('date_expiration_gaz')} filters={colFilters} sort={colSort} setSort={setColSort} setColumnFilter={setColColumnFilter} /></TableHead>
+                    <TableHead><ColumnFilter label="Prochaine épreuve" columnKey="date_prochaine_epreuve" values={gcDistinct('date_prochaine_epreuve')} filters={colFilters} sort={colSort} setSort={setColSort} setColumnFilter={setColColumnFilter} /></TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredCylinders.length === 0 ? (
+                  {displayCylinders.length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={8} className="text-center py-8 text-gray-500">
                         Aucune bouteille trouvée
                       </TableCell>
                     </TableRow>
                   ) : (
-                    filteredCylinders.map((cylinder) => (
+                    displayCylinders.map((cylinder) => (
                       <TableRow key={cylinder.id}>
                         <TableCell className="font-medium">{cylinder.numero_bouteille}</TableCell>
                         <TableCell>

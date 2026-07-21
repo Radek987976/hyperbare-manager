@@ -25,6 +25,7 @@ import {
   DialogFooter,
 } from '../components/ui/dialog';
 import { SearchableSelect } from '../components/ui/searchable-select';
+import { useColumnFilters, applyTableFilters, distinctValues, ColumnFilter } from '../components/ui/table-column-filter';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -82,6 +83,7 @@ const Contractors = () => {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState('all');
+  const { sort: colSort, setSort: setColSort, filters: colFilters, setColumnFilter: setColColumnFilter } = useColumnFilters({ key: 'nom', dir: 'asc' });
   
   // Dialog states
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -207,6 +209,16 @@ const Contractors = () => {
     return matchesSearch && matchesType;
   });
 
+  const coColumns = {
+    nom: (c) => c.nom,
+    type: (c) => typeLabels[c.type] || c.type,
+    specialite: (c) => (c.specialites && c.specialites.length ? c.specialites.join(', ') : (c.specialite || '-')),
+    contact_nom: (c) => c.contact_nom || '-',
+    contact_telephone: (c) => c.contact_telephone || '-',
+  };
+  const coDistinct = (key) => distinctValues(filteredContractors, coColumns, key, colFilters);
+  const displayContractors = applyTableFilters(filteredContractors, coColumns, { filters: colFilters, sort: colSort });
+
   // Stats
   const stats = {
     total: contractors.length,
@@ -330,23 +342,23 @@ const Contractors = () => {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Nom</TableHead>
-                <TableHead>Type</TableHead>
-                <TableHead>Spécialité</TableHead>
-                <TableHead>Contact</TableHead>
-                <TableHead>Téléphone</TableHead>
+                <TableHead><ColumnFilter label="Nom" columnKey="nom" values={coDistinct('nom')} filters={colFilters} sort={colSort} setSort={setColSort} setColumnFilter={setColColumnFilter} /></TableHead>
+                <TableHead><ColumnFilter label="Type" columnKey="type" values={coDistinct('type')} filters={colFilters} sort={colSort} setSort={setColSort} setColumnFilter={setColColumnFilter} /></TableHead>
+                <TableHead><ColumnFilter label="Spécialité" columnKey="specialite" values={coDistinct('specialite')} filters={colFilters} sort={colSort} setSort={setColSort} setColumnFilter={setColColumnFilter} /></TableHead>
+                <TableHead><ColumnFilter label="Contact" columnKey="contact_nom" values={coDistinct('contact_nom')} filters={colFilters} sort={colSort} setSort={setColSort} setColumnFilter={setColColumnFilter} /></TableHead>
+                <TableHead><ColumnFilter label="Téléphone" columnKey="contact_telephone" values={coDistinct('contact_telephone')} filters={colFilters} sort={colSort} setSort={setColSort} setColumnFilter={setColColumnFilter} /></TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredContractors.length === 0 ? (
+              {displayContractors.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={6} className="text-center py-8 text-gray-500">
                     Aucun prestataire trouvé
                   </TableCell>
                 </TableRow>
               ) : (
-                filteredContractors.map((contractor) => (
+                displayContractors.map((contractor) => (
                   <TableRow key={contractor.id}>
                     <TableCell className="font-medium">{contractor.nom}</TableCell>
                     <TableCell>

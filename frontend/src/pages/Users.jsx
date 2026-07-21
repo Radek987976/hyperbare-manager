@@ -18,6 +18,7 @@ import {
   TableRow,
 } from '../components/ui/table';
 import { SearchableSelect } from '../components/ui/searchable-select';
+import { useColumnFilters, applyTableFilters, distinctValues, ColumnFilter } from '../components/ui/table-column-filter';
 import {
   Dialog,
   DialogContent,
@@ -906,23 +907,34 @@ const UserTable = ({
   setShowPasswordModal,
   setPasswordData,
   actionLoading
-}) => (
+}) => {
+  const { sort: colSort, setSort: setColSort, filters: colFilters, setColumnFilter: setColColumnFilter } = useColumnFilters({ key: 'utilisateur', dir: 'asc' });
+  const uColumns = {
+    utilisateur: (u) => `${u.prenom} ${u.nom}`,
+    email: (u) => u.email,
+    role: (u) => getRoleLabel(u.role),
+    statut: (u) => (u.is_active ? 'Actif' : 'Suspendu'),
+    last_login: (u) => (u.last_login ? formatDateTime(u.last_login) : 'Jamais'),
+  };
+  const uDistinct = (key) => distinctValues(users, uColumns, key, colFilters);
+  const displayUsers = applyTableFilters(users, uColumns, { filters: colFilters, sort: colSort });
+  return (
   <Card>
     <CardContent className="p-0">
       <div className="overflow-x-auto">
         <Table data-testid="users-table">
           <TableHeader>
             <TableRow className="bg-slate-50">
-              <TableHead className="font-semibold">Utilisateur</TableHead>
-              <TableHead className="font-semibold">Email</TableHead>
-              <TableHead className="font-semibold">Rôle</TableHead>
-              <TableHead className="font-semibold">Statut</TableHead>
-              <TableHead className="font-semibold">Dernière connexion</TableHead>
+              <TableHead><ColumnFilter label="Utilisateur" columnKey="utilisateur" values={uDistinct('utilisateur')} filters={colFilters} sort={colSort} setSort={setColSort} setColumnFilter={setColColumnFilter} /></TableHead>
+              <TableHead><ColumnFilter label="Email" columnKey="email" values={uDistinct('email')} filters={colFilters} sort={colSort} setSort={setColSort} setColumnFilter={setColColumnFilter} /></TableHead>
+              <TableHead><ColumnFilter label="Rôle" columnKey="role" values={uDistinct('role')} filters={colFilters} sort={colSort} setSort={setColSort} setColumnFilter={setColColumnFilter} /></TableHead>
+              <TableHead><ColumnFilter label="Statut" columnKey="statut" values={uDistinct('statut')} filters={colFilters} sort={colSort} setSort={setColSort} setColumnFilter={setColColumnFilter} /></TableHead>
+              <TableHead><ColumnFilter label="Dernière connexion" columnKey="last_login" values={uDistinct('last_login')} filters={colFilters} sort={colSort} setSort={setColSort} setColumnFilter={setColColumnFilter} /></TableHead>
               <TableHead className="w-16"></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {users.length === 0 ? (
+            {displayUsers.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={6} className="text-center py-12 text-slate-500">
                   <Users className="w-12 h-12 mx-auto mb-3 text-slate-300" />
@@ -930,7 +942,7 @@ const UserTable = ({
                 </TableCell>
               </TableRow>
             ) : (
-              users.map((user) => (
+              displayUsers.map((user) => (
                 <TableRow key={user.id} data-testid={`user-row-${user.id}`}>
                   <TableCell>
                     <div className="flex items-center gap-3">
@@ -1050,6 +1062,7 @@ const UserTable = ({
       </div>
     </CardContent>
   </Card>
-);
+  );
+};
 
 export default UsersPage;

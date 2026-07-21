@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { contractsAPI, contractorsAPI, equipmentsAPI } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
 import { formatDate, getErrorMessage } from '../lib/utils';
+import { useColumnFilters, applyTableFilters, distinctValues, ColumnFilter } from '../components/ui/table-column-filter';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
@@ -92,6 +93,7 @@ const Contracts = () => {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatut, setFilterStatut] = useState('all');
+  const { sort: colSort, setSort: setColSort, filters: colFilters, setColumnFilter: setColColumnFilter } = useColumnFilters({ key: 'numero_contrat', dir: 'asc' });
   
   // Dialog states
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -265,6 +267,17 @@ const Contracts = () => {
     return matchesSearch && matchesStatut;
   });
 
+  const cxColumns = {
+    numero_contrat: (c) => c.numero_contrat,
+    titre: (c) => c.titre,
+    contractor: (c) => getContractorName(c.contractor_id),
+    type_contrat: (c) => TYPES_CONTRAT.find(t => t.value === c.type_contrat)?.label || c.type_contrat,
+    montant: (c) => formatCurrency(c.montant_annuel),
+    statut: (c) => getStatutInfo(c.statut).label,
+  };
+  const cxDistinct = (key) => distinctValues(filteredContracts, cxColumns, key, colFilters);
+  const displayContracts = applyTableFilters(filteredContracts, cxColumns, { filters: colFilters, sort: colSort });
+
   // Stats
   const stats = {
     total: contracts.length,
@@ -390,25 +403,25 @@ const Contracts = () => {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>N° Contrat</TableHead>
-                <TableHead>Titre</TableHead>
-                <TableHead>Prestataire</TableHead>
-                <TableHead>Type</TableHead>
+                <TableHead><ColumnFilter label="N° Contrat" columnKey="numero_contrat" values={cxDistinct('numero_contrat')} filters={colFilters} sort={colSort} setSort={setColSort} setColumnFilter={setColColumnFilter} /></TableHead>
+                <TableHead><ColumnFilter label="Titre" columnKey="titre" values={cxDistinct('titre')} filters={colFilters} sort={colSort} setSort={setColSort} setColumnFilter={setColColumnFilter} /></TableHead>
+                <TableHead><ColumnFilter label="Prestataire" columnKey="contractor" values={cxDistinct('contractor')} filters={colFilters} sort={colSort} setSort={setColSort} setColumnFilter={setColColumnFilter} /></TableHead>
+                <TableHead><ColumnFilter label="Type" columnKey="type_contrat" values={cxDistinct('type_contrat')} filters={colFilters} sort={colSort} setSort={setColSort} setColumnFilter={setColColumnFilter} /></TableHead>
                 <TableHead>Période</TableHead>
-                <TableHead>Montant annuel</TableHead>
-                <TableHead>Statut</TableHead>
+                <TableHead><ColumnFilter label="Montant annuel" columnKey="montant" values={cxDistinct('montant')} filters={colFilters} sort={colSort} setSort={setColSort} setColumnFilter={setColColumnFilter} /></TableHead>
+                <TableHead><ColumnFilter label="Statut" columnKey="statut" values={cxDistinct('statut')} filters={colFilters} sort={colSort} setSort={setColSort} setColumnFilter={setColColumnFilter} /></TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredContracts.length === 0 ? (
+              {displayContracts.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={8} className="text-center py-8 text-gray-500">
                     Aucun contrat trouvé
                   </TableCell>
                 </TableRow>
               ) : (
-                filteredContracts.map((contract) => {
+                displayContracts.map((contract) => {
                   const statutInfo = getStatutInfo(contract.statut);
                   const expiringSoon = contract.statut === 'actif' && isExpiringSoon(contract.date_fin);
                   const expired = isExpired(contract.date_fin);

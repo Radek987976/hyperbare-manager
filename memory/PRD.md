@@ -1,5 +1,10 @@
 # HyperbareManager - PRD (Product Requirements Document)
 
+## Changelog (2026-06-21h) — Fix débordements généralisé (SearchableSelect)
+- Garde-fou global : `SearchableSelect` → `min-w-0` sur le bouton et sur le `<span>` du label (troncature fiable dans tout conteneur flex). Corrige les débordements partout.
+- WorkOrders : bloc « Pièces prévues » passé en `flex-1 min-w-0` + `shrink-0` sur quantité/bouton (même correctif que le bloc pièces d'Interventions). Vérifié UI.
+- Audit : aucun autre `<div className="flex-1">` n'enveloppe directement un SearchableSelect.
+
 ## Changelog (2026-06-21g) — Fix débordement « Pièces utilisées » (Interventions)
 - Le bloc d'ajout de pièce débordait (bouton « Ajouter » coupé) car le `SearchableSelect` ne se tronquait pas. Ajout de `min-w-0` sur le conteneur flex + `shrink-0` sur quantité/bouton. Vérifié UI.
 

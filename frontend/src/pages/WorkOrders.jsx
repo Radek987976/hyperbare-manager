@@ -774,7 +774,7 @@ const WorkOrders = () => {
                   </Button>
                 )}
                 <div className="flex gap-2 items-end">
-                  <div className="flex-1">
+                  <div className="flex-1 min-w-0">
                     <SearchableSelect
                       value={pieceToAdd}
                       onValueChange={setPieceToAdd}
@@ -789,10 +789,10 @@ const WorkOrders = () => {
                     min="1"
                     value={pieceQte}
                     onChange={(e) => setPieceQte(e.target.value)}
-                    className="w-20"
+                    className="w-20 shrink-0"
                     data-testid="input-piece-qte"
                   />
-                  <Button type="button" variant="outline" onClick={addPiecePrevue} data-testid="add-piece-prevue-btn">
+                  <Button type="button" variant="outline" onClick={addPiecePrevue} data-testid="add-piece-prevue-btn" className="shrink-0">
                     Ajouter
                   </Button>
                 </div>

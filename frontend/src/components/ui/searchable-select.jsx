@@ -121,12 +121,12 @@ export const SearchableSelect = React.forwardRef(function SearchableSelect(
           disabled={disabled}
           data-testid={dataTestId}
           className={cn(
-            "w-full justify-between font-normal border-slate-200 bg-white hover:bg-white",
+            "w-full min-w-0 justify-between font-normal border-slate-200 bg-white hover:bg-white",
             !selected && !(allowCustom && value) && "text-muted-foreground",
             className
           )}
         >
-          <span className="truncate">{displayLabel}</span>
+          <span className="truncate min-w-0 text-left">{displayLabel}</span>
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>

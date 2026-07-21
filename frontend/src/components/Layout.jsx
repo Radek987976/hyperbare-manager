@@ -47,7 +47,7 @@ import {
 import { usersAPI } from '../lib/api';
 
 const Sidebar = ({ isOpen, onClose }) => {
-  const { user, logout, isAdmin, canExport, getRoleLabel } = useAuth();
+  const { user, logout, isAdmin, canExport, getRoleLabel, updateUserInfo } = useAuth();
   const navigate = useNavigate();
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [passwordData, setPasswordData] = useState({
@@ -55,12 +55,39 @@ const Sidebar = ({ isOpen, onClose }) => {
     newPassword: '',
     confirmPassword: ''
   });
+  const [profileData, setProfileData] = useState({ nom: '', prenom: '' });
+  const [savingProfile, setSavingProfile] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (showPasswordModal) {
+      setProfileData({ nom: user?.nom || '', prenom: user?.prenom || '' });
+    }
+  }, [showPasswordModal, user]);
 
   const handleLogout = () => {
     logout();
     navigate('/login');
+  };
+
+  const handleSaveProfile = async () => {
+    setError('');
+    if (!profileData.nom.trim() || !profileData.prenom.trim()) {
+      setError('Le nom et le prénom sont obligatoires');
+      return;
+    }
+    setSavingProfile(true);
+    try {
+      await usersAPI.updateProfile(profileData.nom.trim(), profileData.prenom.trim());
+      updateUserInfo({ nom: profileData.nom.trim(), prenom: profileData.prenom.trim() });
+      alert('Nom et prénom mis à jour !');
+    } catch (err) {
+      const message = err.response?.data?.detail || 'Erreur lors de la mise à jour du profil';
+      setError(typeof message === 'string' ? message : 'Erreur lors de la mise à jour du profil');
+    } finally {
+      setSavingProfile(false);
+    }
   };
 
   const handleChangePassword = async () => {
@@ -252,8 +279,8 @@ const Sidebar = ({ isOpen, onClose }) => {
             className="w-full flex items-center gap-3 px-4 py-2 text-slate-400 hover:text-white hover:bg-white/10 rounded-sm transition-colors"
             data-testid="change-password-btn"
           >
-            <Key className="w-4 h-4" />
-            <span className="text-sm">Modifier mon mot de passe</span>
+            <User className="w-4 h-4" />
+            <span className="text-sm">Mon profil</span>
           </button>
           <button
             onClick={handleLogout}
@@ -270,8 +297,8 @@ const Sidebar = ({ isOpen, onClose }) => {
           <DialogContent className="sm:max-w-md">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
-                <Key className="w-5 h-5 text-[#005F73]" />
-                Modifier mon mot de passe
+                <User className="w-5 h-5 text-[#005F73]" />
+                Mon profil
               </DialogTitle>
             </DialogHeader>
             <div className="space-y-4 py-4">
@@ -280,6 +307,38 @@ const Sidebar = ({ isOpen, onClose }) => {
                   {error}
                 </div>
               )}
+              <div className="space-y-3 pb-4 border-b">
+                <p className="text-sm font-semibold text-slate-700">Nom et prénom</p>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-2">
+                    <Label htmlFor="profilePrenom">Prénom</Label>
+                    <Input
+                      id="profilePrenom"
+                      value={profileData.prenom}
+                      onChange={(e) => setProfileData({ ...profileData, prenom: e.target.value })}
+                      data-testid="profile-prenom-input"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="profileNom">Nom</Label>
+                    <Input
+                      id="profileNom"
+                      value={profileData.nom}
+                      onChange={(e) => setProfileData({ ...profileData, nom: e.target.value })}
+                      data-testid="profile-nom-input"
+                    />
+                  </div>
+                </div>
+                <Button
+                  onClick={handleSaveProfile}
+                  disabled={savingProfile || !profileData.nom.trim() || !profileData.prenom.trim()}
+                  className="bg-[#005F73] hover:bg-[#004855] w-full"
+                  data-testid="save-profile-btn"
+                >
+                  {savingProfile ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Enregistrement...</> : 'Enregistrer le nom'}
+                </Button>
+              </div>
+              <p className="text-sm font-semibold text-slate-700 flex items-center gap-2"><Key className="w-4 h-4 text-[#005F73]" /> Modifier mon mot de passe</p>
               <div className="space-y-2">
                 <Label htmlFor="currentPassword">Mot de passe actuel</Label>
                 <Input

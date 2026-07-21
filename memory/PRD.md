@@ -1,5 +1,11 @@
 # HyperbareManager - PRD (Product Requirements Document)
 
+## Changelog (2026-06-21j) — Dernière connexion, profil (nom), filtres Excel étendus
+- **Dernière connexion** : `last_login` (ISO) enregistré à chaque login (server.py). Colonne « Dernière connexion » dans la page Utilisateurs (admins) via `formatDateTime` ; « Jamais » si absent.
+- **Profil self-service** : endpoint `PUT /users/me/profile` (nom, prénom). Layout : dialog renommé « Mon profil » avec champs Prénom/Nom + bouton « Enregistrer le nom » (au-dessus de la section mot de passe). `AuthContext.updateUserInfo` met à jour l'utilisateur + localStorage → barre latérale actualisée. `usersAPI.updateProfile`.
+- **Filtres Excel** étendus (composant `table-column-filter`) à : Stock pièces (SpareParts, tri défaut nom), Maintenance préventive (WorkOrders), Interventions (avant pagination). Équipements déjà fait.
+- Vérifié UI : profil sauvegardé + reflété en barre latérale + revert ; WorkOrders Statut=Planifiée → 185 lignes ; backend last_login + profil (curl).
+
 ## Changelog (2026-06-21i) — Filtres type Excel (démo Équipements)
 - Nouveau composant réutilisable `components/ui/table-column-filter.jsx` : hook `useColumnFilters`, helpers `applyTableFilters`/`distinctValues`, composant `ColumnFilter` (entonnoir par colonne : Trier A→Z / Z→A, recherche, cases à cocher multi-sélection + « (Sélectionner tout) », OK/Annuler). Valeurs distinctes calculées selon les autres filtres (comportement Excel).
 - Appliqué au tableau **Équipements** (colonnes Type, Référence, N° Série, Criticité, Statut, Compteur h, Installation). Suppression des 3 anciens sélecteurs de filtre (remplacés). Recherche globale conservée + bouton « Réinitialiser les filtres ».

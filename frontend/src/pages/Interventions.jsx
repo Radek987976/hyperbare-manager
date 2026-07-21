@@ -13,6 +13,7 @@ import { Skeleton } from '../components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '../components/ui/dialog';
 import { SearchableSelect } from '../components/ui/searchable-select';
+import { useColumnFilters, applyTableFilters, distinctValues, ColumnFilter } from '../components/ui/table-column-filter';
 import { History, Plus, Search, Eye, Loader2, Clock, User, Package, Wrench, Activity, FileText, Upload, Edit, Trash2, X, Printer } from 'lucide-react';
 
 // Paramètres de l'analyse de l'air respirable (Classeur2)
@@ -57,6 +58,7 @@ function Interventions() {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState('all');
   const [filterEquipment, setFilterEquipment] = useState('all');
+  const { sort: colSort, setSort: setColSort, filters: colFilters, setColumnFilter: setColColumnFilter } = useColumnFilters(null);
   const [filterDateFrom, setFilterDateFrom] = useState('');
   const [filterDateTo, setFilterDateTo] = useState('');
   const [page, setPage] = useState(1);
@@ -433,9 +435,20 @@ function Interventions() {
     return matchSearch && matchType && matchEquip && matchDateFrom && matchDateTo;
   });
 
-  const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const intColumns = {
+    date_intervention: (i) => formatDate(i.date_intervention),
+    objet: (i) => i.type_intervention === 'preventive' ? getPreventiveTitle(i.maintenance_preventive_id) : getInterventionLabel(i),
+    equipment: (i) => getEquipmentName(i.equipment_id) || '-',
+    technicien: (i) => i.technicien,
+    actions: (i) => i.actions_realisees,
+    duree: (i) => i.duree_minutes ? `${i.duree_minutes} min` : '-',
+  };
+  const intDistinct = (key) => distinctValues(filtered, intColumns, key, colFilters);
+  const colFiltered = applyTableFilters(filtered, intColumns, { filters: colFilters, sort: colSort });
+
+  const pageCount = Math.max(1, Math.ceil(colFiltered.length / PAGE_SIZE));
   const currentPage = Math.min(page, pageCount);
-  const paged = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+  const paged = colFiltered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
 
   if (loading) {
     return <div className="space-y-6"><Skeleton className="h-10 w-48" /><Skeleton className="h-96" /></div>;
@@ -508,17 +521,17 @@ function Interventions() {
           <Table>
             <TableHeader>
               <TableRow className="bg-slate-50">
-                <TableHead>Date</TableHead>
-                <TableHead>Objet</TableHead>
-                <TableHead>Équipement</TableHead>
-                <TableHead>Technicien</TableHead>
+                <TableHead><ColumnFilter label="Date" columnKey="date_intervention" values={intDistinct('date_intervention')} filters={colFilters} sort={colSort} setSort={setColSort} setColumnFilter={setColColumnFilter} /></TableHead>
+                <TableHead><ColumnFilter label="Objet" columnKey="objet" values={intDistinct('objet')} filters={colFilters} sort={colSort} setSort={setColSort} setColumnFilter={setColColumnFilter} /></TableHead>
+                <TableHead><ColumnFilter label="Équipement" columnKey="equipment" values={intDistinct('equipment')} filters={colFilters} sort={colSort} setSort={setColSort} setColumnFilter={setColColumnFilter} /></TableHead>
+                <TableHead><ColumnFilter label="Technicien" columnKey="technicien" values={intDistinct('technicien')} filters={colFilters} sort={colSort} setSort={setColSort} setColumnFilter={setColColumnFilter} /></TableHead>
                 <TableHead>Actions</TableHead>
-                <TableHead>Durée</TableHead>
+                <TableHead><ColumnFilter label="Durée" columnKey="duree" values={intDistinct('duree')} filters={colFilters} sort={colSort} setSort={setColSort} setColumnFilter={setColColumnFilter} /></TableHead>
                 <TableHead className="w-16"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filtered.length === 0 ? (
+              {colFiltered.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={7} className="text-center py-12 text-slate-500">
                     <History className="w-12 h-12 mx-auto mb-3 text-slate-300" />

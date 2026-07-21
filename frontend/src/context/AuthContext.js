@@ -110,6 +110,15 @@ export const AuthProvider = ({ children }) => {
       return updated;
     });
   };
+
+  const updateUserInfo = (partial) => {
+    setUser((prev) => {
+      if (!prev) return prev;
+      const updated = { ...prev, ...partial };
+      localStorage.setItem('user', JSON.stringify(updated));
+      return updated;
+    });
+  };
   
   const canCreate = () => permissions.can_create;
   const canModify = () => permissions.can_modify;
@@ -143,6 +152,7 @@ export const AuthProvider = ({ children }) => {
     canManageUsers,
     getRoleLabel,
     clearMustChangePassword,
+    updateUserInfo,
     isAuthenticated: !!user,
   };
 

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { usersAPI, reportsAPI } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
-import { getErrorMessage } from '../lib/utils';
+import { getErrorMessage, formatDateTime } from '../lib/utils';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
@@ -917,13 +917,14 @@ const UserTable = ({
               <TableHead className="font-semibold">Email</TableHead>
               <TableHead className="font-semibold">Rôle</TableHead>
               <TableHead className="font-semibold">Statut</TableHead>
+              <TableHead className="font-semibold">Dernière connexion</TableHead>
               <TableHead className="w-16"></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {users.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={5} className="text-center py-12 text-slate-500">
+                <TableCell colSpan={6} className="text-center py-12 text-slate-500">
                   <Users className="w-12 h-12 mx-auto mb-3 text-slate-300" />
                   <p>Aucun utilisateur trouvé</p>
                 </TableCell>
@@ -982,6 +983,9 @@ const UserTable = ({
                     >
                       {user.is_active ? 'Actif' : 'Suspendu'}
                     </Badge>
+                  </TableCell>
+                  <TableCell className="text-sm text-slate-600" data-testid={`user-last-login-${user.id}`}>
+                    {user.last_login ? formatDateTime(user.last_login) : <span className="text-slate-400">Jamais</span>}
                   </TableCell>
                   <TableCell>
                     {user.id !== currentUser?.id && (

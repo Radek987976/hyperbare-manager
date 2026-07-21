@@ -900,6 +900,12 @@ async def login(credentials: UserLogin):
     if not user.get("is_active", False):
         raise HTTPException(status_code=403, detail="Votre compte a été suspendu. Contactez l'administrateur.")
     
+    # Enregistrer la date de dernière connexion (visible par les admins)
+    await db.users.update_one(
+        {"id": user["id"]},
+        {"$set": {"last_login": datetime.now(timezone.utc).isoformat()}}
+    )
+    
     token = create_access_token({"sub": user["id"], "email": user["email"], "role": user["role"]})
     
     return TokenResponse(
@@ -910,6 +916,21 @@ async def login(credentials: UserLogin):
 @api_router.get("/auth/me")
 async def get_me(current_user: dict = Depends(get_current_user)):
     return current_user
+
+class ProfileUpdate(BaseModel):
+    nom: str
+    prenom: str
+
+@api_router.put("/users/me/profile")
+async def update_my_profile(data: ProfileUpdate, current_user: dict = Depends(get_current_user)):
+    """Self-service: tout utilisateur peut modifier son nom et prénom."""
+    nom = (data.nom or "").strip()
+    prenom = (data.prenom or "").strip()
+    if not nom or not prenom:
+        raise HTTPException(status_code=400, detail="Le nom et le prénom sont obligatoires")
+    await db.users.update_one({"id": current_user["id"]}, {"$set": {"nom": nom, "prenom": prenom}})
+    updated = await db.users.find_one({"id": current_user["id"]}, {"_id": 0, "password_hash": 0})
+    return {"message": "Profil mis à jour", "user": updated}
 
 class ForgotPasswordRequest(BaseModel):
     email: str

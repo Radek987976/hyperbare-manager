@@ -24,6 +24,7 @@ import {
   DialogFooter,
 } from '../components/ui/dialog';
 import { SearchableSelect } from '../components/ui/searchable-select';
+import { useColumnFilters, applyTableFilters, distinctValues, ColumnFilter } from '../components/ui/table-column-filter';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import {
   DropdownMenu,
@@ -66,6 +67,7 @@ const SpareParts = () => {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState('all');
+  const { sort, setSort, filters, setColumnFilter } = useColumnFilters({ key: 'nom', dir: 'asc' });
   const [showLowStock, setShowLowStock] = useState(false);
   
   const [showModal, setShowModal] = useState(false);
@@ -315,6 +317,18 @@ const SpareParts = () => {
 
   const lowStockCount = spareParts.filter(isLowStock).length;
 
+  const columnsConfig = {
+    nom: (p) => p.nom,
+    reference_fabricant: (p) => p.reference_fabricant,
+    equipment_type: (p) => getTypeLabel(p.equipment_type),
+    quantite_stock: (p) => p.quantite_stock,
+    seuil_minimum: (p) => p.seuil_minimum,
+    emplacement: (p) => p.emplacement || '-',
+    prix: (p) => formatPrice(p),
+  };
+  const distinctFor = (key) => distinctValues(filteredParts, columnsConfig, key, filters);
+  const displayParts = applyTableFilters(filteredParts, columnsConfig, { filters, sort });
+
   if (loading) {
     return (
       <div className="space-y-6" data-testid="spare-parts-loading">
@@ -406,18 +420,18 @@ const SpareParts = () => {
             <Table data-testid="spare-parts-table">
               <TableHeader>
                 <TableRow className="bg-slate-50">
-                  <TableHead className="font-semibold">Nom</TableHead>
-                  <TableHead className="font-semibold">Référence</TableHead>
-                  <TableHead className="font-semibold">Type équipement</TableHead>
-                  <TableHead className="font-semibold">Stock</TableHead>
-                  <TableHead className="font-semibold">Seuil</TableHead>
-                  <TableHead className="font-semibold">Emplacement</TableHead>
-                  <TableHead className="font-semibold">Prix</TableHead>
+                  <TableHead><ColumnFilter label="Nom" columnKey="nom" values={distinctFor('nom')} filters={filters} sort={sort} setSort={setSort} setColumnFilter={setColumnFilter} /></TableHead>
+                  <TableHead><ColumnFilter label="Référence" columnKey="reference_fabricant" values={distinctFor('reference_fabricant')} filters={filters} sort={sort} setSort={setSort} setColumnFilter={setColumnFilter} /></TableHead>
+                  <TableHead><ColumnFilter label="Type équipement" columnKey="equipment_type" values={distinctFor('equipment_type')} filters={filters} sort={sort} setSort={setSort} setColumnFilter={setColumnFilter} /></TableHead>
+                  <TableHead><ColumnFilter label="Stock" columnKey="quantite_stock" values={distinctFor('quantite_stock')} filters={filters} sort={sort} setSort={setSort} setColumnFilter={setColumnFilter} /></TableHead>
+                  <TableHead><ColumnFilter label="Seuil" columnKey="seuil_minimum" values={distinctFor('seuil_minimum')} filters={filters} sort={sort} setSort={setSort} setColumnFilter={setColumnFilter} /></TableHead>
+                  <TableHead><ColumnFilter label="Emplacement" columnKey="emplacement" values={distinctFor('emplacement')} filters={filters} sort={sort} setSort={setSort} setColumnFilter={setColumnFilter} /></TableHead>
+                  <TableHead><ColumnFilter label="Prix" columnKey="prix" values={distinctFor('prix')} filters={filters} sort={sort} setSort={setSort} setColumnFilter={setColumnFilter} /></TableHead>
                   <TableHead className="w-16"></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredParts.length === 0 ? (
+                {displayParts.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={8} className="text-center py-12 text-slate-500">
                       <Package className="w-12 h-12 mx-auto mb-3 text-slate-300" />
@@ -425,7 +439,7 @@ const SpareParts = () => {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filteredParts.map((part) => (
+                  displayParts.map((part) => (
                     <TableRow 
                       key={part.id} 
                       className={isLowStock(part) ? 'bg-amber-50/50' : ''}

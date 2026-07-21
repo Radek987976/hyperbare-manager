@@ -35,6 +35,7 @@ import {
   DialogFooter,
 } from '../components/ui/dialog';
 import { SearchableSelect } from '../components/ui/searchable-select';
+import { useColumnFilters, applyTableFilters, distinctValues, ColumnFilter } from '../components/ui/table-column-filter';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -96,6 +97,7 @@ const WorkOrders = () => {
   }, [workOrders, _loc.state]);
   const [filterStatut, setFilterStatut] = useState('all');
   const [filterType, setFilterType] = useState('all');
+  const { sort: colSort, setSort: setColSort, filters: colFilters, setColumnFilter: setColColumnFilter } = useColumnFilters(null);
   const [activeTab, setActiveTab] = useState('all');
   
   const [showModal, setShowModal] = useState(false);
@@ -410,6 +412,17 @@ const WorkOrders = () => {
 
   const getStatusCount = (status) => workOrders.filter(wo => wo.statut === status).length;
 
+  const woColumns = {
+    titre: (wo) => wo.titre,
+    type_maintenance: (wo) => maintenanceTypeLabels[wo.type_maintenance] || wo.type_maintenance,
+    priorite: (wo) => priorityLabels[wo.priorite] || wo.priorite,
+    statut: (wo) => statusLabels[wo.statut] || wo.statut,
+    equipment: (wo) => getEquipmentLabel(wo.equipment_id),
+    date_planifiee: (wo) => formatDate(wo.date_planifiee),
+  };
+  const woDistinct = (key) => distinctValues(filteredWorkOrders, woColumns, key, colFilters);
+  const displayWorkOrders = applyTableFilters(filteredWorkOrders, woColumns, { filters: colFilters, sort: colSort });
+
   if (loading) {
     return (
       <div className="space-y-6" data-testid="work-orders-loading">
@@ -494,17 +507,17 @@ const WorkOrders = () => {
             <Table data-testid="work-orders-table">
               <TableHeader>
                 <TableRow className="bg-slate-50">
-                  <TableHead className="font-semibold">Titre</TableHead>
-                  <TableHead className="font-semibold">Type</TableHead>
-                  <TableHead className="font-semibold">Priorité</TableHead>
-                  <TableHead className="font-semibold">Statut</TableHead>
-                  <TableHead className="font-semibold">Équipement</TableHead>
-                  <TableHead className="font-semibold">Date planifiée</TableHead>
+                  <TableHead><ColumnFilter label="Titre" columnKey="titre" values={woDistinct('titre')} filters={colFilters} sort={colSort} setSort={setColSort} setColumnFilter={setColColumnFilter} /></TableHead>
+                  <TableHead><ColumnFilter label="Type" columnKey="type_maintenance" values={woDistinct('type_maintenance')} filters={colFilters} sort={colSort} setSort={setColSort} setColumnFilter={setColColumnFilter} /></TableHead>
+                  <TableHead><ColumnFilter label="Priorité" columnKey="priorite" values={woDistinct('priorite')} filters={colFilters} sort={colSort} setSort={setColSort} setColumnFilter={setColColumnFilter} /></TableHead>
+                  <TableHead><ColumnFilter label="Statut" columnKey="statut" values={woDistinct('statut')} filters={colFilters} sort={colSort} setSort={setColSort} setColumnFilter={setColColumnFilter} /></TableHead>
+                  <TableHead><ColumnFilter label="Équipement" columnKey="equipment" values={woDistinct('equipment')} filters={colFilters} sort={colSort} setSort={setColSort} setColumnFilter={setColColumnFilter} /></TableHead>
+                  <TableHead><ColumnFilter label="Date planifiée" columnKey="date_planifiee" values={woDistinct('date_planifiee')} filters={colFilters} sort={colSort} setSort={setColSort} setColumnFilter={setColColumnFilter} /></TableHead>
                   <TableHead className="w-16"></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredWorkOrders.length === 0 ? (
+                {displayWorkOrders.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={7} className="text-center py-12 text-slate-500">
                       <ClipboardList className="w-12 h-12 mx-auto mb-3 text-slate-300" />
@@ -512,7 +525,7 @@ const WorkOrders = () => {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filteredWorkOrders.map((wo) => {
+                  displayWorkOrders.map((wo) => {
                     const days = daysUntil(wo.date_planifiee);
                     const isOverdue = days !== null && days < 0 && wo.statut !== 'terminee' && wo.statut !== 'annulee';
                     

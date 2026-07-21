@@ -82,6 +82,7 @@ export const usersAPI = {
   getPermissions: () => api.get('/users/permissions'),
   changeMyPassword: (currentPassword, newPassword) => 
     api.put('/users/me/change-password', { current_password: currentPassword, new_password: newPassword }),
+  updateProfile: (nom, prenom) => api.put('/users/me/profile', { nom, prenom }),
   adminChangePassword: (userId, newPassword) => 
     api.put(`/users/${userId}/password`, { new_password: newPassword }),
   getResetRequests: () => api.get('/users/reset-requests'),

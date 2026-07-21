@@ -1,5 +1,23 @@
 # HyperbareManager - PRD (Product Requirements Document)
 
+## Changelog (2026-06-21) — Modèle air respirable PDF + Plan/Check-listes/PV de contrôle (VÉRIFIÉ curl + rendu PDF + UI)
+Basé sur 4 documents fournis par l'utilisateur (Calendrier des maintenances.xlsx, Analyse de l'air respirable 2.docx, Check liste MTN caisson.pdf, Contrôle Mensuel.docx).
+
+**A) Modèle PDF « Analyse de l'air respirable » pré-rempli**
+- Backend `POST /api/reports/pdf/air-respirable` (body: equipment_id, valeurs, technicien, date, observations) → PDF reprenant le modèle Word : bloc LE COMPRESSEUR (Marque/Modèle/Année(=date_installation)/N° série/Compteur horaire/Réf + cases Essence/Électrique/Diesel), tableau Fluide contrôlé/Valeur constatée/Valeur admissible/Observation (H2O 100mg/m³, CO 5ppm, CO2 500ppm, huile 0.5mg/m³, odeur), observations DRÄGER AEROTEST fixes, signatures.
+- Frontend Interventions.jsx : bouton « Imprimer / Télécharger le modèle » (`print-air-respirable-btn`) dans le bloc de relevés air respirable → `reportsAPI.airRespirablePDF` + `openBlobPdf` (nouvel onglet). Pré-rempli avec la fiche compresseur + valeurs saisies.
+
+**B/C/D) Plan, check-listes & PV — placés dans la page « Rapports PDF »**
+- Logique partagée `_build_plan_items(year)` : occurrences des maintenances préventives dans l'année via date_planifiee + périodicité. **Exclut journalières/hebdomadaires (périodicité ≤ 7 j)** et équipements réformés. Maintenances horaires (compresseurs, sans périodicité en jours) → placées en **février & août** (2 fois/an) par consigne user. `_times_per_year` : 30j→12, 90j→4, 180j→2, 360j→1, pluriannuel→1.
+- `GET /reports/pdf/plan-maintenance/{year}` : regroupé par mois puis par type d'équipement.
+- `GET /reports/pdf/check-liste/{year}/{month}` : format check-liste (Intervention/Équipement/Périodicité/Fait/Date/Observations), groupé par type.
+- `GET /reports/pdf/pv-controle-mensuel/{year}/{month}` : PV mensuel, groupé par type d'équipement (titre en MAJ).
+- `GET /reports/pdf/pv-controle-annuel/{year}` : toutes les maintenances de l'année avec colonne **« Nb / an »** ; dédoublonnage (titre, équipement) ; une maintenance non prévue l'année ≠ affichée.
+- Cellules longues rendues en `Paragraph` (retour à la ligne propre). `_P()` helper.
+- Frontend Reports.jsx : section « Plan de maintenance, check-listes & PV de contrôle » avec sélecteurs Année + Mois, 4 cartes (Aperçu/Imprimer via viewer in-app + Télécharger). api.js : `planMaintenancePDF/checkListePDF/pvMensuelPDF/pvAnnuelPDF/airRespirablePDF` + helper `openBlobPdf`.
+- Vérifié : 5 endpoints HTTP 200, rendu PDF conforme (pdftoppm), UI (bouton air respirable déclenche l'API, viewer PDF s'ouvre pour le PV annuel).
+- Redéploiement production requis pour propager le code backend.
+
 ## Changelog (2026-06-20m) — Tableaux de relevés personnalisés (Servomex + Air respirable) — VÉRIFIÉ
 - **Constat**: la fonctionnalité était déjà implémentée et fonctionnelle. Interventions.jsx détecte la maintenance sélectionnée (useEffect L121) et affiche le tableau de relevés adapté : `servomex_calibrage` (grille LOW/HIGH/ECHELLE × I1-I4) ou `air_respirable` (H2O, CO, CO2, huile, odeur/goût). Stockage backend dans `InterventionBase.mesures` (dict, server.py L512). Affichage dans le détail (L898-925).
 - **Cause du « tableau caché » vu au fork précédent**: la maintenance « Analyse de l'air respirable des compresseurs (6 mois) » était au statut `annulee` sur COMP_BAUER 01 (et COMP_LUCHAR réformé) → non sélectionnable dans la liste (filtre planifiee/en_cours) → le tableau ne pouvait pas apparaître. Seul COMP_BAUER 02 l'avait `planifiee`.

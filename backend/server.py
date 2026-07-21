@@ -4570,6 +4570,340 @@ async def generate_planning_pdf(current_user: dict = Depends(get_current_user)):
         headers={"Content-Disposition": f"attachment; filename={filename}"}
     )
 
+# ==================== PLAN / CHECK-LISTES / PV DE CONTRÔLE ====================
+
+FRENCH_MONTHS = ['', 'Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin',
+                 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre']
+
+_CELL_STYLE = ParagraphStyle('Cell', fontName='Helvetica', fontSize=8, leading=10)
+
+
+def _P(text):
+    """Cellule de tableau qui se retourne à la ligne (échappe le HTML)."""
+    s = '' if text is None else str(text)
+    s = s.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+    return Paragraph(s, _CELL_STYLE)
+
+
+def _periodicite_label(wo: dict) -> str:
+    pj = wo.get('periodicite_jours')
+    ph = wo.get('periodicite_heures')
+    if not pj and ph:
+        return f"{ph} h"
+    if not pj:
+        return "—"
+    mapping = {7: 'Hebdomadaire', 30: 'Mensuel', 90: 'Trimestriel', 180: 'Semestriel',
+               360: 'Annuel', 365: 'Annuel', 720: '2 ans', 1080: '3 ans', 1800: '5 ans', 3600: '10 ans'}
+    if pj in mapping:
+        return mapping[pj]
+    if pj < 30:
+        return f"{pj} jours"
+    if pj < 360:
+        return f"{round(pj / 30)} mois"
+    return f"{round(pj / 360)} ans"
+
+
+def _is_daily_weekly(wo: dict) -> bool:
+    pj = wo.get('periodicite_jours')
+    return pj is not None and pj <= 7
+
+
+def _times_per_year(wo: dict) -> int:
+    pj = wo.get('periodicite_jours')
+    ph = wo.get('periodicite_heures')
+    if not pj:
+        return 2 if ph else 0  # compresseurs (compteur horaire) → février & août
+    if pj <= 7:
+        return 0
+    if pj <= 365:
+        return max(1, round(365 / pj))
+    return 1  # pluriannuel : 1 fois l'année où il tombe
+
+
+def _occurrence_months(wo: dict, year: int) -> set:
+    """Mois (1-12) où la maintenance tombe dans l'année donnée."""
+    pj = wo.get('periodicite_jours')
+    ph = wo.get('periodicite_heures')
+    if not pj:
+        return {2, 8} if ph else set()  # maintenances horaires (compresseurs) → fév & août
+    if pj <= 7:
+        return set()  # journalières / hebdomadaires exclues
+    date_str = wo.get('date_planifiee')
+    if not date_str:
+        return set()
+    try:
+        anchor = datetime.fromisoformat(str(date_str).replace('Z', '+00:00')).replace(tzinfo=None)
+    except Exception:
+        return set()
+    start = datetime(year, 1, 1)
+    end = datetime(year, 12, 31)
+    step = timedelta(days=pj)
+    d = anchor
+    while d > end:
+        d -= step
+    while d < start:
+        d += step
+    months = set()
+    while d <= end:
+        months.add(d.month)
+        d += step
+    return months
+
+
+async def _build_plan_items(year: int):
+    """Liste des maintenances préventives (hors journalières/hebdo, hors réformés) qui tombent dans l'année."""
+    equipments = await db.equipments.find({}, {"_id": 0}).to_list(1000)
+    eq_map = {e['id']: e for e in equipments}
+    reformed = {e['id'] for e in equipments if e.get('statut') == 'reforme'}
+    wos = await db.work_orders.find({'type_maintenance': 'preventive'}, {"_id": 0}).to_list(5000)
+    items = []
+    for wo in wos:
+        eqid = wo.get('equipment_id')
+        if eqid and eqid in reformed:
+            continue
+        if _is_daily_weekly(wo):
+            continue
+        months = _occurrence_months(wo, year)
+        if not months:
+            continue
+        eq = eq_map.get(eqid, {}) if eqid else {}
+        items.append({
+            'titre': wo.get('titre', ''),
+            'equipment_ref': eq.get('reference', 'Caisson (général)'),
+            'equipment_type': (eq.get('type') or 'Caisson (général)').strip(),
+            'periodicite': _periodicite_label(wo),
+            'times_per_year': _times_per_year(wo),
+            'months': sorted(months),
+        })
+    return items, eq_map
+
+
+def _pv_footer(styles):
+    els = [Spacer(1, 24)]
+    sig = [[
+        Paragraph("<b>Technicien</b><br/><br/>_______________________", styles['PDFNormal']),
+        Paragraph("<b>Responsable / Visa</b><br/><br/>_______________________", styles['PDFNormal']),
+    ]]
+    t = Table(sig, colWidths=[8.5 * cm, 8.5 * cm])
+    t.setStyle(TableStyle([('VALIGN', (0, 0), (-1, -1), 'TOP'), ('TOPPADDING', (0, 0), (-1, -1), 6)]))
+    els.append(t)
+    return els
+
+
+class AirRespirableRequest(BaseModel):
+    equipment_id: Optional[str] = None
+    valeurs: dict = {}
+    technicien: Optional[str] = None
+    date_intervention: Optional[str] = None
+    observations: Optional[str] = None
+
+
+@api_router.post("/reports/pdf/air-respirable")
+async def generate_air_respirable_pdf(payload: AirRespirableRequest, current_user: dict = Depends(get_current_user)):
+    """Modèle PDF « Analyse de l'air respirable » pré-rempli avec les infos du compresseur."""
+    eq = {}
+    if payload.equipment_id:
+        eq = await db.equipments.find_one({'id': payload.equipment_id}, {"_id": 0}) or {}
+
+    def _line(v):
+        return str(v) if v not in (None, '', 0) else "…………………………"
+
+    annee = "…………………………"
+    di = eq.get('date_installation')
+    if di:
+        try:
+            annee = str(datetime.fromisoformat(str(di).replace('Z', '+00:00')).year)
+        except Exception:
+            annee = str(di)[:4] if len(str(di)) >= 4 else "…………………………"
+
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=2 * cm, leftMargin=2 * cm, topMargin=2 * cm, bottomMargin=2 * cm)
+    elements, styles = create_pdf_header("Analyse de l'air respirable", payload.date_intervention or datetime.now().strftime('%d/%m/%Y'))
+
+    elements.append(Paragraph("LE COMPRESSEUR", styles['SectionHeader']))
+    info = [
+        [Paragraph(f"<b>Marque</b> : {_line(eq.get('marque'))}", styles['PDFNormal']),
+         Paragraph(f"<b>Modèle</b> : {_line(eq.get('modele'))}", styles['PDFNormal']),
+         Paragraph(f"<b>Année</b> : {annee}", styles['PDFNormal'])],
+        [Paragraph(f"<b>N° série</b> : {_line(eq.get('numero_serie'))}", styles['PDFNormal']),
+         Paragraph(f"<b>Compteur horaire</b> : {_line(eq.get('compteur_horaire'))} h", styles['PDFNormal']),
+         Paragraph("<b>Réf.</b> : " + _line(eq.get('reference')), styles['PDFNormal'])],
+    ]
+    it = Table(info, colWidths=[6 * cm, 6 * cm, 5 * cm])
+    it.setStyle(TableStyle([('VALIGN', (0, 0), (-1, -1), 'TOP'), ('BOTTOMPADDING', (0, 0), (-1, -1), 6)]))
+    elements.append(it)
+    elements.append(Paragraph("Source d'entraînement : [ ] Essence&nbsp;&nbsp;&nbsp; [ ] Électrique&nbsp;&nbsp;&nbsp; [ ] Diesel", styles['PDFNormal']))
+    elements.append(Spacer(1, 14))
+
+    v = payload.valeurs or {}
+    rows = [
+        ["Fluide contrôlé", "Valeur constatée", "Valeur admissible", "Observation"],
+        ["Vapeur d'eau H2O", str(v.get('h2o', '') or ''), "100 mg/m³", ""],
+        ["Monoxyde de carbone CO", str(v.get('co', '') or ''), "5 ppm", ""],
+        ["Dioxyde de carbone CO2", str(v.get('co2', '') or ''), "500 ppm", ""],
+        ["Vapeur d'huile", str(v.get('huile', '') or ''), "0.5 mg/m³", ""],
+        ["Odeur et goût", str(v.get('odeur_gout', '') or ''), "Ni goût ni odeur significatif", ""],
+    ]
+    t = Table(rows, colWidths=[5 * cm, 3.5 * cm, 4.5 * cm, 4 * cm])
+    t.setStyle(create_table_style())
+    elements.append(t)
+    elements.append(Spacer(1, 16))
+
+    elements.append(Paragraph("OBSERVATIONS :", styles['SectionHeader']))
+    obs_lines = [
+        "La valeur en vapeur d'eau H2O peut dépasser le seuil compte tenu des conditions d'hygrométrie et de température inhérents au climat de la Polynésie Française.",
+        "Analyse effectuée à l'aide du DRÄGER AEROTEST SIMULTRAN.",
+        "Le rapport est établi en conformité avec l'article N°3 de la délibération N°87-79 AT du 12 juin 1987.",
+    ]
+    if payload.observations:
+        obs_lines.insert(0, payload.observations)
+    for line in obs_lines:
+        elements.append(Paragraph("• " + line, styles['PDFNormal']))
+
+    if payload.technicien:
+        elements.append(Spacer(1, 10))
+        elements.append(Paragraph(f"<b>Technicien</b> : {payload.technicien}", styles['PDFNormal']))
+    elements.extend(_pv_footer(styles))
+
+    doc.build(elements)
+    buffer.seek(0)
+    filename = f"analyse_air_respirable_{(eq.get('reference') or 'compresseur').replace(' ', '_')}.pdf"
+    return StreamingResponse(buffer, media_type="application/pdf",
+                             headers={"Content-Disposition": f"attachment; filename={filename}"})
+
+
+@api_router.get("/reports/pdf/plan-maintenance/{year}")
+async def generate_plan_maintenance_pdf(year: int, current_user: dict = Depends(get_current_user)):
+    """Plan de maintenance annuel : regroupé par mois puis par type d'équipement (hors journalières/hebdo)."""
+    items, _ = await _build_plan_items(year)
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=1.5 * cm, leftMargin=1.5 * cm, topMargin=2 * cm, bottomMargin=2 * cm)
+    elements, styles = create_pdf_header("Plan de maintenance", f"Année {year} — hors journalières / hebdomadaires")
+
+    for m in range(1, 13):
+        month_items = [it for it in items if m in it['months']]
+        if not month_items:
+            continue
+        elements.append(Paragraph(FRENCH_MONTHS[m], styles['SectionHeader']))
+        by_type = {}
+        for it in month_items:
+            by_type.setdefault(it['equipment_type'], []).append(it)
+        data = [["Type d'équipement", "Maintenance", "Équipement", "Périodicité"]]
+        for etype in sorted(by_type.keys()):
+            for it in sorted(by_type[etype], key=lambda x: x['titre']):
+                data.append([_P(etype), _P(it['titre']), _P(it['equipment_ref']), _P(it['periodicite'])])
+        t = Table(data, colWidths=[3.5 * cm, 8 * cm, 3.5 * cm, 2.5 * cm], repeatRows=1)
+        t.setStyle(create_table_style())
+        elements.append(t)
+        elements.append(Spacer(1, 12))
+
+    if len(elements) <= 4:
+        elements.append(Paragraph("Aucune maintenance préventive planifiée pour cette année.", styles['PDFNormal']))
+    doc.build(elements)
+    buffer.seek(0)
+    return StreamingResponse(buffer, media_type="application/pdf",
+                             headers={"Content-Disposition": f"attachment; filename=plan_maintenance_{year}.pdf"})
+
+
+@api_router.get("/reports/pdf/check-liste/{year}/{month}")
+async def generate_checkliste_pdf(year: int, month: int, current_user: dict = Depends(get_current_user)):
+    """Check-liste mensuelle des maintenances préventives dues (format check-liste)."""
+    items, _ = await _build_plan_items(year)
+    month_items = [it for it in items if month in it['months']]
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=1.5 * cm, leftMargin=1.5 * cm, topMargin=2 * cm, bottomMargin=2 * cm)
+    elements, styles = create_pdf_header("Check-liste maintenance caisson", f"{FRENCH_MONTHS[month]} {year}")
+
+    if month_items:
+        by_type = {}
+        for it in month_items:
+            by_type.setdefault(it['equipment_type'], []).append(it)
+        for etype in sorted(by_type.keys()):
+            elements.append(Paragraph(etype, styles['SectionHeader']))
+            data = [["Intervention", "Équipement", "Périodicité", "Fait", "Date", "Observations"]]
+            for it in sorted(by_type[etype], key=lambda x: x['titre']):
+                data.append([_P(it['titre']), _P(it['equipment_ref']), _P(it['periodicite']), "[ ]", "", ""])
+            t = Table(data, colWidths=[6.5 * cm, 2.8 * cm, 2 * cm, 1.1 * cm, 2 * cm, 3.2 * cm], repeatRows=1)
+            t.setStyle(create_table_style())
+            elements.append(t)
+            elements.append(Spacer(1, 10))
+    else:
+        elements.append(Paragraph("Aucune maintenance préventive prévue pour ce mois.", styles['PDFNormal']))
+    elements.extend(_pv_footer(styles))
+    doc.build(elements)
+    buffer.seek(0)
+    return StreamingResponse(buffer, media_type="application/pdf",
+                             headers={"Content-Disposition": f"attachment; filename=checkliste_{year}_{month:02d}.pdf"})
+
+
+@api_router.get("/reports/pdf/pv-controle-mensuel/{year}/{month}")
+async def generate_pv_mensuel_pdf(year: int, month: int, current_user: dict = Depends(get_current_user)):
+    """PV de contrôle mensuel : maintenances dues le mois choisi, groupées par type d'équipement."""
+    items, _ = await _build_plan_items(year)
+    month_items = [it for it in items if month in it['months']]
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=1.5 * cm, leftMargin=1.5 * cm, topMargin=2 * cm, bottomMargin=2 * cm)
+    elements, styles = create_pdf_header("PV de contrôle mensuel du caisson hyperbare", f"{FRENCH_MONTHS[month]} {year}")
+
+    if month_items:
+        by_type = {}
+        for it in month_items:
+            by_type.setdefault(it['equipment_type'], []).append(it)
+        for etype in sorted(by_type.keys()):
+            elements.append(Paragraph(etype.upper(), styles['SectionHeader']))
+            data = [["Intervention", "Équipement", "Fait", "Date", "Observations"]]
+            for it in sorted(by_type[etype], key=lambda x: x['titre']):
+                data.append([_P(it['titre']), _P(it['equipment_ref']), "[ ]", "", ""])
+            t = Table(data, colWidths=[7 * cm, 3 * cm, 1.2 * cm, 2.3 * cm, 4 * cm], repeatRows=1)
+            t.setStyle(create_table_style())
+            elements.append(t)
+            elements.append(Spacer(1, 10))
+    else:
+        elements.append(Paragraph("Aucune maintenance préventive prévue pour ce mois.", styles['PDFNormal']))
+    elements.extend(_pv_footer(styles))
+    doc.build(elements)
+    buffer.seek(0)
+    return StreamingResponse(buffer, media_type="application/pdf",
+                             headers={"Content-Disposition": f"attachment; filename=pv_controle_mensuel_{year}_{month:02d}.pdf"})
+
+
+@api_router.get("/reports/pdf/pv-controle-annuel/{year}")
+async def generate_pv_annuel_pdf(year: int, current_user: dict = Depends(get_current_user)):
+    """PV de contrôle annuel : toutes les maintenances de l'année avec le nombre de fois / an."""
+    items, _ = await _build_plan_items(year)
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=1.5 * cm, leftMargin=1.5 * cm, topMargin=2 * cm, bottomMargin=2 * cm)
+    elements, styles = create_pdf_header("PV de contrôle annuel du caisson hyperbare", f"Année {year}")
+
+    if items:
+        by_type = {}
+        for it in items:
+            by_type.setdefault(it['equipment_type'], []).append(it)
+        for etype in sorted(by_type.keys()):
+            elements.append(Paragraph(etype.upper(), styles['SectionHeader']))
+            # dédoublonnage par (titre, équipement) pour éviter les répétitions
+            seen = {}
+            for it in by_type[etype]:
+                key = (it['titre'], it['equipment_ref'])
+                if key not in seen:
+                    seen[key] = it
+            data = [["Intervention", "Équipement", "Périodicité", "Nb / an", "Réalisé"]]
+            for it in sorted(seen.values(), key=lambda x: x['titre']):
+                data.append([_P(it['titre']), _P(it['equipment_ref']), _P(it['periodicite']), str(it['times_per_year']), ""])
+            t = Table(data, colWidths=[7 * cm, 3 * cm, 2.3 * cm, 1.7 * cm, 3.5 * cm], repeatRows=1)
+            t.setStyle(create_table_style())
+            elements.append(t)
+            elements.append(Spacer(1, 10))
+    else:
+        elements.append(Paragraph("Aucune maintenance préventive planifiée pour cette année.", styles['PDFNormal']))
+    elements.extend(_pv_footer(styles))
+    doc.build(elements)
+    buffer.seek(0)
+    return StreamingResponse(buffer, media_type="application/pdf",
+                             headers={"Content-Disposition": f"attachment; filename=pv_controle_annuel_{year}.pdf"})
+
+
+
 # ==================== HEALTH CHECK ====================
 
 @api_router.get("/")

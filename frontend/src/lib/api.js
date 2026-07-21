@@ -43,6 +43,22 @@ export const openStoredFile = (fileUrl, filename) => {
   );
 };
 
+// Open an already-fetched PDF blob in a new browser tab (print/download).
+// Falls back to a direct download if the popup is blocked.
+export const openBlobPdf = (data, filename) => {
+  const url = URL.createObjectURL(new Blob([data], { type: 'application/pdf' }));
+  const w = window.open(url, '_blank');
+  if (!w) {
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename || 'document.pdf';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  }
+  setTimeout(() => URL.revokeObjectURL(url), 60000);
+};
+
 // Auth
 export const authAPI = {
   login: (credentials) => api.post('/auth/login', credentials),
@@ -307,6 +323,11 @@ export const reportsAPI = {
     return api.get('/reports/pdf/interventions', { params, responseType: 'blob' });
   },
   planningPDF: () => api.get('/reports/pdf/planning', { responseType: 'blob' }),
+  airRespirablePDF: (payload) => api.post('/reports/pdf/air-respirable', payload, { responseType: 'blob' }),
+  planMaintenancePDF: (year) => api.get(`/reports/pdf/plan-maintenance/${year}`, { responseType: 'blob' }),
+  checkListePDF: (year, month) => api.get(`/reports/pdf/check-liste/${year}/${month}`, { responseType: 'blob' }),
+  pvMensuelPDF: (year, month) => api.get(`/reports/pdf/pv-controle-mensuel/${year}/${month}`, { responseType: 'blob' }),
+  pvAnnuelPDF: (year) => api.get(`/reports/pdf/pv-controle-annuel/${year}`, { responseType: 'blob' }),
 };
 
 // ==================== NEW APIs ====================

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
-import { interventionsAPI, workOrdersAPI, sparePartsAPI, usersAPI, equipmentsAPI, subEquipmentsAPI, contractorsAPI, openStoredFile } from '../lib/api';
+import { interventionsAPI, workOrdersAPI, sparePartsAPI, usersAPI, equipmentsAPI, subEquipmentsAPI, contractorsAPI, reportsAPI, openStoredFile, openBlobPdf } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
 import { formatDate, subEquipmentMatchesEquipment } from '../lib/utils';
 import { Card, CardContent } from '../components/ui/card';
@@ -13,7 +13,7 @@ import { Skeleton } from '../components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '../components/ui/dialog';
 import { SearchableSelect } from '../components/ui/searchable-select';
-import { History, Plus, Search, Eye, Loader2, Clock, User, Package, Wrench, Activity, FileText, Upload, Edit, Trash2, X } from 'lucide-react';
+import { History, Plus, Search, Eye, Loader2, Clock, User, Package, Wrench, Activity, FileText, Upload, Edit, Trash2, X, Printer } from 'lucide-react';
 
 // Paramètres de l'analyse de l'air respirable (Classeur2)
 const AIR_RESPIRABLE_ROWS = [
@@ -205,6 +205,25 @@ function Interventions() {
       ...prev,
       pieces_utilisees: prev.pieces_utilisees.filter(p => p.spare_part_id !== partId)
     }));
+  }
+
+  const [genAirPdf, setGenAirPdf] = useState(false);
+  async function printAirRespirableModel() {
+    setGenAirPdf(true);
+    try {
+      const res = await reportsAPI.airRespirablePDF({
+        equipment_id: formData.equipment_id || null,
+        valeurs: formData.mesures?.valeurs || {},
+        technicien: formData.technicien || null,
+        date_intervention: formData.date_intervention || null,
+        observations: formData.observations || null,
+      });
+      const ref = getSelectedEquipment()?.reference || 'compresseur';
+      openBlobPdf(res.data, `analyse_air_respirable_${ref}.pdf`);
+    } catch (e) {
+      alert('Erreur lors de la génération du modèle PDF');
+    }
+    setGenAirPdf(false);
   }
 
   // Récupérer l'équipement concerné (choisi directement pour les deux types)
@@ -791,6 +810,19 @@ function Interventions() {
                       </div>
                     </div>
                   ))}
+                </div>
+                <div className="mt-4 pt-3 border-t flex justify-end">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={printAirRespirableModel}
+                    disabled={genAirPdf || !formData.equipment_id}
+                    className="border-[#005F73] text-[#005F73] hover:bg-[#005F73]/10"
+                    data-testid="print-air-respirable-btn"
+                  >
+                    {genAirPdf ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Printer className="w-4 h-4 mr-2" />}
+                    Imprimer / Télécharger le modèle
+                  </Button>
                 </div>
               </div>
             )}

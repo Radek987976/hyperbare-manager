@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { reportsAPI, equipmentsAPI } from '../lib/api';
+import { openPdf } from '../components/PdfViewer';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
@@ -13,8 +14,14 @@ import {
   Wrench,
   ClipboardList,
   Calendar,
-  Settings2
+  Settings2,
+  Eye,
+  CalendarDays,
+  ClipboardCheck,
+  CalendarRange
 } from 'lucide-react';
+
+const MONTHS_FR = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'];
 
 const Reports = () => {
   const [loading, setLoading] = useState({});
@@ -24,6 +31,46 @@ const Reports = () => {
     start: '',
     end: ''
   });
+  const nowYear = new Date().getFullYear();
+  const [planYear, setPlanYear] = useState(nowYear);
+  const [month, setMonth] = useState(new Date().getMonth() + 1);
+
+  // Génère l'URL /api d'un rapport planning/PV selon sa clé
+  const planUrl = {
+    plan: (y, m) => `/api/reports/pdf/plan-maintenance/${y}`,
+    checkliste: (y, m) => `/api/reports/pdf/check-liste/${y}/${m}`,
+    'pv-mensuel': (y, m) => `/api/reports/pdf/pv-controle-mensuel/${y}/${m}`,
+    'pv-annuel': (y, m) => `/api/reports/pdf/pv-controle-annuel/${y}`,
+  };
+  const planApi = {
+    plan: (y, m) => reportsAPI.planMaintenancePDF(y),
+    checkliste: (y, m) => reportsAPI.checkListePDF(y, m),
+    'pv-mensuel': (y, m) => reportsAPI.pvMensuelPDF(y, m),
+    'pv-annuel': (y, m) => reportsAPI.pvAnnuelPDF(y),
+  };
+
+  const previewPlan = (kind, filename) => {
+    openPdf(planUrl[kind](planYear, month), filename);
+  };
+
+  const downloadPlan = async (kind, filename) => {
+    setLoading(prev => ({ ...prev, [kind]: true }));
+    try {
+      const response = await planApi[kind](planYear, month);
+      const url = window.URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', filename);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      alert('Erreur lors de la génération du document');
+    } finally {
+      setLoading(prev => ({ ...prev, [kind]: false }));
+    }
+  };
 
   useEffect(() => {
     loadEquipments();
@@ -265,6 +312,87 @@ const Reports = () => {
           </CardContent>
         </Card>
       </div>
+
+      {/* Plan & Check-listes / PV de contrôle */}
+      <Card data-testid="plan-controles-section">
+        <CardHeader>
+          <CardTitle className="text-lg">Plan de maintenance, check-listes & PV de contrôle</CardTitle>
+          <CardDescription>
+            Générés automatiquement à partir des maintenances préventives planifiées (hors journalières / hebdomadaires).
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <div className="flex flex-wrap gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="plan-year">Année</Label>
+              <Input
+                id="plan-year"
+                type="number"
+                min="2020"
+                max="2100"
+                value={planYear}
+                onChange={(e) => setPlanYear(parseInt(e.target.value) || nowYear)}
+                className="w-32"
+                data-testid="plan-year-input"
+              />
+            </div>
+            <div className="space-y-2 min-w-[180px]">
+              <Label>Mois (check-liste & PV mensuel)</Label>
+              <SearchableSelect
+                value={String(month)}
+                onValueChange={(v) => setMonth(parseInt(v))}
+                data-testid="plan-month-select"
+                options={MONTHS_FR.map((m, i) => ({ value: String(i + 1), label: m }))}
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {[
+              { kind: 'plan', title: 'Plan de maintenance annuel', desc: 'Maintenances regroupées par mois puis par type d\'équipement.', icon: CalendarRange, color: 'bg-indigo-500', file: () => `plan_maintenance_${planYear}.pdf`, monthly: false },
+              { kind: 'checkliste', title: 'Check-liste mensuelle', desc: 'Liste des maintenances préventives à réaliser ce mois (à cocher).', icon: ClipboardCheck, color: 'bg-teal-500', file: () => `checkliste_${planYear}_${String(month).padStart(2, '0')}.pdf`, monthly: true },
+              { kind: 'pv-mensuel', title: 'PV de contrôle mensuel', desc: 'Procès-verbal de contrôle du mois, groupé par équipement.', icon: ClipboardList, color: 'bg-orange-500', file: () => `pv_controle_mensuel_${planYear}_${String(month).padStart(2, '0')}.pdf`, monthly: true },
+              { kind: 'pv-annuel', title: 'PV de contrôle annuel', desc: 'Toutes les maintenances de l\'année avec le nombre de fois / an.', icon: CalendarDays, color: 'bg-purple-500', file: () => `pv_controle_annuel_${planYear}.pdf`, monthly: false },
+            ].map((r) => (
+              <Card key={r.kind} className="hover:shadow-md transition-shadow">
+                <CardContent className="p-6">
+                  <div className="flex items-start gap-4">
+                    <div className={`w-12 h-12 ${r.color} rounded-lg flex items-center justify-center flex-shrink-0`}>
+                      <r.icon className="w-6 h-6 text-white" />
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="font-semibold text-lg text-slate-900">{r.title}</h3>
+                      <p className="text-sm text-slate-500 mt-1">{r.desc}</p>
+                      <p className="text-xs text-[#005F73] mt-2">
+                        {r.monthly ? `${MONTHS_FR[month - 1]} ${planYear}` : `Année ${planYear}`}
+                      </p>
+                      <div className="flex flex-wrap gap-2 mt-4">
+                        <Button
+                          variant="outline"
+                          onClick={() => previewPlan(r.kind, r.file())}
+                          className="border-[#005F73] text-[#005F73] hover:bg-[#005F73]/10"
+                          data-testid={`preview-${r.kind}-btn`}
+                        >
+                          <Eye className="w-4 h-4 mr-2" /> Aperçu / Imprimer
+                        </Button>
+                        <Button
+                          onClick={() => downloadPlan(r.kind, r.file())}
+                          disabled={loading[r.kind]}
+                          className="bg-[#005F73] hover:bg-[#004a5c]"
+                          data-testid={`download-${r.kind}-btn`}
+                        >
+                          {loading[r.kind] ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Download className="w-4 h-4 mr-2" />}
+                          Télécharger
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Info */}
       <Card className="bg-slate-50 border-slate-200">

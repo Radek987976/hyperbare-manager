@@ -12,7 +12,7 @@ BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', '').rstrip('/')
 # Test credentials (overridable via env)
 TEST_EMAIL = os.environ.get("TEST_ADMIN_EMAIL", "admin@hypermaint.fr")
 TEST_PASSWORD = os.environ.get("TEST_ADMIN_PASSWORD", "admin123")
-TEMP_PASSWORD = "temppass123"
+TEMP_PASSWORD = os.environ.get("TEST_TEMP_PASSWORD", "temppass123")
 
 
 class TestPasswordChange:

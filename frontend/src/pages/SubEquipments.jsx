@@ -281,7 +281,11 @@ const SubEquipments = () => {
     const matchParent = filterParent === 'all' || subEquipmentMatchesEquipment(item, filterParent, equipments);
     const matchParentType = filterParentType === 'all' || parentTypesOf(item).includes(filterParentType);
     return matchSearch && matchParent && matchParentType;
-  }).sort((a, b) => (a.nom || '').localeCompare(b.nom || '', 'fr', { sensitivity: 'base', numeric: true }));
+  }).sort((a, b) => {
+    const byNom = (a.nom || '').localeCompare(b.nom || '', 'fr', { sensitivity: 'base', numeric: true });
+    if (byNom !== 0) return byNom;
+    return (a.reference || '').localeCompare(b.reference || '', 'fr', { sensitivity: 'base', numeric: true });
+  });
 
   if (loading) {
     return (

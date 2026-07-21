@@ -1,5 +1,8 @@
 # HyperbareManager - PRD (Product Requirements Document)
 
+## Changelog (2026-06-21f) — Tri liste sous-équipements
+- Liste des sous-équipements (SubEquipments.jsx) triée par **nom puis référence** (alphabétique, numeric-aware). Vérifié UI.
+
 ## Changelog (2026-06-21e) — Ordre des mois, marges étroites check-liste, centrage vertical
 - **Mois chronologiques** : `SearchableSelect` reçoit une prop `sortOptions` (défaut true = tri alpha inchangé pour tous les autres menus). Le sélecteur de mois (Reports.jsx) passe `sortOptions={false}` → ordre Janvier→Décembre, et désactive aussi la remontée « dernier utilisé ».
 - **Marges étroites check-liste** : endpoint check-liste en `leftMargin=rightMargin=1cm`, colonnes élargies. `make_header_canvas(intitule, margin)` + `_build_header_table(..., avail_w)` dessinent le cartouche sur toute la largeur utile (colonne centrale élastique).

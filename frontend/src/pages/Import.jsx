@@ -7,6 +7,15 @@ import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { SearchableSelect } from '../components/ui/searchable-select';
+import { Checkbox } from '../components/ui/checkbox';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '../components/ui/dialog';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -26,7 +35,9 @@ import {
   Database,
   AlertTriangle,
   Info,
-  Download
+  Download,
+  ArrowRightLeft,
+  Search
 } from 'lucide-react';
 
 const IMPORT_TYPES = [
@@ -98,6 +109,63 @@ const Import = () => {
   const [isCleaning, setIsCleaning] = useState(false);
   const [isCorrelating, setIsCorrelating] = useState(false);
   const [correlationPreview, setCorrelationPreview] = useState(null);
+  // Transfert maintenances -> contrôles réglementaires
+  const [transferOpen, setTransferOpen] = useState(false);
+  const [transferQ, setTransferQ] = useState('');
+  const [transferLoading, setTransferLoading] = useState(false);
+  const [candidates, setCandidates] = useState([]);
+  const [selectedIds, setSelectedIds] = useState([]);
+  const [transferApplying, setTransferApplying] = useState(false);
+  const [confirmTransfer, setConfirmTransfer] = useState(false);
+
+  const openTransfer = async () => {
+    setTransferOpen(true);
+    setSelectedIds([]);
+    setTransferQ('');
+    await loadCandidates('');
+  };
+
+  const loadCandidates = async (q) => {
+    setTransferLoading(true);
+    setError('');
+    try {
+      const res = await importAPI.transferCandidates(q);
+      setCandidates(res.data.candidates || []);
+    } catch (err) {
+      setError(getErrorMessage(err));
+    } finally {
+      setTransferLoading(false);
+    }
+  };
+
+  const toggleSelect = (id) => {
+    setSelectedIds((prev) => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedIds.length === candidates.length) {
+      setSelectedIds([]);
+    } else {
+      setSelectedIds(candidates.map(c => c.id));
+    }
+  };
+
+  const applyTransfer = async () => {
+    setTransferApplying(true);
+    setError('');
+    try {
+      const res = await importAPI.transferToInspections(selectedIds);
+      setResult({ type: 'transfer', message: `${res.data.transferred} maintenance(s) transférée(s) vers les contrôles réglementaires.`, imported: res.data.transferred, errors: res.data.errors });
+      setConfirmTransfer(false);
+      setTransferOpen(false);
+      setSelectedIds([]);
+    } catch (err) {
+      setError(getErrorMessage(err));
+      setConfirmTransfer(false);
+    } finally {
+      setTransferApplying(false);
+    }
+  };
 
   const handleCorrelatePreview = async () => {
     setIsCorrelating(true);
@@ -321,6 +389,31 @@ const Import = () => {
         </CardContent>
       </Card>
 
+      {/* Transfert maintenances -> contrôles réglementaires */}
+      <Card className="border-indigo-100">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <ArrowRightLeft className="h-5 w-5 text-indigo-600" />
+            Transférer des maintenances vers les Contrôles réglementaires
+          </CardTitle>
+          <CardDescription>
+            Reclasse une ou plusieurs maintenances préventives en contrôles réglementaires. Tout l'historique des interventions liées devient l'historique du contrôle, et la maintenance d'origine est retirée.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center justify-between gap-4">
+            <p className="text-sm text-gray-600">
+              Utile pour les entrées importées comme « maintenance » qui sont en réalité des contrôles réglementaires (visite annuelle, requalification, contrôle d'un organisme...).
+            </p>
+            <Button variant="outline" onClick={openTransfer} disabled={transferApplying}
+              className="text-indigo-700 border-indigo-200 hover:bg-indigo-50 shrink-0" data-testid="open-transfer-btn">
+              <ArrowRightLeft className="h-4 w-4 mr-2" />
+              Sélectionner à transférer
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Import Excel */}
       <Card>
         <CardHeader>
@@ -403,7 +496,7 @@ const Import = () => {
               <CheckCircle className="h-5 w-5 mt-0.5 flex-shrink-0" />
               <div>
                 <p className="font-medium">
-                  {result.type === 'init' 
+                  {['init', 'transfer', 'correlate', 'cleanup'].includes(result.type)
                     ? result.message 
                     : `Import terminé : ${result.imported} élément(s) importé(s)`
                   }
@@ -531,6 +624,93 @@ const Import = () => {
             <AlertDialogCancel>Annuler</AlertDialogCancel>
             <AlertDialogAction onClick={handleCorrelateApply} disabled={isCorrelating || !correlationPreview?.matched} data-testid="correlate-apply-btn">
               {isCorrelating ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Application...</> : `Appliquer (${correlationPreview?.matched || 0})`}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Transfer selection dialog */}
+      <Dialog open={transferOpen} onOpenChange={setTransferOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle>Transférer vers les Contrôles réglementaires</DialogTitle>
+            <DialogDescription>
+              Sélectionnez les maintenances préventives à reclasser en contrôles réglementaires. Leur historique d'interventions sera repris comme historique du contrôle.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="flex items-center gap-2">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <Input
+                placeholder="Filtrer par titre ou équipement..."
+                value={transferQ}
+                onChange={(e) => setTransferQ(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') loadCandidates(transferQ); }}
+                className="pl-10"
+                data-testid="transfer-search"
+              />
+            </div>
+            <Button variant="outline" onClick={() => loadCandidates(transferQ)} disabled={transferLoading} data-testid="transfer-search-btn">
+              {transferLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Rechercher'}
+            </Button>
+          </div>
+
+          <div className="flex items-center justify-between text-sm">
+            <button type="button" onClick={toggleSelectAll} className="text-indigo-700 hover:underline" data-testid="transfer-select-all">
+              {candidates.length > 0 && selectedIds.length === candidates.length ? 'Tout désélectionner' : 'Tout sélectionner'}
+            </button>
+            <span className="text-gray-500">{selectedIds.length} sélectionnée(s) sur {candidates.length}</span>
+          </div>
+
+          <div className="border rounded-md overflow-y-auto flex-1 divide-y" style={{ maxHeight: '45vh' }}>
+            {transferLoading ? (
+              <div className="p-6 text-center text-gray-400"><Loader2 className="h-5 w-5 animate-spin inline" /></div>
+            ) : candidates.length === 0 ? (
+              <div className="p-6 text-center text-gray-400">Aucune maintenance préventive trouvée.</div>
+            ) : (
+              candidates.map((c) => (
+                <label key={c.id} className="flex items-start gap-3 p-3 hover:bg-gray-50 cursor-pointer" data-testid={`transfer-item-${c.id}`}>
+                  <Checkbox checked={selectedIds.includes(c.id)} onCheckedChange={() => toggleSelect(c.id)} className="mt-1" />
+                  <div className="min-w-0 flex-1">
+                    <div className="font-medium text-gray-800 truncate">{c.titre}</div>
+                    <div className="text-xs text-gray-500">
+                      {c.equipment_ref} · {c.periodicite} · {c.interventions_count} intervention(s)
+                    </div>
+                  </div>
+                </label>
+              ))
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setTransferOpen(false)}>Annuler</Button>
+            <Button
+              onClick={() => setConfirmTransfer(true)}
+              disabled={selectedIds.length === 0 || transferApplying}
+              className="bg-indigo-600 hover:bg-indigo-700"
+              data-testid="transfer-apply-btn"
+            >
+              <ArrowRightLeft className="h-4 w-4 mr-2" />
+              Transférer ({selectedIds.length})
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Transfer confirmation */}
+      <AlertDialog open={confirmTransfer} onOpenChange={setConfirmTransfer}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmer le transfert ?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {selectedIds.length} maintenance(s) préventive(s) vont devenir des contrôles réglementaires. L'historique lié devient l'historique du contrôle et la maintenance d'origine sera supprimée. Cette action est définitive.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annuler</AlertDialogCancel>
+            <AlertDialogAction onClick={applyTransfer} disabled={transferApplying} data-testid="transfer-confirm-btn">
+              {transferApplying ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Transfert...</> : 'Confirmer le transfert'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

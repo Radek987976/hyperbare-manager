@@ -2296,6 +2296,142 @@ async def correlate_interventions(apply: bool = False, threshold: float = 0.9, c
     }
 
 
+def _jours_to_periodicite(jours: Optional[int]) -> str:
+    """Convertit une périodicité en jours vers la clé de périodicité la plus proche."""
+    if not jours:
+        return "annuel"
+    best_key = "annuel"
+    best_diff = None
+    for k, v in PERIODICITES.items():
+        d = abs(v - jours)
+        if best_diff is None or d < best_diff:
+            best_diff = d
+            best_key = k
+    return best_key
+
+
+@api_router.get("/admin/transfer-candidates")
+async def transfer_candidates(q: str = "", current_user: dict = Depends(require_admin)):
+    """Liste les maintenances préventives transférables vers les contrôles réglementaires (admin)."""
+    query = {"type_maintenance": "preventive"}
+    wos = await db.work_orders.find(query, {"_id": 0}).to_list(2000)
+
+    eq_ref = {e["id"]: (e.get("reference") or e.get("type") or e["id"])
+              async for e in db.equipments.find({}, {"_id": 0, "id": 1, "reference": 1, "type": 1})}
+
+    # Nombre d'interventions liées par maintenance
+    counts: dict = {}
+    async for it in db.interventions.find(
+        {"maintenance_preventive_id": {"$ne": None}},
+        {"_id": 0, "maintenance_preventive_id": 1}
+    ):
+        wid = it.get("maintenance_preventive_id")
+        if wid:
+            counts[wid] = counts.get(wid, 0) + 1
+
+    term = (q or "").strip().lower()
+    result = []
+    for wo in wos:
+        titre = wo.get("titre", "")
+        eqref = eq_ref.get(wo.get("equipment_id"), "—")
+        if term and term not in titre.lower() and term not in str(eqref).lower():
+            continue
+        result.append({
+            "id": wo.get("id"),
+            "titre": titre,
+            "equipment_ref": eqref,
+            "periodicite": _periodicite_label(wo),
+            "interventions_count": counts.get(wo.get("id"), 0),
+        })
+    result.sort(key=lambda x: (x["equipment_ref"], x["titre"]))
+    return {"total": len(result), "candidates": result}
+
+
+class TransferToInspectionsRequest(BaseModel):
+    work_order_ids: List[str]
+
+
+@api_router.post("/admin/transfer-to-inspections")
+async def transfer_to_inspections(data: TransferToInspectionsRequest, current_user: dict = Depends(require_admin)):
+    """Transfère des maintenances préventives vers des contrôles réglementaires (admin).
+    Chaque maintenance devient un contrôle ; tout l'historique des interventions liées
+    devient l'historique du contrôle. La maintenance d'origine est supprimée."""
+    transferred = 0
+    errors = []
+    from pymongo import UpdateOne
+
+    for wo_id in data.work_order_ids:
+        wo = await db.work_orders.find_one({"id": wo_id}, {"_id": 0})
+        if not wo:
+            errors.append(f"Maintenance {wo_id} introuvable")
+            continue
+        if wo.get("type_maintenance") != "preventive":
+            errors.append(f"{wo.get('titre', wo_id)} n'est pas une maintenance préventive")
+            continue
+
+        # Interventions liées, triées par date croissante
+        linked = await db.interventions.find(
+            {"maintenance_preventive_id": wo_id}, {"_id": 0}
+        ).to_list(5000)
+        linked.sort(key=lambda x: str(x.get("date_intervention") or ""))
+
+        periodicite = _jours_to_periodicite(wo.get("periodicite_jours"))
+
+        date_realisation = None
+        resultat = None
+        organisme = None
+        observations = wo.get("description") or None
+        historique = []
+
+        if linked:
+            most_recent = linked[-1]
+            date_realisation = (most_recent.get("date_intervention") or "")[:10] or None
+            observations = most_recent.get("observations") or most_recent.get("actions_realisees") or observations
+            # Archiver les réalisations plus anciennes dans l'historique
+            for it in linked[:-1]:
+                d = (it.get("date_intervention") or "")[:10] or None
+                historique.append({
+                    "date_realisation": d,
+                    "date_validite": calculate_next_date(d, periodicite) if d else None,
+                    "resultat": None,
+                    "organisme_certificateur": it.get("technicien"),
+                    "observations": it.get("observations") or it.get("actions_realisees"),
+                    "archived_at": datetime.now(timezone.utc).isoformat(),
+                    "archived_by": current_user.get("email"),
+                    "transfered_from_maintenance": wo_id,
+                })
+
+        insp = Inspection(
+            titre=wo.get("titre", "Contrôle transféré"),
+            type_controle="Contrôle réglementaire",
+            periodicite=periodicite,
+            caisson_id=wo.get("caisson_id"),
+            equipment_id=wo.get("equipment_id"),
+            date_realisation=date_realisation,
+            date_validite=calculate_next_date(date_realisation, periodicite),
+            organisme_certificateur=organisme,
+            resultat=resultat,
+            observations=observations,
+            historique_controles=historique,
+        )
+        doc = insp.model_dump()
+        doc["created_at"] = doc["created_at"].isoformat()
+        await db.inspections.insert_one(doc)
+
+        # Détacher les interventions de la maintenance supprimée (historique conservé côté contrôle)
+        if linked:
+            ops = [UpdateOne({"id": it["id"]}, {"$set": {"maintenance_preventive_id": None}}) for it in linked]
+            await db.interventions.bulk_write(ops, ordered=False)
+
+        # Supprimer la maintenance préventive d'origine
+        await db.work_orders.delete_one({"id": wo_id})
+        transferred += 1
+
+    return {"transferred": transferred, "errors": errors}
+
+
+
+
 
 @api_router.post("/interventions/{intervention_id}/documents")
 async def upload_intervention_document(
@@ -3415,7 +3551,11 @@ async def export_collection_xlsx(collection: str, current_user: dict = Depends(g
     }
     if collection not in sheet_names:
         raise HTTPException(status_code=400, detail="Collection invalide")
-    
+
+    # Registre lisible dédié aux contrôles réglementaires (exploitable pour audit)
+    if collection == "inspections":
+        return await _export_inspections_register()
+
     data = await db[collection].find({}, {"_id": 0}).to_list(10000)
     
     if not data:
@@ -3431,6 +3571,68 @@ async def export_collection_xlsx(collection: str, current_user: dict = Depends(g
         output,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f"attachment; filename={collection}.xlsx"}
+    )
+
+
+async def _export_inspections_register():
+    """Construit un registre Excel lisible des contrôles réglementaires (en-têtes FR,
+    référence équipement, statut d'échéance). Renvoie un fichier même sans données."""
+    inspections = await db.inspections.find({}, {"_id": 0}).to_list(10000)
+    eq_map = {e["id"]: e async for e in db.equipments.find({}, {"_id": 0, "id": 1, "reference": 1, "type": 1})}
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+
+    def _fmt(d):
+        if not d:
+            return ""
+        try:
+            return datetime.fromisoformat(str(d).replace("Z", "+00:00")).strftime("%d/%m/%Y")
+        except Exception:
+            return str(d)[:10]
+
+    RESULTAT_LABELS = {"conforme": "Conforme", "non_conforme": "Non conforme", "avec_reserves": "Avec réserves"}
+    rows = []
+    for insp in sorted(inspections, key=lambda x: (str(x.get("date_validite") or "9999"))):
+        eq = eq_map.get(insp.get("equipment_id"), {})
+        eq_label = f"{eq.get('reference', '')}" + (f" ({eq.get('type')})" if eq.get("type") else "") if eq else ""
+        dv = insp.get("date_validite")
+        dr = insp.get("date_realisation")
+        if dv and str(dv)[:10] < today:
+            statut = "Expiré"
+        elif dr:
+            statut = "Valide"
+        else:
+            statut = "À planifier"
+        nb = len(insp.get("historique_controles") or []) + (1 if dr else 0)
+        rows.append({
+            "Titre": insp.get("titre", ""),
+            "Type de contrôle": insp.get("type_controle", ""),
+            "Équipement": eq_label,
+            "Périodicité": insp.get("periodicite", ""),
+            "Dernière réalisation": _fmt(dr),
+            "Prochaine échéance": _fmt(dv),
+            "Statut": statut,
+            "Organisme certificateur": insp.get("organisme_certificateur") or "",
+            "Résultat": RESULTAT_LABELS.get(insp.get("resultat"), insp.get("resultat") or ""),
+            "Nb réalisations": nb,
+            "Observations": insp.get("observations") or "",
+        })
+
+    columns = ["Titre", "Type de contrôle", "Équipement", "Périodicité", "Dernière réalisation",
+               "Prochaine échéance", "Statut", "Organisme certificateur", "Résultat",
+               "Nb réalisations", "Observations"]
+    df = pd.DataFrame(rows, columns=columns)
+    output = io.BytesIO()
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+        df.to_excel(writer, sheet_name="Registre_Controles", index=False)
+        ws = writer.sheets["Registre_Controles"]
+        widths = [34, 22, 26, 14, 18, 18, 12, 26, 14, 14, 45]
+        for i, w in enumerate(widths):
+            ws.column_dimensions[chr(65 + i)].width = w
+    output.seek(0)
+    return StreamingResponse(
+        output,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": "attachment; filename=registre_controles_reglementaires.xlsx"}
     )
 
 @api_router.get("/export/sql")

@@ -1,5 +1,14 @@
 # HyperbareManager - PRD (Product Requirements Document)
 
+## Changelog (2026-06-21n) — Transfert maintenances → contrôles + registre d'export
+- **Transfert vers Contrôles réglementaires (admin, page Import)** :
+  - `GET /admin/transfer-candidates?q=` : liste les maintenances préventives transférables (titre, équipement, périodicité, nb interventions liées). Filtre texte.
+  - `POST /admin/transfer-to-inspections {work_order_ids:[...]}` : pour chaque maintenance → crée un contrôle (`type_controle="Contrôle réglementaire"`), périodicité déduite via `_jours_to_periodicite`, date_réalisation = intervention la plus récente, **tout l'historique des interventions liées repris dans `historique_controles`**, puis interventions détachées (`maintenance_preventive_id=None`) et **maintenance d'origine supprimée**. Vérifié curl : 1 transfert → contrôle quinquennal, date 2022-02-04, 3 réalisations archivées, WO supprimé (404).
+  - UI (`Import.jsx`, admin only) : carte « Transférer des maintenances vers les Contrôles réglementaires » → dialog de sélection (recherche, tout sélectionner, cases à cocher, compteur) + confirmation. Vérifié écran : 221 candidats, dialog opérationnel.
+- **Export des contrôles réglementaires exploitable (registre audit)** :
+  - `GET /export/xlsx/inspections` renvoie désormais un **registre lisible** (`_export_inspections_register`) : en-têtes FR (Titre, Type, Équipement=réf(type), Périodicité, Dernière réalisation, Prochaine échéance, Statut Valide/Expiré/À planifier, Organisme, Résultat, Nb réalisations, Observations), largeurs de colonnes, tri par échéance.
+  - **Ne renvoie plus 404 quand vide** → fichier avec en-têtes seuls (registre exploitable pour audit même sans données). Vérifié curl : HTTP 200, en-têtes présents.
+
 ## Changelog (2026-06-21m) — Retard signalé + nettoyage des filtres hérités
 - **Retard signalé (règle périodicité, choix user 1a)** : une maintenance préventive est « en retard » si le nombre de jours depuis sa **dernière réalisation** dépasse sa **périodicité en jours** (> hebdo), ou si elle n'a **jamais** été réalisée. Réformés/terminés/annulés exclus.
   - Backend `_build_plan_items` : chaque item porte `is_late` + `days_since`. Endpoint `GET /work-orders` enrichi (retrait du response_model strict) avec `is_late` + `derniere_realisation` par maintenance préventive. Vérifié curl : 60 maintenances en retard sur 222 préventives.

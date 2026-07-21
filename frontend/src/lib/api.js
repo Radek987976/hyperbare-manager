@@ -428,6 +428,8 @@ export const importAPI = {
   resetHistory: () => api.post('/admin/reset-history?confirm=RESET'),
   resetHistoryStatus: () => api.get('/admin/reset-history-status'),
   correlateInterventions: (apply = false) => api.post(`/admin/correlate-interventions?apply=${apply}`),
+  transferCandidates: (q = '') => api.get(`/admin/transfer-candidates?q=${encodeURIComponent(q)}`),
+  transferToInspections: (workOrderIds) => api.post('/admin/transfer-to-inspections', { work_order_ids: workOrderIds }),
 };
 
 export default api;

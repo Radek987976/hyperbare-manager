@@ -34,6 +34,7 @@ export const SearchableSelect = React.forwardRef(function SearchableSelect(
     emptyText = "Aucun résultat",
     disabled = false,
     allowCustom = false,
+    sortOptions = true,
     className,
     contentClassName,
     "data-testid": dataTestId,
@@ -54,10 +55,12 @@ export const SearchableSelect = React.forwardRef(function SearchableSelect(
   }, [storageKey, open]);
 
   const sortedOptions = React.useMemo(() => {
-    const sorted = [...options].sort((a, b) =>
-      String(a.label).localeCompare(String(b.label), "fr", { sensitivity: "base" })
-    );
-    if (lastValue) {
+    const sorted = sortOptions
+      ? [...options].sort((a, b) =>
+          String(a.label).localeCompare(String(b.label), "fr", { sensitivity: "base" })
+        )
+      : [...options];
+    if (sortOptions && lastValue) {
       const idx = sorted.findIndex((o) => o.value === lastValue);
       if (idx > 0) {
         const [recent] = sorted.splice(idx, 1);
@@ -66,7 +69,7 @@ export const SearchableSelect = React.forwardRef(function SearchableSelect(
       }
     }
     return sorted;
-  }, [options, lastValue]);
+  }, [options, lastValue, sortOptions]);
 
   const selected = options.find((o) => o.value === value);
 

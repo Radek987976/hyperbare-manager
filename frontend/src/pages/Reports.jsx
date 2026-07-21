@@ -342,6 +342,7 @@ const Reports = () => {
                 value={String(month)}
                 onValueChange={(v) => setMonth(parseInt(v))}
                 data-testid="plan-month-select"
+                sortOptions={false}
                 options={MONTHS_FR.map((m, i) => ({ value: String(i + 1), label: m }))}
               />
             </div>

@@ -1,5 +1,11 @@
 # HyperbareManager - PRD (Product Requirements Document)
 
+## Changelog (2026-06-21e) — Ordre des mois, marges étroites check-liste, centrage vertical
+- **Mois chronologiques** : `SearchableSelect` reçoit une prop `sortOptions` (défaut true = tri alpha inchangé pour tous les autres menus). Le sélecteur de mois (Reports.jsx) passe `sortOptions={false}` → ordre Janvier→Décembre, et désactive aussi la remontée « dernier utilisé ».
+- **Marges étroites check-liste** : endpoint check-liste en `leftMargin=rightMargin=1cm`, colonnes élargies. `make_header_canvas(intitule, margin)` + `_build_header_table(..., avail_w)` dessinent le cartouche sur toute la largeur utile (colonne centrale élastique).
+- **Centrage vertical global** : `('VALIGN', (0,0), (-1,-1), 'MIDDLE')` ajouté à `create_table_style()` → tous les tableaux PDF (anciens et nouveaux) ont leur texte centré verticalement.
+- Vérifié : rendu pdftoppm (check-liste avril, texte centré, pleine largeur) + screenshot UI (menu mois Jan→Déc).
+
 ## Changelog (2026-06-21d) — Check-liste : dernière réalisation + choix du mois
 - **Choix du mois** : le sélecteur « Mois (check-liste & PV mensuel) » de la page Rapports PDF pilote à la fois la check-liste mensuelle et le PV de contrôle mensuel (déjà en place, confirmé UI : cartes affichant « Juillet 2026 »).
 - **Dernière réalisation** : `_build_plan_items()` calcule pour chaque maintenance la date de l'intervention la plus récente liée (via `interventions.maintenance_preventive_id` → max `date_intervention`, format DD/MM/YYYY). Nouvelle colonne « Dernière réalisation » dans la check-liste PDF.

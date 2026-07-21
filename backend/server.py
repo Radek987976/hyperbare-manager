@@ -4093,6 +4093,7 @@ def create_table_style():
         ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#005F73')),
         ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
         ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
         ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
         ('FONTSIZE', (0, 0), (-1, 0), 10),
         ('BOTTOMPADDING', (0, 0), (-1, 0), 8),
@@ -4110,7 +4111,7 @@ def create_table_style():
 LOGO_PATH = ROOT_DIR / "assets_logo.png"
 
 
-def _build_header_table(intitule: str, page_str: str, date_creation: str = "20/12/2024  RT"):
+def _build_header_table(intitule: str, page_str: str, avail_w: float = None, date_creation: str = "20/12/2024  RT"):
     """Cartouche officiel CHPF (logo + « Document d'enregistrement » + titre + date création / page + date génération)."""
     styles = create_pdf_styles()
     doc_enr = ParagraphStyle('OffDoc', parent=styles['Normal'], fontSize=12, alignment=TA_CENTER)
@@ -4131,7 +4132,11 @@ def _build_header_table(intitule: str, page_str: str, date_creation: str = "20/1
         [logo, Paragraph("« Document d'enregistrement »", doc_enr), right_top],
         ['', Paragraph(intitule, big), right_bot],
     ]
-    t = Table(data, colWidths=[2.9 * cm, 9.6 * cm, 4.5 * cm], rowHeights=[1.3 * cm, 1.9 * cm])
+    if avail_w is None:
+        avail_w = 17 * cm
+    col1, col3 = 2.9 * cm, 4.5 * cm
+    col2 = max(6 * cm, avail_w - col1 - col3)
+    t = Table(data, colWidths=[col1, col2, col3], rowHeights=[1.3 * cm, 1.9 * cm])
     t.setStyle(TableStyle([
         ('SPAN', (0, 0), (0, 1)),
         ('GRID', (0, 0), (-1, -1), 0.8, colors.black),
@@ -4145,7 +4150,7 @@ def _build_header_table(intitule: str, page_str: str, date_creation: str = "20/1
     return t
 
 
-def make_header_canvas(intitule: str):
+def make_header_canvas(intitule: str, margin: float = 1.5 * cm):
     """Fabrique un canvas qui dessine le cartouche officiel (avec « Page X sur Y ») en haut de CHAQUE page."""
     class _HeaderCanvas(pdfcanvas.Canvas):
         def __init__(self, *args, **kwargs):
@@ -4166,10 +4171,10 @@ def make_header_canvas(intitule: str):
 
         def _draw_header(self, total):
             page_str = f"Page : {self._pageNumber} sur {total}"
-            t = _build_header_table(intitule, page_str)
-            avail_w = A4[0] - 3 * cm
+            avail_w = A4[0] - 2 * margin
+            t = _build_header_table(intitule, page_str, avail_w)
             w, h = t.wrapOn(self, avail_w, 6 * cm)
-            t.drawOn(self, 1.5 * cm, A4[1] - 1.4 * cm - h)
+            t.drawOn(self, margin, A4[1] - 1.4 * cm - h)
 
     return _HeaderCanvas
 
@@ -4916,7 +4921,7 @@ async def generate_checkliste_pdf(year: int, month: int, current_user: dict = De
     items, _ = await _build_plan_items(year)
     month_items = [it for it in items if month in it['months']]
     buffer = io.BytesIO()
-    doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=1.5 * cm, leftMargin=1.5 * cm, topMargin=4.9 * cm, bottomMargin=2 * cm)
+    doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=1.0 * cm, leftMargin=1.0 * cm, topMargin=4.9 * cm, bottomMargin=1.5 * cm)
     styles = create_pdf_styles()
     elements = []
     if month_items:
@@ -4928,14 +4933,14 @@ async def generate_checkliste_pdf(year: int, month: int, current_user: dict = De
             data = [[_PH("Intervention"), _PH("Équipement"), _PH("Périodicité"), _PH("Dernière réalisation"), _PH("Fait"), _PH("Date"), _PH("Obs.")]]
             for it in sorted(by_type[etype], key=lambda x: x['titre']):
                 data.append([_P(it['titre']), _P(it['equipment_ref']), _P(it['periodicite']), _P(it['derniere_realisation'] or '—'), "[ ]", "", ""])
-            t = Table(data, colWidths=[5.4 * cm, 2.4 * cm, 1.7 * cm, 2.3 * cm, 1.0 * cm, 1.9 * cm, 2.1 * cm], repeatRows=1)
+            t = Table(data, colWidths=[6.0 * cm, 2.6 * cm, 1.8 * cm, 2.4 * cm, 1.0 * cm, 2.1 * cm, 3.0 * cm], repeatRows=1)
             t.setStyle(create_table_style())
             elements.append(t)
             elements.append(Spacer(1, 10))
     else:
         elements.append(Paragraph("Aucune maintenance préventive prévue pour ce mois.", styles['PDFNormal']))
     elements.extend(_pv_footer(styles))
-    doc.build(elements, canvasmaker=make_header_canvas("Check-liste mensuelle du caisson hyperbare CHPF"))
+    doc.build(elements, canvasmaker=make_header_canvas("Check-liste mensuelle du caisson hyperbare CHPF", margin=1.0 * cm))
     buffer.seek(0)
     return StreamingResponse(buffer, media_type="application/pdf",
                              headers={"Content-Disposition": f"attachment; filename=checkliste_{year}_{month:02d}.pdf"})

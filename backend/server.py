@@ -4106,6 +4106,48 @@ def create_table_style():
         ('BOTTOMPADDING', (0, 1), (-1, -1), 6),
     ])
 
+LOGO_PATH = ROOT_DIR / "assets_logo.png"
+
+
+def create_official_header(intitule: str, meta_period: str = None, date_creation: str = "20/12/2024  RT"):
+    """En-tête officiel « Document d'enregistrement » CHPF (logo + intitulé + date/page)."""
+    styles = create_pdf_styles()
+    lbl = ParagraphStyle('OffLbl', parent=styles['Normal'], fontSize=9)
+    doc_enr = ParagraphStyle('OffDoc', parent=styles['Normal'], fontSize=12, alignment=TA_CENTER)
+    big = ParagraphStyle('OffBig', parent=styles['Normal'], fontSize=15, alignment=TA_CENTER,
+                         fontName='Helvetica-Bold', leading=18, textColor=colors.HexColor('#005F73'))
+    small = ParagraphStyle('OffMeta', parent=styles['Normal'], fontSize=9, leading=13)
+
+    try:
+        logo = RLImage(str(LOGO_PATH), width=2.1 * cm, height=2.45 * cm)
+    except Exception:
+        logo = Paragraph("", styles['Normal'])
+
+    mid_bot = [Paragraph("Intitulé :", lbl), Spacer(1, 3), Paragraph(intitule, big)]
+    right_top = Paragraph("<u>Date de création :</u><br/>" + date_creation, small)
+    right_bot = Paragraph("<u>Page :</u> 1 sur 1" + (("<br/>" + meta_period) if meta_period else ""), small)
+
+    data = [
+        [logo, Paragraph("« Document d'enregistrement »", doc_enr), right_top],
+        ['', mid_bot, right_bot],
+    ]
+    t = Table(data, colWidths=[2.9 * cm, 9.6 * cm, 4.5 * cm], rowHeights=[1.4 * cm, 2.2 * cm])
+    t.setStyle(TableStyle([
+        ('SPAN', (0, 0), (0, 1)),
+        ('GRID', (0, 0), (-1, -1), 0.8, colors.black),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('ALIGN', (0, 0), (0, 1), 'CENTER'),
+        ('LEFTPADDING', (1, 0), (1, 1), 8),
+        ('RIGHTPADDING', (1, 0), (1, 1), 8),
+        ('TOPPADDING', (0, 0), (-1, -1), 4),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+    ]))
+    return [t, Spacer(1, 8),
+            Paragraph(f"<font size=9 color='#777777'>Généré le {datetime.now().strftime('%d/%m/%Y à %H:%M')}</font>",
+                      styles['Normal']),
+            Spacer(1, 12)], styles
+
+
 @api_router.get("/reports/pdf/statistics")
 async def generate_statistics_pdf(current_user: dict = Depends(get_current_user)):
     """Generate statistics PDF report"""
@@ -4718,7 +4760,7 @@ async def generate_air_respirable_pdf(payload: AirRespirableRequest, current_use
 
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=2 * cm, leftMargin=2 * cm, topMargin=2 * cm, bottomMargin=2 * cm)
-    elements, styles = create_pdf_header("Analyse de l'air respirable", payload.date_intervention or datetime.now().strftime('%d/%m/%Y'))
+    elements, styles = create_official_header("Analyse de l'air respirable — caisson hyperbare CHPF", payload.date_intervention or datetime.now().strftime('%d/%m/%Y'))
 
     elements.append(Paragraph("LE COMPRESSEUR", styles['SectionHeader']))
     info = [
@@ -4778,7 +4820,7 @@ async def generate_plan_maintenance_pdf(year: int, current_user: dict = Depends(
     items, _ = await _build_plan_items(year)
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=1.5 * cm, leftMargin=1.5 * cm, topMargin=2 * cm, bottomMargin=2 * cm)
-    elements, styles = create_pdf_header("Plan de maintenance", f"Année {year} — hors journalières / hebdomadaires")
+    elements, styles = create_official_header("Plan de maintenance du caisson hyperbare CHPF", f"Année {year} — hors journalières / hebdomadaires")
 
     for m in range(1, 13):
         month_items = [it for it in items if m in it['months']]
@@ -4812,7 +4854,7 @@ async def generate_checkliste_pdf(year: int, month: int, current_user: dict = De
     month_items = [it for it in items if month in it['months']]
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=1.5 * cm, leftMargin=1.5 * cm, topMargin=2 * cm, bottomMargin=2 * cm)
-    elements, styles = create_pdf_header("Check-liste maintenance caisson", f"{FRENCH_MONTHS[month]} {year}")
+    elements, styles = create_official_header("Check-liste mensuelle du caisson hyperbare CHPF", f"{FRENCH_MONTHS[month]} {year}")
 
     if month_items:
         by_type = {}
@@ -4843,7 +4885,7 @@ async def generate_pv_mensuel_pdf(year: int, month: int, current_user: dict = De
     month_items = [it for it in items if month in it['months']]
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=1.5 * cm, leftMargin=1.5 * cm, topMargin=2 * cm, bottomMargin=2 * cm)
-    elements, styles = create_pdf_header("PV de contrôle mensuel du caisson hyperbare", f"{FRENCH_MONTHS[month]} {year}")
+    elements, styles = create_official_header("Contrôle Mensuel du caisson hyperbare CHPF", f"{FRENCH_MONTHS[month]} {year}")
 
     if month_items:
         by_type = {}
@@ -4873,7 +4915,7 @@ async def generate_pv_annuel_pdf(year: int, current_user: dict = Depends(get_cur
     items, _ = await _build_plan_items(year)
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=1.5 * cm, leftMargin=1.5 * cm, topMargin=2 * cm, bottomMargin=2 * cm)
-    elements, styles = create_pdf_header("PV de contrôle annuel du caisson hyperbare", f"Année {year}")
+    elements, styles = create_official_header("Contrôle Annuel du caisson hyperbare CHPF", f"Année {year}")
 
     if items:
         by_type = {}

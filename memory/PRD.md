@@ -1,5 +1,9 @@
 # HyperbareManager - PRD (Product Requirements Document)
 
+## Changelog (2026-06-21b) — En-tête officiel CHPF sur les PDF
+- Logo CHPF extrait de la capture fournie → `/app/backend/assets_logo.png`. Fonction `create_official_header(intitule, meta_period, date_creation)` reproduisant le modèle Word : cellule logo | « Document d'enregistrement » + Intitulé + titre centré | Date de création (20/12/2024 RT) + Page (1 sur 1) + période. Appliquée aux 5 PDF (air respirable, plan, check-liste, PV mensuel, PV annuel).
+- Vérifié via rendu pdftoppm (en-tête conforme sur PV mensuel + modèle air respirable).
+
 ## Changelog (2026-06-21) — Modèle air respirable PDF + Plan/Check-listes/PV de contrôle (VÉRIFIÉ curl + rendu PDF + UI)
 Basé sur 4 documents fournis par l'utilisateur (Calendrier des maintenances.xlsx, Analyse de l'air respirable 2.docx, Check liste MTN caisson.pdf, Contrôle Mensuel.docx).
 

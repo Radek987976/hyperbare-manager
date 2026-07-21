@@ -1,5 +1,11 @@
 # HyperbareManager - PRD (Product Requirements Document)
 
+## Changelog (2026-06-21d) — Check-liste : dernière réalisation + choix du mois
+- **Choix du mois** : le sélecteur « Mois (check-liste & PV mensuel) » de la page Rapports PDF pilote à la fois la check-liste mensuelle et le PV de contrôle mensuel (déjà en place, confirmé UI : cartes affichant « Juillet 2026 »).
+- **Dernière réalisation** : `_build_plan_items()` calcule pour chaque maintenance la date de l'intervention la plus récente liée (via `interventions.maintenance_preventive_id` → max `date_intervention`, format DD/MM/YYYY). Nouvelle colonne « Dernière réalisation » dans la check-liste PDF.
+- En-têtes de tableau passés en `Paragraph` blanc/gras (`_PH`) pour un retour à la ligne propre (évite le chevauchement des colonnes). Largeurs de colonnes ajustées (7 colonnes).
+- Vérifié via rendu pdftoppm (check-liste avril 2026 : dates 18/04/2026, 12/04/2025 affichées) + screenshot UI (sélecteur de mois).
+
 ## Changelog (2026-06-21c) — Cartouche officiel CHPF revu (logo + pagination dynamique)
 - Logo remplacé par le **logo CHPF** officiel (`/app/backend/assets_logo.png`, image001 2.png), affiché en `kind='proportional'`.
 - Suppression du label « Intitulé : » (seul le titre centré reste).

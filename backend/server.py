@@ -4653,6 +4653,17 @@ def _P(text):
     return Paragraph(s, _CELL_STYLE)
 
 
+_CELL_HEADER_STYLE = ParagraphStyle('CellHdr', fontName='Helvetica-Bold', fontSize=8, leading=10,
+                                    textColor=colors.whitesmoke)
+
+
+def _PH(text):
+    """Cellule d'en-tête de tableau (blanc, gras) qui se retourne à la ligne."""
+    s = '' if text is None else str(text)
+    s = s.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+    return Paragraph(s, _CELL_HEADER_STYLE)
+
+
 def _periodicite_label(wo: dict) -> str:
     pj = wo.get('periodicite_jours')
     ph = wo.get('periodicite_heures')
@@ -4724,6 +4735,28 @@ async def _build_plan_items(year: int):
     eq_map = {e['id']: e for e in equipments}
     reformed = {e['id'] for e in equipments if e.get('statut') == 'reforme'}
     wos = await db.work_orders.find({'type_maintenance': 'preventive'}, {"_id": 0}).to_list(5000)
+
+    # Dernière réalisation par maintenance : intervention la plus récente liée au plan préventif
+    last_by_wo = {}
+    async for it in db.interventions.find(
+        {'maintenance_preventive_id': {'$ne': None}},
+        {"_id": 0, "maintenance_preventive_id": 1, "date_intervention": 1}
+    ):
+        wid = it.get('maintenance_preventive_id')
+        d = it.get('date_intervention')
+        if not wid or not d:
+            continue
+        if wid not in last_by_wo or str(d) > str(last_by_wo[wid]):
+            last_by_wo[wid] = d
+
+    def _fmt(d):
+        if not d:
+            return ""
+        try:
+            return datetime.fromisoformat(str(d).replace('Z', '+00:00')).strftime('%d/%m/%Y')
+        except Exception:
+            return str(d)[:10]
+
     items = []
     for wo in wos:
         eqid = wo.get('equipment_id')
@@ -4736,12 +4769,14 @@ async def _build_plan_items(year: int):
             continue
         eq = eq_map.get(eqid, {}) if eqid else {}
         items.append({
+            'wo_id': wo.get('id'),
             'titre': wo.get('titre', ''),
             'equipment_ref': eq.get('reference', 'Caisson (général)'),
             'equipment_type': (eq.get('type') or 'Caisson (général)').strip(),
             'periodicite': _periodicite_label(wo),
             'times_per_year': _times_per_year(wo),
             'months': sorted(months),
+            'derniere_realisation': _fmt(last_by_wo.get(wo.get('id'))),
         })
     return items, eq_map
 
@@ -4890,10 +4925,10 @@ async def generate_checkliste_pdf(year: int, month: int, current_user: dict = De
             by_type.setdefault(it['equipment_type'], []).append(it)
         for etype in sorted(by_type.keys()):
             elements.append(Paragraph(etype, styles['SectionHeader']))
-            data = [["Intervention", "Équipement", "Périodicité", "Fait", "Date", "Observations"]]
+            data = [[_PH("Intervention"), _PH("Équipement"), _PH("Périodicité"), _PH("Dernière réalisation"), _PH("Fait"), _PH("Date"), _PH("Obs.")]]
             for it in sorted(by_type[etype], key=lambda x: x['titre']):
-                data.append([_P(it['titre']), _P(it['equipment_ref']), _P(it['periodicite']), "[ ]", "", ""])
-            t = Table(data, colWidths=[6.5 * cm, 2.8 * cm, 2 * cm, 1.1 * cm, 2 * cm, 3.2 * cm], repeatRows=1)
+                data.append([_P(it['titre']), _P(it['equipment_ref']), _P(it['periodicite']), _P(it['derniere_realisation'] or '—'), "[ ]", "", ""])
+            t = Table(data, colWidths=[5.4 * cm, 2.4 * cm, 1.7 * cm, 2.3 * cm, 1.0 * cm, 1.9 * cm, 2.1 * cm], repeatRows=1)
             t.setStyle(create_table_style())
             elements.append(t)
             elements.append(Spacer(1, 10))

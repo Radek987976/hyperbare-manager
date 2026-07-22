@@ -148,6 +148,7 @@ const Sidebar = ({ isOpen, onClose }) => {
     { to: '/equipements', icon: Settings2, label: 'Équipements' },
     { to: '/sous-equipements', icon: Layers, label: 'Sous-équipements' },
     { to: '/ordres-travail', icon: ClipboardList, label: 'Maintenance préventive' },
+    { to: '/controles', icon: ShieldCheck, label: 'Contrôles réglementaires' },
     { to: '/planning', icon: CalendarDays, label: 'Planning' },
     { to: '/interventions', icon: History, label: 'Interventions' },
     { to: '/bouteilles-gaz', icon: Cylinder, label: 'Bouteilles de gaz' },
@@ -156,7 +157,6 @@ const Sidebar = ({ isOpen, onClose }) => {
     { to: '/contrats', icon: FileCheck, label: 'Contrats' },
     { to: '/documents', icon: FolderOpen, label: 'Documents' },
     { to: '/pv-controle', icon: ClipboardCheck, label: 'PV de contrôle' },
-    { to: '/controles', icon: ShieldCheck, label: 'Contrôles réglementaires' },
     { to: '/budget', icon: Calculator, label: 'Budget prévisionnel' },
     { to: '/rapports', icon: FileText, label: 'Rapports PDF' },
   ];

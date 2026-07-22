@@ -109,6 +109,8 @@ const Import = () => {
   const [isCleaning, setIsCleaning] = useState(false);
   const [isCorrelating, setIsCorrelating] = useState(false);
   const [correlationPreview, setCorrelationPreview] = useState(null);
+  const [isBackfilling, setIsBackfilling] = useState(false);
+  const [backfillPreview, setBackfillPreview] = useState(null);
   // Transfert maintenances -> contrôles réglementaires
   const [transferOpen, setTransferOpen] = useState(false);
   const [transferQ, setTransferQ] = useState('');
@@ -251,6 +253,34 @@ const Import = () => {
       setError(getErrorMessage(err));
     } finally {
       setIsCorrelating(false);
+    }
+  };
+
+  const handleBackfillPreview = async () => {
+    setIsBackfilling(true);
+    setError('');
+    setResult(null);
+    try {
+      const res = await importAPI.backfillActionsFromObservations(false);
+      setBackfillPreview(res.data);
+    } catch (err) {
+      setError(getErrorMessage(err));
+    } finally {
+      setIsBackfilling(false);
+    }
+  };
+
+  const handleBackfillApply = async () => {
+    setIsBackfilling(true);
+    setError('');
+    try {
+      const res = await importAPI.backfillActionsFromObservations(true);
+      setResult({ type: 'correlate', message: `${res.data.matched} intervention(s) mise(s) à jour (Actions ← Observations).`, imported: res.data.matched });
+      setBackfillPreview(null);
+    } catch (err) {
+      setError(getErrorMessage(err));
+    } finally {
+      setIsBackfilling(false);
     }
   };
 
@@ -443,6 +473,31 @@ const Import = () => {
               className="text-teal-700 border-teal-200 hover:bg-teal-50 shrink-0" data-testid="correlate-preview-btn">
               {isCorrelating ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Database className="h-4 w-4 mr-2" />}
               Aperçu de la corrélation
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Recopier Observations -> Actions réalisées (migration ponctuelle) */}
+      <Card className="border-amber-100">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Database className="h-5 w-5 text-amber-600" />
+            Corriger « Actions réalisées » à partir des « Observations »
+          </CardTitle>
+          <CardDescription>
+            Action ponctuelle. Pour chaque intervention dont le champ « Actions réalisées » est vide, ou ne fait que répéter le motif de l'intervention ou le titre de la maintenance préventive liée, remplace « Actions réalisées » par le contenu des « Observations ». Si les observations sont vides, rien n'est modifié.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center justify-between gap-4">
+            <p className="text-sm text-gray-600">
+              Un aperçu vous montre le nombre d'interventions concernées avant d'appliquer. Aucune donnée n'est supprimée.
+            </p>
+            <Button variant="outline" onClick={handleBackfillPreview} disabled={isBackfilling}
+              className="text-amber-700 border-amber-200 hover:bg-amber-50 shrink-0" data-testid="backfill-preview-btn">
+              {isBackfilling ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Database className="h-4 w-4 mr-2" />}
+              Aperçu
             </Button>
           </div>
         </CardContent>
@@ -708,6 +763,40 @@ const Import = () => {
             <AlertDialogCancel>Annuler</AlertDialogCancel>
             <AlertDialogAction onClick={handleCorrelateApply} disabled={isCorrelating || !correlationPreview?.matched} data-testid="correlate-apply-btn">
               {isCorrelating ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Application...</> : `Appliquer (${correlationPreview?.matched || 0})`}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Aperçu recopie Observations -> Actions */}
+      <AlertDialog open={backfillPreview !== null} onOpenChange={(open) => { if (!open) setBackfillPreview(null); }}>
+        <AlertDialogContent className="max-w-lg">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Aperçu — Actions ← Observations</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3 text-sm">
+                <p>
+                  <strong>{backfillPreview?.matched || 0}</strong> intervention(s) seront mises à jour
+                  {' '}sur <strong>{backfillPreview?.total || 0}</strong> au total.
+                </p>
+                {backfillPreview?.examples?.length > 0 && (
+                  <div className="border rounded-md max-h-64 overflow-y-auto divide-y">
+                    {backfillPreview.examples.map((ex, i) => (
+                      <div key={i} className="p-2">
+                        <div className="text-gray-500 text-xs">Avant : <span className="text-gray-700">{ex.avant}</span></div>
+                        <div className="text-amber-700 text-xs">→ Après : {ex.apres}</div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <p className="text-xs text-gray-400">Seul le champ « Actions réalisées » est modifié, uniquement quand les observations ne sont pas vides. Aucune suppression.</p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annuler</AlertDialogCancel>
+            <AlertDialogAction onClick={handleBackfillApply} disabled={isBackfilling || !backfillPreview?.matched} data-testid="backfill-apply-btn">
+              {isBackfilling ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Application...</> : `Appliquer (${backfillPreview?.matched || 0})`}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

@@ -1,5 +1,10 @@
 # HyperbareManager - PRD (Product Requirements Document)
 
+## Changelog (2026-07-22c) — Migration ponctuelle : Actions réalisées ← Observations
+- **`POST /admin/backfill-actions-from-observations?apply=false|true`** (admin) : pour chaque intervention dont « Actions réalisées » n'apporte pas d'info réelle (vide, OU = au motif/titre curatif, OU = au titre de la maintenance préventive liée) **ET** dont « Observations » n'est pas vide → remplace les actions par les observations. Sinon aucune modification. `apply=false` = aperçu (dry-run, aucune écriture — vérifié), `apply=true` = applique (bulk_write). Retour : total, matched, exemples avant/après.
+- **UI (`Import.jsx`, admin)** : carte « Corriger Actions réalisées à partir des Observations » → bouton Aperçu → dialog (compteur + exemples) → « Appliquer ». `importAPI.backfillActionsFromObservations`.
+- **Exécution** : appliqué sur la base **PREVIEW** pendant les tests (3452 interventions mises à jour ; les anciennes actions n'étaient que des doublons de titre → aucune perte d'info réelle). Pour la **PRODUCTION** : après redéploiement, Import → Aperçu → Appliquer (une seule fois).
+
 ## Changelog (2026-07-22b) — Libellé onglet Contrôles + gestion des types de contrôle
 - **Onglet « / » corrigé** : `NavTabs.ROUTE_LABELS` ne contenait pas `/controles` → l'onglet affichait `/controles`. Ajouté `'/controles': 'Contrôles réglementaires'`. Vérifié écran : onglet propre.
 - **Types de contrôle gérables** (comme les types de gaz) : collection `control_types`. `GET /control-types`, `POST /control-types {label}` (anti-doublon insensible casse, refuse les défauts), `DELETE /control-types/{id}` (admin). Vérifié curl : création, doublon→400, suppression.

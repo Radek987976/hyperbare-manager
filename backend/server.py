@@ -2305,6 +2305,66 @@ async def correlate_interventions(apply: bool = False, threshold: float = 0.9, c
     }
 
 
+@api_router.post("/admin/backfill-actions-from-observations")
+async def backfill_actions_from_observations(apply: bool = False, current_user: dict = Depends(require_admin)):
+    """Migration ponctuelle : si « Actions réalisées » n'apporte pas d'info réelle
+    (vide, ou = au motif/titre de l'intervention, ou = au titre de la maintenance préventive liée)
+    ET que « Observations » n'est pas vide → remplace les actions par les observations.
+    apply=false = aperçu (dry-run) ; apply=true = applique."""
+    from pymongo import UpdateOne
+
+    # Titres des maintenances préventives (pour comparaison)
+    wo_titles = {}
+    async for wo in db.work_orders.find({}, {"_id": 0, "id": 1, "titre": 1}):
+        if wo.get("titre"):
+            wo_titles[wo["id"]] = wo["titre"].strip().lower()
+
+    total = 0
+    matched = 0
+    examples = []
+    ops = []
+
+    async for it in db.interventions.find({}, {"_id": 0, "id": 1, "actions_realisees": 1, "observations": 1, "titre": 1, "maintenance_preventive_id": 1}):
+        total += 1
+        obs = (it.get("observations") or "").strip()
+        if not obs:
+            continue  # ne rien changer si observations vide
+        action = (it.get("actions_realisees") or "").strip()
+        action_lc = action.lower()
+
+        no_real_info = False
+        if not action:
+            no_real_info = True
+        elif it.get("titre") and action_lc == (it.get("titre") or "").strip().lower():
+            no_real_info = True
+        elif it.get("maintenance_preventive_id") and action_lc == wo_titles.get(it["maintenance_preventive_id"], "\x00"):
+            no_real_info = True
+
+        if not no_real_info:
+            continue
+        if action == obs:
+            continue  # déjà identique, rien à faire
+
+        matched += 1
+        ops.append(UpdateOne({"id": it["id"]}, {"$set": {"actions_realisees": obs}}))
+        if len(examples) < 25:
+            examples.append({
+                "avant": action[:80] or "(vide)",
+                "apres": obs[:80],
+            })
+
+    if apply and ops:
+        for i in range(0, len(ops), 500):
+            await db.interventions.bulk_write(ops[i:i + 500], ordered=False)
+
+    return {
+        "applied": apply,
+        "total": total,
+        "matched": matched,
+        "examples": examples,
+    }
+
+
 def _jours_to_periodicite(jours: Optional[int]) -> str:
     """Convertit une périodicité en jours vers la clé de périodicité la plus proche."""
     if not jours:

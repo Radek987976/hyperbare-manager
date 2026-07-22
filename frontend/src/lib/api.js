@@ -439,6 +439,7 @@ export const importAPI = {
   transferToInspections: (workOrderIds) => api.post('/admin/transfer-to-inspections', { work_order_ids: workOrderIds }),
   inspectionCandidates: (q = '') => api.get(`/admin/inspection-candidates?q=${encodeURIComponent(q)}`),
   transferToMaintenances: (inspectionIds) => api.post('/admin/transfer-to-maintenances', { inspection_ids: inspectionIds }),
+  backfillActionsFromObservations: (apply = false) => api.post(`/admin/backfill-actions-from-observations?apply=${apply}`),
 };
 
 export default api;

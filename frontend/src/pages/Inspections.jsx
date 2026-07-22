@@ -4,6 +4,7 @@ import { inspectionsAPI, caissonAPI, equipmentsAPI, openStoredFile } from '../li
 import { useAuth } from '../context/AuthContext';
 import { toast } from 'sonner';
 import { formatDate, daysUntil, equipmentTypeLabels, periodiciteLabels, getErrorMessage, toYMD } from '../lib/utils';
+import { useColumnFilters, useSessionState, applyTableFilters, distinctValues, ColumnFilter } from '../components/ui/table-column-filter';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
@@ -60,7 +61,8 @@ import {
   FileText,
   Upload,
   RotateCw,
-  History
+  History,
+  X
 } from 'lucide-react';
 
 const PERIODICITES = ['hebdomadaire', 'mensuel', 'trimestriel', 'semestriel', 'annuel', 'biannuel', 'triennal', 'quinquennal', 'decennal'];
@@ -71,7 +73,8 @@ const Inspections = () => {
   const [caisson, setCaisson] = useState(null);
   const [equipments, setEquipments] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchTerm, setSearchTerm] = useSessionState('controles:search', '');
+  const { sort: colSort, setSort: setColSort, filters: colFilters, setColumnFilter: setColColumnFilter, clearAll: clearColFilters, hasActive: hasColFilters } = useColumnFilters({ key: 'titre', dir: 'asc' }, 'controles:cols');
   const _loc = useLocation();
   useEffect(() => { if (_loc.state?.q) setSearchTerm(_loc.state.q); }, [_loc.state]);
   
@@ -293,17 +296,30 @@ const Inspections = () => {
     return `${equipmentTypeLabels[equipment.type] || equipment.type || ''} - ${equipment.reference}`;
   };
 
-  const filteredInspections = inspections.filter(insp =>
-    insp.titre.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    insp.type_controle.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const statutLabel = (insp) => {
+    const days = daysUntil(insp.date_validite);
+    if (days === null) return 'À planifier';
+    if (days < 0) return 'Expiré';
+    if (days <= 30) return 'À échéance';
+    return 'Valide';
+  };
+  const inspColumns = {
+    titre: (i) => i.titre || '',
+    equipment: (i) => getEquipmentLabel(i.equipment_id),
+    type_controle: (i) => i.type_controle || '',
+    periodicite: (i) => periodiciteLabels[i.periodicite] || i.periodicite || 'Annuel',
+    date_validite: (i) => (i.date_validite || '').slice(0, 10),
+    statut: (i) => statutLabel(i),
+    organisme: (i) => i.organisme_certificateur || '',
+  };
 
-  // Sort by date_validite (expiring soon first)
-  filteredInspections.sort((a, b) => {
-    const daysA = daysUntil(a.date_validite) ?? 9999;
-    const daysB = daysUntil(b.date_validite) ?? 9999;
-    return daysA - daysB;
-  });
+  const searchedInspections = inspections.filter(insp =>
+    (insp.titre || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (insp.type_controle || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    getEquipmentLabel(insp.equipment_id).toLowerCase().includes(searchTerm.toLowerCase())
+  );
+  const inspDistinct = (key) => distinctValues(searchedInspections, inspColumns, key, colFilters);
+  const filteredInspections = applyTableFilters(searchedInspections, inspColumns, { filters: colFilters, sort: colSort });
 
   // Stats
   const expiredCount = inspections.filter(i => (daysUntil(i.date_validite) ?? 1) < 0).length;
@@ -380,16 +396,24 @@ const Inspections = () => {
       {/* Search */}
       <Card>
         <CardContent className="p-4">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-            <Input
-              placeholder="Rechercher par titre, type de contrôle..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10"
-              data-testid="search-input"
-            />
+          <div className="flex flex-col md:flex-row gap-3">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+              <Input
+                placeholder="Rechercher par titre, type, équipement..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10"
+                data-testid="search-input"
+              />
+            </div>
+            {(searchTerm || hasColFilters) && (
+              <Button variant="ghost" onClick={() => { setSearchTerm(''); clearColFilters(); }} className="shrink-0" data-testid="clear-filters-btn">
+                <X className="w-4 h-4 mr-1" /> Effacer tous les filtres
+              </Button>
+            )}
           </div>
+          <p className="text-xs text-slate-400 mt-2">Astuce : cliquez sur l'icône entonnoir dans chaque colonne pour trier et filtrer comme dans Excel.</p>
         </CardContent>
       </Card>
 
@@ -400,13 +424,13 @@ const Inspections = () => {
             <Table data-testid="inspections-table">
               <TableHeader>
                 <TableRow className="bg-slate-50">
-                  <TableHead className="font-semibold">Titre</TableHead>
-                  <TableHead className="font-semibold">Équipement</TableHead>
-                  <TableHead className="font-semibold">Type</TableHead>
-                  <TableHead className="font-semibold">Périodicité</TableHead>
-                  <TableHead className="font-semibold">Prochaine échéance</TableHead>
-                  <TableHead className="font-semibold">Statut</TableHead>
-                  <TableHead className="font-semibold">Organisme</TableHead>
+                  <TableHead><ColumnFilter label="Titre" columnKey="titre" values={inspDistinct('titre')} filters={colFilters} sort={colSort} setSort={setColSort} setColumnFilter={setColColumnFilter} /></TableHead>
+                  <TableHead><ColumnFilter label="Équipement" columnKey="equipment" values={inspDistinct('equipment')} filters={colFilters} sort={colSort} setSort={setColSort} setColumnFilter={setColColumnFilter} /></TableHead>
+                  <TableHead><ColumnFilter label="Type" columnKey="type_controle" values={inspDistinct('type_controle')} filters={colFilters} sort={colSort} setSort={setColSort} setColumnFilter={setColColumnFilter} /></TableHead>
+                  <TableHead><ColumnFilter label="Périodicité" columnKey="periodicite" values={inspDistinct('periodicite')} filters={colFilters} sort={colSort} setSort={setColSort} setColumnFilter={setColColumnFilter} /></TableHead>
+                  <TableHead><ColumnFilter label="Prochaine échéance" columnKey="date_validite" values={inspDistinct('date_validite')} filters={colFilters} sort={colSort} setSort={setColSort} setColumnFilter={setColColumnFilter} /></TableHead>
+                  <TableHead><ColumnFilter label="Statut" columnKey="statut" values={inspDistinct('statut')} filters={colFilters} sort={colSort} setSort={setColSort} setColumnFilter={setColColumnFilter} /></TableHead>
+                  <TableHead><ColumnFilter label="Organisme" columnKey="organisme" values={inspDistinct('organisme')} filters={colFilters} sort={colSort} setSort={setColSort} setColumnFilter={setColColumnFilter} /></TableHead>
                   <TableHead className="w-16"></TableHead>
                 </TableRow>
               </TableHeader>

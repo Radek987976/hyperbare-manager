@@ -1,5 +1,8 @@
 # HyperbareManager - PRD (Product Requirements Document)
 
+## Changelog (2026-06-21u) — Filtres Excel + tri titre sur Contrôles réglementaires
+- **Contrôles réglementaires (`Inspections.jsx`)** : filtres « Excel » par colonne ajoutés (Titre, Équipement, Type, Périodicité, Prochaine échéance, Statut, Organisme) via `useColumnFilters`/`ColumnFilter`/`applyTableFilters`/`distinctValues`, comme les autres tableaux. **Tri par Titre alphabétique par défaut**. Bouton « Effacer tous les filtres » + persistance en session (`controles:cols` / `controles:search`). Colonne « Statut » filtrable (Valide / À échéance / Expiré / À planifier). Vérifié écran : 7 entonnoirs présents, tri titre par défaut.
+
 ## Changelog (2026-06-21t) — Menu réordonné + reclassement inverse contrôle→maintenance
 - **Menu latéral** : « Contrôles réglementaires » déplacé juste sous « Maintenance préventive » (`Layout.jsx`).
 - **Reclasser contrôle → maintenance préventive (admin, inverse du transfert)** :

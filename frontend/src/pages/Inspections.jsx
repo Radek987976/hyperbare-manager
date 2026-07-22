@@ -114,9 +114,20 @@ const Inspections = () => {
     }
   };
   const [selectedInspection, setSelectedInspection] = useState(null);
+  const [linkedInterventions, setLinkedInterventions] = useState([]);
   const [saving, setSaving] = useState(false);
   const [uploadingPdf, setUploadingPdf] = useState(false);
   const pdfInputRef = useRef(null);
+
+  useEffect(() => {
+    if (showDetailModal && selectedInspection) {
+      inspectionsAPI.getHistory(selectedInspection.id)
+        .then(res => setLinkedInterventions(res.data?.linked_interventions || []))
+        .catch(() => setLinkedInterventions([]));
+    } else {
+      setLinkedInterventions([]);
+    }
+  }, [showDetailModal, selectedInspection]);
 
   const handleUploadPdf = async (e) => {
     const file = e.target.files?.[0];
@@ -760,6 +771,27 @@ const Inspections = () => {
                   </div>
                 )}
               </div>
+
+              {/* Interventions liées (réalisations enregistrées) */}
+              {linkedInterventions.length > 0 && (
+                <div className="border-t pt-4">
+                  <p className="font-semibold flex items-center gap-2 mb-2">
+                    <History className="w-4 h-4" /> Interventions liées ({linkedInterventions.length})
+                  </p>
+                  <div className="space-y-2" data-testid="controle-linked-interventions">
+                    {linkedInterventions.map((it) => (
+                      <div key={it.id} className="text-sm p-2 bg-[#4338ca]/5 rounded border border-[#4338ca]/10">
+                        <div className="flex justify-between">
+                          <span>Réalisé le <strong>{formatDate(it.date_intervention)}</strong></span>
+                          <span className="text-slate-500">{it.technicien || ''}</span>
+                        </div>
+                        {it.actions_realisees && <p className="text-slate-500 text-xs mt-1">{it.actions_realisees}</p>}
+                        {it.observations && <p className="text-slate-500 text-xs mt-1">{it.observations}</p>}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {/* Historique des contrôles (traçabilité) */}
               <div className="border-t pt-4">

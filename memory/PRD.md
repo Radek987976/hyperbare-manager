@@ -1,5 +1,18 @@
 # HyperbareManager - PRD (Product Requirements Document)
 
+## Changelog (2026-07-22) — Correctif transfert (historique) + Liaison intervention ↔ contrôle
+**A) Correctif du transfert maintenance → contrôle (historique manquant sur données historiques)**
+- `transfer_to_inspections` (server.py) : si aucune intervention n'est liée strictement (`maintenance_preventive_id`), **repli par correspondance texte** (seuil `_match_score` ≥ 0.9, même équipement) pour rattacher les interventions historiques importées sans lien. Ces interventions ne sont **pas détachées** (non destructif, `fallback_used`). Vérifié curl : maintenance test « étalonnage manomètre pupitre » + 2 interventions legacy → transfert → contrôle avec date_réalisation = plus récente + 1 réalisation archivée (avant : historique vide).
+
+**B) Liaison intervention ↔ contrôle réglementaire (source unique de vérité, Option C)**
+- `InterventionBase.inspection_id` (nouveau) : une intervention peut être rattachée à un contrôle réglementaire.
+- Formulaire d'intervention (`Interventions.jsx`) : 3e type **« Contrôle réglementaire »** → sélecteur « Contrôle réglementaire concerné » filtré par équipement (`interv-inspection-select`). Badge indigo « Contrôle » dans la liste.
+- `create_intervention` : si `inspection_id` fourni → `_sync_inspection_from_interventions()` met à jour le contrôle (date_réalisation = intervention la plus récente, recalcul de l'échéance). **On ne supprime aucune intervention.**
+- `renew_inspection` : le renouvellement **crée automatiquement une intervention liée** (`type_intervention="controle"`, titre « Renouvellement — … ») en plus d'archiver l'ancienne réalisation.
+- `GET /inspections/{id}/history` : renvoie `linked_interventions` + `historique_controles`. Détail du contrôle (`Inspections.jsx`) : nouvelle section « Interventions liées » (`controle-linked-interventions`).
+- Vérifié curl E2E : lien → date_validite recalculée (quinquennal 2025-06-01 → 2030), renew → intervention créée + archivage, endpoint historique OK. Données de test nettoyées.
+- Option B (copie+synchro maintenance↔contrôle avec conservation des deux) **écartée** (source de désynchronisation/doublons d'alertes).
+
 ## Changelog (2026-06-21u) — Filtres Excel + tri titre sur Contrôles réglementaires
 - **Contrôles réglementaires (`Inspections.jsx`)** : filtres « Excel » par colonne ajoutés (Titre, Équipement, Type, Périodicité, Prochaine échéance, Statut, Organisme) via `useColumnFilters`/`ColumnFilter`/`applyTableFilters`/`distinctValues`, comme les autres tableaux. **Tri par Titre alphabétique par défaut**. Bouton « Effacer tous les filtres » + persistance en session (`controles:cols` / `controles:search`). Colonne « Statut » filtrable (Valide / À échéance / Expiré / À planifier). Vérifié écran : 7 entonnoirs présents, tri titre par défaut.
 

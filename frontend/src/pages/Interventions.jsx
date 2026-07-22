@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useLocation } from 'react-router-dom';
-import { interventionsAPI, workOrdersAPI, sparePartsAPI, usersAPI, equipmentsAPI, subEquipmentsAPI, contractorsAPI, reportsAPI, openStoredFile, openBlobPdf } from '../lib/api';
+import { interventionsAPI, workOrdersAPI, sparePartsAPI, usersAPI, equipmentsAPI, subEquipmentsAPI, contractorsAPI, inspectionsAPI, reportsAPI, openStoredFile, openBlobPdf } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
 import { formatDate, subEquipmentMatchesEquipment, toYMD } from '../lib/utils';
 import { Card, CardContent } from '../components/ui/card';
@@ -52,7 +52,8 @@ function Interventions() {
     technicians: [],
     equipments: [],
     subEquipments: [],
-    contractors: []
+    contractors: [],
+    inspections: []
   });
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useSessionState('interventions:search', '');
@@ -76,6 +77,7 @@ function Interventions() {
     type_intervention: 'curative',
     work_order_id: '',
     maintenance_preventive_id: '',
+    inspection_id: '',
     equipment_id: '',
     sous_equipement_ids: [],
     prestataire_id: '',
@@ -136,13 +138,14 @@ function Interventions() {
 
   async function loadData() {
     try {
-      const [r1, r2, r3, r5, r6, r7] = await Promise.all([
+      const [r1, r2, r3, r5, r6, r7, r8] = await Promise.all([
         interventionsAPI.getAll(),
         workOrdersAPI.getAll(),
         sparePartsAPI.getAll(),
         equipmentsAPI.getAll(),
         subEquipmentsAPI.getAll(),
-        contractorsAPI.getAll()
+        contractorsAPI.getAll(),
+        inspectionsAPI.getAll()
       ]);
       // Technicien: admin voit tous les utilisateurs ; technicien = lui-même (+ saisie libre)
       let technicians = [];
@@ -158,7 +161,8 @@ function Interventions() {
         technicians,
         equipments: r5.data || [],
         subEquipments: r6.data || [],
-        contractors: r7.data || []
+        contractors: r7.data || [],
+        inspections: r8.data || []
       });
     } catch (e) {
       console.error(e);
@@ -171,6 +175,11 @@ function Interventions() {
     wo.type_maintenance === 'preventive' &&
     (wo.statut === 'planifiee' || wo.statut === 'en_cours') &&
     (!formData.equipment_id || wo.equipment_id === formData.equipment_id)
+  );
+
+  // Contrôles réglementaires disponibles pour l'équipement sélectionné
+  const availableInspections = data.inspections.filter(insp =>
+    !formData.equipment_id || insp.equipment_id === formData.equipment_id
   );
 
   function handleChange(e) {
@@ -261,6 +270,7 @@ function Interventions() {
         type_intervention: formData.type_intervention,
         work_order_id: null,
         maintenance_preventive_id: formData.type_intervention === 'preventive' ? formData.maintenance_preventive_id : null,
+        inspection_id: formData.type_intervention === 'controle' ? formData.inspection_id : null,
         titre: formData.type_intervention === 'curative' ? formData.titre : null,
         equipment_id: formData.equipment_id || null,
         sous_equipement_ids: formData.sous_equipement_ids,
@@ -298,6 +308,7 @@ function Interventions() {
       type_intervention: item.type_intervention || 'curative',
       work_order_id: item.work_order_id || '',
       maintenance_preventive_id: item.maintenance_preventive_id || '',
+      inspection_id: item.inspection_id || '',
       equipment_id: item.equipment_id || '',
       sous_equipement_ids: (item.sous_equipement_ids && item.sous_equipement_ids.length)
         ? item.sous_equipement_ids
@@ -382,6 +393,11 @@ function Interventions() {
     return wo ? wo.titre : '-';
   }
 
+  function getInspectionTitle(id) {
+    const insp = data.inspections.find(x => x.id === id);
+    return insp ? insp.titre : '-';
+  }
+
   function getEquipmentName(id) {
     const e = data.equipments.find(x => x.id === id);
     return e ? (e.reference || e.type) : null;
@@ -410,6 +426,9 @@ function Interventions() {
   function getInterventionLabel(item) {
     if (item.type_intervention === 'preventive') {
       return getPreventiveTitle(item.maintenance_preventive_id);
+    }
+    if (item.type_intervention === 'controle') {
+      return item.inspection_id ? getInspectionTitle(item.inspection_id) : (item.titre || '-');
     }
     const parts = [];
     if (item.titre) parts.push(item.titre);
@@ -537,6 +556,8 @@ function Interventions() {
                   <TableCell>
                     {item.type_intervention === 'preventive' 
                       ? <span className="inline-flex items-center gap-2"><Badge variant="outline" className="bg-[#0A9396]/10 text-[#0A9396] border-[#0A9396]/30">Préventive</Badge>{getPreventiveTitle(item.maintenance_preventive_id)}</span>
+                      : item.type_intervention === 'controle'
+                      ? <span className="inline-flex items-center gap-2"><Badge variant="outline" className="bg-[#4338ca]/10 text-[#4338ca] border-[#4338ca]/30">Contrôle</Badge>{getInterventionLabel(item)}</span>
                       : <span className="inline-flex items-center gap-2"><Badge variant="outline" className="bg-[#EE9B00]/10 text-[#EE9B00] border-[#EE9B00]/30">Curative</Badge>{getInterventionLabel(item)}</span>}
                   </TableCell>
                   <TableCell>
@@ -593,10 +614,11 @@ function Interventions() {
               <Label>Type d'intervention *</Label>
               <SearchableSelect
                 value={formData.type_intervention}
-                onValueChange={v => setFormData(p => ({ ...p, type_intervention: v, work_order_id: '', maintenance_preventive_id: '' }))}
+                onValueChange={v => setFormData(p => ({ ...p, type_intervention: v, work_order_id: '', maintenance_preventive_id: '', inspection_id: '' }))}
                 options={[
                   { value: 'curative', label: 'Maintenance curative' },
                   { value: 'preventive', label: 'Maintenance préventive' },
+                  { value: 'controle', label: 'Contrôle réglementaire' },
                 ]}
                 data-testid="interv-type-select"
               />
@@ -607,7 +629,7 @@ function Interventions() {
                 <Label>Équipement *</Label>
                 <SearchableSelect
                   value={formData.equipment_id}
-                  onValueChange={v => setFormData(p => ({ ...p, equipment_id: v, sous_equipement_ids: [], maintenance_preventive_id: '' }))}
+                  onValueChange={v => setFormData(p => ({ ...p, equipment_id: v, sous_equipement_ids: [], maintenance_preventive_id: '', inspection_id: '' }))}
                   placeholder="Sélectionner un équipement"
                   searchPlaceholder="Rechercher un équipement..."
                   options={[...data.equipments]
@@ -666,6 +688,23 @@ function Interventions() {
                     placeholder="Ex: Dépannage, remplacement soupape..."
                     data-testid="interv-titre-input"
                   />
+                </div>
+              ) : formData.type_intervention === 'controle' ? (
+                <div className="col-span-2">
+                  <Label>Contrôle réglementaire concerné *</Label>
+                  <SearchableSelect
+                    value={formData.inspection_id}
+                    onValueChange={v => setFormData(p => ({ ...p, inspection_id: v }))}
+                    placeholder={formData.equipment_id ? 'Sélectionner un contrôle' : 'Choisir un équipement d\'abord'}
+                    searchPlaceholder="Rechercher un contrôle..."
+                    options={availableInspections.map(insp => ({
+                      value: insp.id,
+                      label: `${insp.titre}${insp.periodicite ? ` (${insp.periodicite})` : ''}`,
+                    }))}
+                    emptyText={formData.equipment_id ? 'Aucun contrôle pour cet équipement' : 'Choisir un équipement d\'abord'}
+                    data-testid="interv-inspection-select"
+                  />
+                  <p className="text-xs text-slate-500 mt-1">La réalisation met à jour automatiquement le contrôle et son historique (échéance recalculée).</p>
                 </div>
               ) : (
                 <div className="col-span-2">

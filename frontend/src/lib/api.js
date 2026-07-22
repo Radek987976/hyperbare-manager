@@ -232,6 +232,7 @@ export const inspectionsAPI = {
   create: (data) => api.post('/inspections', data),
   update: (id, data) => api.put(`/inspections/${id}`, data),
   renew: (id, data) => api.post(`/inspections/${id}/renew`, data),
+  getHistory: (id) => api.get(`/inspections/${id}/history`),
   delete: (id) => api.delete(`/inspections/${id}`),
   uploadProcedure: (id, file) => {
     const formData = new FormData();

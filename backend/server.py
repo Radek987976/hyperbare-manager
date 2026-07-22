@@ -510,6 +510,7 @@ class InterventionBase(BaseModel):
     sous_equipement_id: Optional[str] = None  # Sous-équipement principal (rétro-compat)
     sous_equipement_ids: List[str] = []  # Sous-équipements concernés (multi-sélection)
     prestataire_id: Optional[str] = None  # Prestataire externe ayant réalisé l'intervention (optionnel)
+    inspection_id: Optional[str] = None  # Contrôle réglementaire concerné (liaison intervention <-> contrôle)
     mesures: Optional[dict] = None  # Relevés structurés (ex: calibrage Servomex, analyse air respirable)
     documents: List[dict] = []  # PV / documents PDF [{filename, url, uploaded_at}]
 
@@ -1961,6 +1962,10 @@ async def create_intervention(data: InterventionCreate, current_user: dict = Dep
             wo = await db.work_orders.find_one({"id": data.maintenance_preventive_id})
             if wo:
                 equipment_id = wo.get("equipment_id")
+        elif data.inspection_id:
+            insp = await db.inspections.find_one({"id": data.inspection_id})
+            if insp:
+                equipment_id = insp.get("equipment_id")
     
     # Mettre à jour le compteur horaire si fourni et si c'est un compresseur
     if data.compteur_horaire is not None and equipment_id:
@@ -2064,7 +2069,11 @@ async def create_intervention(data: InterventionCreate, current_user: dict = Dep
                 new_doc = new_wo.model_dump()
                 new_doc["created_at"] = new_doc["created_at"].isoformat()
                 await db.work_orders.insert_one(new_doc)
-    
+
+    # Si l'intervention est liée à un contrôle réglementaire, synchroniser le contrôle
+    if data.inspection_id:
+        await _sync_inspection_from_interventions(data.inspection_id)
+
     return intervention
 
 @api_router.get("/interventions", response_model=List[Intervention])
@@ -2373,6 +2382,25 @@ async def transfer_to_inspections(data: TransferToInspectionsRequest, current_us
         linked = await db.interventions.find(
             {"maintenance_preventive_id": wo_id}, {"_id": 0}
         ).to_list(5000)
+
+        # Repli pour données historiques importées sans lien strict :
+        # si aucune intervention n'est liée, chercher par correspondance texte (même équipement)
+        fallback_used = False
+        if not linked and wo.get("equipment_id") and wo.get("titre"):
+            candidates = await db.interventions.find(
+                {"equipment_id": wo["equipment_id"]}, {"_id": 0}
+            ).to_list(5000)
+            matched = []
+            for it in candidates:
+                if it.get("maintenance_preventive_id"):
+                    continue  # déjà rattachée à une autre maintenance
+                action_text = it.get("actions_realisees") or it.get("titre") or ""
+                if _match_score(action_text, wo["titre"]) >= 0.9:
+                    matched.append(it)
+            if matched:
+                linked = matched
+                fallback_used = True
+
         linked.sort(key=lambda x: str(x.get("date_intervention") or ""))
 
         periodicite = _jours_to_periodicite(wo.get("periodicite_jours"))
@@ -2419,7 +2447,8 @@ async def transfer_to_inspections(data: TransferToInspectionsRequest, current_us
         await db.inspections.insert_one(doc)
 
         # Détacher les interventions de la maintenance supprimée (historique conservé côté contrôle)
-        if linked:
+        # Ne pas détacher les interventions repérées par repli texte (elles n'étaient pas liées).
+        if linked and not fallback_used:
             ops = [UpdateOne({"id": it["id"]}, {"$set": {"maintenance_preventive_id": None}}) for it in linked]
             await db.interventions.bulk_write(ops, ordered=False)
 
@@ -2562,6 +2591,29 @@ def calculate_next_date(date_realisation: str, periodicite: str) -> str:
     next_date = base_date + timedelta(days=days)
     return next_date.strftime("%Y-%m-%d")
 
+async def _sync_inspection_from_interventions(inspection_id: str):
+    """Met à jour un contrôle réglementaire à partir des interventions qui lui sont liées :
+    date de réalisation = intervention la plus récente, recalcul de l'échéance. Source unique de vérité."""
+    insp = await db.inspections.find_one({"id": inspection_id}, {"_id": 0})
+    if not insp:
+        return
+    linked = await db.interventions.find({"inspection_id": inspection_id}, {"_id": 0}).to_list(5000)
+    if not linked:
+        return
+    linked.sort(key=lambda x: str(x.get("date_intervention") or ""))
+    most_recent = linked[-1]
+    dr = (most_recent.get("date_intervention") or "")[:10] or None
+    if not dr:
+        return
+    periodicite = insp.get("periodicite", "annuel")
+    updates = {
+        "date_realisation": dr,
+        "date_validite": calculate_next_date(dr, periodicite),
+    }
+    if most_recent.get("observations"):
+        updates["observations"] = most_recent.get("observations")
+    await db.inspections.update_one({"id": inspection_id}, {"$set": updates})
+
 @api_router.post("/inspections", response_model=Inspection)
 async def create_inspection(data: InspectionCreate, current_user: dict = Depends(get_current_user)):
     data_dict = data.model_dump()
@@ -2585,6 +2637,20 @@ async def get_inspection(inspection_id: str, current_user: dict = Depends(get_cu
     if not inspection:
         raise HTTPException(status_code=404, detail="Contrôle non trouvé")
     return inspection
+
+@api_router.get("/inspections/{inspection_id}/history")
+async def get_inspection_history(inspection_id: str, current_user: dict = Depends(get_current_user)):
+    """Historique complet d'un contrôle : interventions liées (réalisations) + historique archivé."""
+    insp = await db.inspections.find_one({"id": inspection_id}, {"_id": 0})
+    if not insp:
+        raise HTTPException(status_code=404, detail="Contrôle non trouvé")
+    linked = await db.interventions.find(
+        {"inspection_id": inspection_id}, {"_id": 0}
+    ).sort("date_intervention", -1).to_list(5000)
+    return {
+        "linked_interventions": linked,
+        "historique_controles": insp.get("historique_controles") or [],
+    }
 
 @api_router.put("/inspections/{inspection_id}", response_model=Inspection)
 async def update_inspection(inspection_id: str, data: InspectionCreate, current_user: dict = Depends(get_current_user)):
@@ -2636,6 +2702,23 @@ async def renew_inspection(inspection_id: str, data: RenewInspectionRequest, cur
         ops["$set"]["observations"] = data.observations
 
     await db.inspections.update_one({"id": inspection_id}, ops)
+
+    # Tracer le renouvellement comme une intervention liée (source unique de vérité)
+    insp_titre = insp.get("titre", "Contrôle réglementaire")
+    interv = Intervention(
+        inspection_id=inspection_id,
+        type_intervention="controle",
+        titre=f"Renouvellement — {insp_titre}",
+        date_intervention=data.date_realisation,
+        technicien=(data.organisme_certificateur or current_user.get("email") or "—"),
+        actions_realisees=f"Renouvellement du contrôle réglementaire « {insp_titre} »",
+        observations=data.observations,
+        equipment_id=insp.get("equipment_id"),
+    )
+    idoc = interv.model_dump()
+    idoc["created_at"] = idoc["created_at"].isoformat()
+    await db.interventions.insert_one(idoc)
+
     updated = await db.inspections.find_one({"id": inspection_id}, {"_id": 0})
     return updated
 

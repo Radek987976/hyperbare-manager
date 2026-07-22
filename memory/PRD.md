@@ -1,5 +1,10 @@
 # HyperbareManager - PRD (Product Requirements Document)
 
+## Changelog (2026-06-21p) — Types de gaz personnalisés
+- **Ajout de types de gaz (bouteilles)** :
+  - Backend : nouvelle collection `gas_types`. `GET /gas-types` (liste des types personnalisés), `POST /gas-types {label}` (crée un type, `value` = slug du nom, anti-doublon vs types par défaut + existants, `require_technicien_or_admin`). Validation de `create_gas_cylinder` assouplie via `_allowed_gas_types()` = types par défaut + personnalisés. Vérifié curl : création « Trimix », bouteille avec type custom acceptée, doublon rejeté (400).
+  - Frontend (`GasCylinders.jsx`) : bouton **« + Ajouter un type »** à côté du menu « Type de gaz » du formulaire → dialog de saisie du nom → type dispo immédiatement et pré-sélectionné. Les types personnalisés apparaissent dans le menu, les filtres colonne et les **statistiques par type** (couleur neutre par défaut). `gasCylindersAPI.getGasTypes()/createGasType()`. Vérifié écran : bouton + dialog OK, carte stat du nouveau type affichée.
+
 ## Changelog (2026-06-21o) — Registre PDF des contrôles + filtres persistants
 - **Registre des contrôles réglementaires en PDF (audit)** :
   - `GET /reports/pdf/registre-controles` : PDF **paysage A4** avec en-tête officiel CHPF (`make_header_canvas` désormais paramétrable `page_w`/`page_h` pour supporter le paysage). Ligne de synthèse (Total / Valides / Expirés / À planifier), tableau (Titre, Type, Équipement, Périodicité, Dernière réalisation, Prochaine échéance, Statut, Organisme, Résultat), **lignes expirées en rouge**, pied de page signatures. Vérifié : HTTP 200 + rendu visuel OK.

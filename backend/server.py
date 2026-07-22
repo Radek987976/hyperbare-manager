@@ -5658,12 +5658,62 @@ async def get_gas_cylinder(cylinder_id: str, current_user: dict = Depends(get_cu
         raise HTTPException(status_code=404, detail="Bouteille non trouvée")
     return cylinder
 
+class GasTypeCreate(BaseModel):
+    label: str
+
+
+def _slugify_gas(label: str) -> str:
+    import unicodedata, re
+    s = unicodedata.normalize("NFKD", (label or "").strip().lower())
+    s = "".join(c for c in s if not unicodedata.combining(c))
+    s = re.sub(r"[^a-z0-9]+", "_", s).strip("_")
+    return s or "gaz"
+
+
+async def _allowed_gas_types() -> set:
+    allowed = set(GAS_TYPES)
+    async for gt in db.gas_types.find({}, {"_id": 0, "value": 1}):
+        if gt.get("value"):
+            allowed.add(gt["value"])
+    return allowed
+
+
+@api_router.get("/gas-types")
+async def get_gas_types(current_user: dict = Depends(get_current_user)):
+    """Types de gaz personnalisés (en plus des types par défaut)."""
+    types = await db.gas_types.find({}, {"_id": 0}).to_list(1000)
+    types.sort(key=lambda t: (t.get("label") or "").lower())
+    return types
+
+
+@api_router.post("/gas-types")
+async def create_gas_type(data: GasTypeCreate, current_user: dict = Depends(require_technicien_or_admin)):
+    """Ajoute un type de gaz personnalisé."""
+    label = (data.label or "").strip()
+    if not label:
+        raise HTTPException(status_code=400, detail="Le nom du type de gaz est requis")
+    value = _slugify_gas(label)
+    if value in set(GAS_TYPES):
+        raise HTTPException(status_code=400, detail="Ce type de gaz existe déjà (type par défaut)")
+    if await db.gas_types.find_one({"value": value}):
+        raise HTTPException(status_code=400, detail="Ce type de gaz existe déjà")
+    doc = {
+        "id": str(uuid.uuid4()),
+        "value": value,
+        "label": label,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    await db.gas_types.insert_one(doc)
+    return {"value": value, "label": label}
+
+
 @api_router.post("/gas-cylinders", response_model=dict)
 async def create_gas_cylinder(cylinder: GasCylinderCreate, current_user: dict = Depends(require_technicien_or_admin)):
     """Create a new gas cylinder"""
-    # Validate gas type
-    if cylinder.type_gaz not in GAS_TYPES:
-        raise HTTPException(status_code=400, detail=f"Type de gaz invalide. Types autorisés: {GAS_TYPES}")
+    # Validate gas type (types par défaut + types personnalisés)
+    allowed = await _allowed_gas_types()
+    if cylinder.type_gaz not in allowed:
+        raise HTTPException(status_code=400, detail=f"Type de gaz invalide. Types autorisés: {sorted(allowed)}")
     
     cylinder_obj = GasCylinder(**cylinder.model_dump())
     doc = cylinder_obj.model_dump()

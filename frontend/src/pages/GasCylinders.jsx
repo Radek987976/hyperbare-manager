@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { gasCylindersAPI, contractorsAPI } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
 import { formatDate, getErrorMessage } from '../lib/utils';
@@ -80,9 +80,6 @@ const STATUTS = [
   { value: 'hors_service', label: 'Hors service', color: 'bg-red-100 text-red-800' },
 ];
 
-const getGasTypeLabel = (type) => GAS_TYPES.find(t => t.value === type)?.label || type;
-const getGasTypeColor = (type) => GAS_TYPES.find(t => t.value === type)?.color || 'bg-gray-100 text-gray-800';
-const getGasTypeStyle = (type) => GAS_TYPES.find(t => t.value === type)?.style;
 const getStatutColor = (statut) => STATUTS.find(s => s.value === statut)?.color || 'bg-gray-100 text-gray-800';
 const getStatutLabel = (statut) => STATUTS.find(s => s.value === statut)?.label || statut;
 
@@ -90,6 +87,7 @@ const GasCylinders = () => {
   const { canCreate, canModify, canDelete } = useAuth();
   const [cylinders, setCylinders] = useState([]);
   const [contractors, setContractors] = useState([]);
+  const [customGasTypes, setCustomGasTypes] = useState([]);
   const [alerts, setAlerts] = useState(null);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useSessionState('gascylinders:search', '');
@@ -129,6 +127,43 @@ const GasCylinders = () => {
     observations: '',
   });
 
+  // Add gas type dialog
+  const [isAddTypeOpen, setIsAddTypeOpen] = useState(false);
+  const [newTypeName, setNewTypeName] = useState('');
+  const [isAddingType, setIsAddingType] = useState(false);
+
+  const allGasTypes = useMemo(() => {
+    const map = new Map(GAS_TYPES.map(t => [t.value, t]));
+    customGasTypes.forEach(t => {
+      if (!map.has(t.value)) map.set(t.value, { value: t.value, label: t.label, color: 'bg-slate-100 text-slate-800 border border-slate-300' });
+    });
+    return Array.from(map.values());
+  }, [customGasTypes]);
+
+  const getGasTypeLabel = (type) => allGasTypes.find(t => t.value === type)?.label || type;
+  const getGasTypeColor = (type) => allGasTypes.find(t => t.value === type)?.color || 'bg-slate-100 text-slate-800 border border-slate-300';
+  const getGasTypeStyle = (type) => allGasTypes.find(t => t.value === type)?.style;
+
+  const handleAddGasType = async () => {
+    const label = newTypeName.trim();
+    if (!label) return;
+    setIsAddingType(true);
+    setError('');
+    try {
+      const res = await gasCylindersAPI.createGasType(label);
+      const created = res.data;
+      const typesRes = await gasCylindersAPI.getGasTypes();
+      setCustomGasTypes(typesRes.data || []);
+      setFormData(prev => ({ ...prev, type_gaz: created.value }));
+      setNewTypeName('');
+      setIsAddTypeOpen(false);
+    } catch (err) {
+      setError(getErrorMessage(err));
+    } finally {
+      setIsAddingType(false);
+    }
+  };
+
   useEffect(() => {
     fetchData();
   }, []);
@@ -136,14 +171,16 @@ const GasCylinders = () => {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [cylindersRes, contractorsRes, alertsRes] = await Promise.all([
+      const [cylindersRes, contractorsRes, alertsRes, gasTypesRes] = await Promise.all([
         gasCylindersAPI.getAll(),
         contractorsAPI.getAll(),
         gasCylindersAPI.getAlerts(),
+        gasCylindersAPI.getGasTypes(),
       ]);
       setCylinders(cylindersRes.data);
       setContractors(contractorsRes.data.filter(c => c.type === 'fournisseur'));
       setAlerts(alertsRes.data);
+      setCustomGasTypes(gasTypesRes.data || []);
     } catch (err) {
       console.error('Error fetching data:', err);
       setError(getErrorMessage(err));
@@ -286,7 +323,7 @@ const GasCylinders = () => {
   const displayCylinders = applyTableFilters(filteredCylinders, gcColumns, { filters: colFilters, sort: colSort });
 
   // Stats by gas type
-  const statsByType = GAS_TYPES.map(type => ({
+  const statsByType = allGasTypes.map(type => ({
     ...type,
     count: cylinders.filter(c => c.type_gaz === type.value).length,
     pleine: cylinders.filter(c => c.type_gaz === type.value && c.statut === 'pleine').length,
@@ -632,12 +669,24 @@ const GasCylinders = () => {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="type_gaz">Type de gaz *</Label>
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="type_gaz">Type de gaz *</Label>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 px-2 text-[#005F73] hover:bg-[#005F73]/10"
+                    onClick={() => { setNewTypeName(''); setIsAddTypeOpen(true); }}
+                    data-testid="add-gas-type-btn"
+                  >
+                    <Plus className="w-3.5 h-3.5 mr-1" /> Ajouter un type
+                  </Button>
+                </div>
                 <SearchableSelect
                   value={formData.type_gaz}
                   onValueChange={(value) => setFormData({ ...formData, type_gaz: value })}
                   data-testid="input-type-gaz"
-                  options={GAS_TYPES.map(type => ({ value: type.value, label: type.label }))}
+                  options={allGasTypes.map(type => ({ value: type.value, label: type.label }))}
                 />
               </div>
               <div className="space-y-2">
@@ -853,6 +902,35 @@ const GasCylinders = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Add gas type dialog */}
+      <Dialog open={isAddTypeOpen} onOpenChange={setIsAddTypeOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Ajouter un type de gaz</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label htmlFor="new-gas-type">Nom du type de gaz</Label>
+            <Input
+              id="new-gas-type"
+              value={newTypeName}
+              onChange={(e) => setNewTypeName(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddGasType(); } }}
+              placeholder="Ex : Trimix, CO2, Argon..."
+              data-testid="new-gas-type-input"
+              autoFocus
+            />
+            {error && <p className="text-sm text-red-600">{error}</p>}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsAddTypeOpen(false)}>Annuler</Button>
+            <Button onClick={handleAddGasType} disabled={!newTypeName.trim() || isAddingType} className="bg-[#005F73] hover:bg-[#004a5c]" data-testid="save-gas-type-btn">
+              {isAddingType ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Plus className="w-4 h-4 mr-2" />}
+              Ajouter
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

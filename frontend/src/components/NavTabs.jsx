@@ -7,6 +7,7 @@ const ROUTE_LABELS = {
   '/equipements': 'Équipements',
   '/sous-equipements': 'Sous-équipements',
   '/ordres-travail': 'Maintenance préventive',
+  '/controles': 'Contrôles réglementaires',
   '/planning': 'Planning',
   '/interventions': 'Interventions',
   '/bouteilles-gaz': 'Bouteilles de gaz',

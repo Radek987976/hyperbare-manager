@@ -1,5 +1,10 @@
 # HyperbareManager - PRD (Product Requirements Document)
 
+## Changelog (2026-07-22b) — Libellé onglet Contrôles + gestion des types de contrôle
+- **Onglet « / » corrigé** : `NavTabs.ROUTE_LABELS` ne contenait pas `/controles` → l'onglet affichait `/controles`. Ajouté `'/controles': 'Contrôles réglementaires'`. Vérifié écran : onglet propre.
+- **Types de contrôle gérables** (comme les types de gaz) : collection `control_types`. `GET /control-types`, `POST /control-types {label}` (anti-doublon insensible casse, refuse les défauts), `DELETE /control-types/{id}` (admin). Vérifié curl : création, doublon→400, suppression.
+- **UI (`Inspections.jsx`)** : bouton **« Gérer les types »** à côté du champ « Type de contrôle » → dialog (ajout + liste des types personnalisés avec suppression). Le sélecteur « Type de contrôle » propose : défauts (Contrôle réglementaire / constructeur) + types personnalisés + types déjà utilisés. `inspectionsAPI.getControlTypes/createControlType/deleteControlType`. Vérifié écran.
+
 ## Changelog (2026-07-22) — Correctif transfert (historique) + Liaison intervention ↔ contrôle
 **A) Correctif du transfert maintenance → contrôle (historique manquant sur données historiques)**
 - `transfer_to_inspections` (server.py) : si aucune intervention n'est liée strictement (`maintenance_preventive_id`), **repli par correspondance texte** (seuil `_match_score` ≥ 0.9, même équipement) pour rattacher les interventions historiques importées sans lien. Ces interventions ne sont **pas détachées** (non destructif, `fallback_used`). Vérifié curl : maintenance test « étalonnage manomètre pupitre » + 2 interventions legacy → transfert → contrôle avec date_réalisation = plus récente + 1 réalisation archivée (avant : historique vide).

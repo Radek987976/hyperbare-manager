@@ -115,6 +115,10 @@ const Inspections = () => {
   };
   const [selectedInspection, setSelectedInspection] = useState(null);
   const [linkedInterventions, setLinkedInterventions] = useState([]);
+  const [controlTypes, setControlTypes] = useState([]);
+  const [showTypesModal, setShowTypesModal] = useState(false);
+  const [newTypeName, setNewTypeName] = useState('');
+  const [typeBusy, setTypeBusy] = useState(false);
   const [saving, setSaving] = useState(false);
   const [uploadingPdf, setUploadingPdf] = useState(false);
   const pdfInputRef = useRef(null);
@@ -178,18 +182,51 @@ const Inspections = () => {
 
   const loadData = async () => {
     try {
-      const [inspectionsRes, caissonRes, equipmentsRes] = await Promise.all([
+      const [inspectionsRes, caissonRes, equipmentsRes, typesRes] = await Promise.all([
         inspectionsAPI.getAll(),
         caissonAPI.get(),
-        equipmentsAPI.getAll()
+        equipmentsAPI.getAll(),
+        inspectionsAPI.getControlTypes()
       ]);
       setInspections(inspectionsRes.data || []);
       setCaisson(caissonRes.data);
       setEquipments(equipmentsRes.data || []);
+      setControlTypes(typesRes.data || []);
     } catch (error) {
       console.error('Erreur chargement:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadControlTypes = async () => {
+    try { const r = await inspectionsAPI.getControlTypes(); setControlTypes(r.data || []); } catch (e) { /* noop */ }
+  };
+
+  const handleAddType = async () => {
+    const label = newTypeName.trim();
+    if (!label) return;
+    setTypeBusy(true);
+    try {
+      const res = await inspectionsAPI.createControlType(label);
+      await loadControlTypes();
+      setFormData(prev => ({ ...prev, type_controle: res.data.label }));
+      setNewTypeName('');
+      toast.success('Type de contrôle ajouté');
+    } catch (e) {
+      toast.error(getErrorMessage(e) || "Échec de l'ajout du type");
+    } finally {
+      setTypeBusy(false);
+    }
+  };
+
+  const handleDeleteType = async (id) => {
+    try {
+      await inspectionsAPI.deleteControlType(id);
+      await loadControlTypes();
+      toast.success('Type de contrôle supprimé');
+    } catch (e) {
+      toast.error(getErrorMessage(e) || 'Échec de la suppression');
     }
   };
 
@@ -562,7 +599,19 @@ const Inspections = () => {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="type_controle">Type de contrôle *</Label>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="type_controle">Type de contrôle *</Label>
+                {canCreate() && (
+                  <button
+                    type="button"
+                    onClick={() => setShowTypesModal(true)}
+                    className="inline-flex items-center gap-1 text-xs text-[#0A9396] hover:text-[#087f81]"
+                    data-testid="manage-control-types-btn"
+                  >
+                    <Plus className="w-3.5 h-3.5" /> Gérer les types
+                  </button>
+                )}
+              </div>
               <SearchableSelect
                 value={formData.type_controle}
                 onValueChange={(v) => handleSelectChange('type_controle', v)}
@@ -570,7 +619,11 @@ const Inspections = () => {
                 data-testid="input-type"
                 placeholder="Sélectionner ou saisir un type"
                 searchPlaceholder="Rechercher ou saisir un type..."
-                options={[...new Set([...inspections.map(i => i.type_controle), 'reglementaire', 'constructeur'].filter(Boolean))]
+                options={[...new Set([
+                  'Contrôle réglementaire', 'Contrôle constructeur',
+                  ...controlTypes.map(t => t.label),
+                  ...inspections.map(i => i.type_controle),
+                ].filter(Boolean))]
                   .sort((a, b) => a.localeCompare(b, 'fr', { sensitivity: 'base' }))
                   .map(t => ({ value: t, label: t }))}
               />
@@ -920,6 +973,74 @@ const Inspections = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Gestion des types de contrôle */}
+      <Dialog open={showTypesModal} onOpenChange={setShowTypesModal}>
+        <DialogContent className="max-w-md" data-testid="control-types-modal">
+          <DialogHeader>
+            <DialogTitle className="font-['Barlow_Condensed'] uppercase text-xl">Types de contrôle</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="flex items-end gap-2">
+              <div className="flex-1 space-y-2">
+                <Label>Nouveau type</Label>
+                <Input
+                  value={newTypeName}
+                  onChange={(e) => setNewTypeName(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddType(); } }}
+                  placeholder="Ex: Contrôle périodique VGP"
+                  data-testid="new-control-type-input"
+                />
+              </div>
+              <Button
+                onClick={handleAddType}
+                disabled={typeBusy || !newTypeName.trim()}
+                className="bg-[#0A9396] hover:bg-[#087f81] shrink-0"
+                data-testid="add-control-type-submit"
+              >
+                {typeBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+              </Button>
+            </div>
+
+            <div className="space-y-2">
+              <p className="text-sm text-slate-500">Types par défaut</p>
+              <div className="flex flex-wrap gap-2">
+                {['Contrôle réglementaire', 'Contrôle constructeur'].map(t => (
+                  <Badge key={t} variant="outline" className="text-slate-600">{t}</Badge>
+                ))}
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <p className="text-sm text-slate-500">Types personnalisés</p>
+              {controlTypes.length === 0 ? (
+                <p className="text-sm text-slate-400">Aucun type personnalisé.</p>
+              ) : (
+                <div className="space-y-1" data-testid="custom-control-types">
+                  {controlTypes.map(t => (
+                    <div key={t.id} className="flex items-center justify-between p-2 bg-slate-50 rounded border border-slate-100">
+                      <span className="text-sm">{t.label}</span>
+                      {canDelete() && (
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteType(t.id)}
+                          className="text-slate-400 hover:text-red-600"
+                          data-testid={`delete-control-type-${t.id}`}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowTypesModal(false)}>Fermer</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

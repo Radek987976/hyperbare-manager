@@ -5858,6 +5858,50 @@ async def create_gas_type(data: GasTypeCreate, current_user: dict = Depends(requ
     return {"value": value, "label": label}
 
 
+class ControlTypeCreate(BaseModel):
+    label: str
+
+
+DEFAULT_CONTROL_TYPES = ["Contrôle réglementaire", "Contrôle constructeur"]
+
+
+@api_router.get("/control-types")
+async def get_control_types(current_user: dict = Depends(get_current_user)):
+    """Types de contrôle personnalisés (en plus des types par défaut)."""
+    types = await db.control_types.find({}, {"_id": 0}).to_list(1000)
+    types.sort(key=lambda t: (t.get("label") or "").lower())
+    return types
+
+
+@api_router.post("/control-types")
+async def create_control_type(data: ControlTypeCreate, current_user: dict = Depends(require_technicien_or_admin)):
+    """Ajoute un type de contrôle personnalisé."""
+    label = (data.label or "").strip()
+    if not label:
+        raise HTTPException(status_code=400, detail="Le nom du type de contrôle est requis")
+    if any(label.lower() == d.lower() for d in DEFAULT_CONTROL_TYPES):
+        raise HTTPException(status_code=400, detail="Ce type de contrôle existe déjà (type par défaut)")
+    existing = await db.control_types.find_one({"label": {"$regex": f"^{re.escape(label)}$", "$options": "i"}})
+    if existing:
+        raise HTTPException(status_code=400, detail="Ce type de contrôle existe déjà")
+    doc = {
+        "id": str(uuid.uuid4()),
+        "label": label,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    await db.control_types.insert_one(doc)
+    return {"id": doc["id"], "label": label}
+
+
+@api_router.delete("/control-types/{type_id}")
+async def delete_control_type(type_id: str, current_user: dict = Depends(require_admin)):
+    """Supprime un type de contrôle personnalisé (n'affecte pas les contrôles existants)."""
+    result = await db.control_types.delete_one({"id": type_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Type de contrôle introuvable")
+    return {"success": True}
+
+
 @api_router.post("/gas-cylinders", response_model=dict)
 async def create_gas_cylinder(cylinder: GasCylinderCreate, current_user: dict = Depends(require_technicien_or_admin)):
     """Create a new gas cylinder"""

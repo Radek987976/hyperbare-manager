@@ -287,9 +287,10 @@ const Inspections = () => {
   };
 
   const getEquipmentLabel = (equipmentId) => {
+    if (!equipmentId) return 'Caisson entier';
     const equipment = equipments.find(e => e.id === equipmentId);
-    if (!equipment) return 'Caisson';
-    return `${equipmentTypeLabels[equipment.type]} - ${equipment.reference}`;
+    if (!equipment) return 'Caisson entier';
+    return `${equipmentTypeLabels[equipment.type] || equipment.type || ''} - ${equipment.reference}`;
   };
 
   const filteredInspections = inspections.filter(insp =>
@@ -400,6 +401,7 @@ const Inspections = () => {
               <TableHeader>
                 <TableRow className="bg-slate-50">
                   <TableHead className="font-semibold">Titre</TableHead>
+                  <TableHead className="font-semibold">Équipement</TableHead>
                   <TableHead className="font-semibold">Type</TableHead>
                   <TableHead className="font-semibold">Périodicité</TableHead>
                   <TableHead className="font-semibold">Prochaine échéance</TableHead>
@@ -411,7 +413,7 @@ const Inspections = () => {
               <TableBody>
                 {filteredInspections.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center py-12 text-slate-500">
+                    <TableCell colSpan={8} className="text-center py-12 text-slate-500">
                       <Shield className="w-12 h-12 mx-auto mb-3 text-slate-300" />
                       <p>Aucun contrôle enregistré</p>
                     </TableCell>
@@ -420,6 +422,7 @@ const Inspections = () => {
                   filteredInspections.map((inspection) => (
                     <TableRow key={inspection.id} data-testid={`inspection-row-${inspection.id}`}>
                       <TableCell className="font-medium">{inspection.titre}</TableCell>
+                      <TableCell data-testid={`inspection-equipment-${inspection.id}`}>{getEquipmentLabel(inspection.equipment_id)}</TableCell>
                       <TableCell>{inspection.type_controle}</TableCell>
                       <TableCell>
                         <Badge variant="outline">

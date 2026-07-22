@@ -1,5 +1,16 @@
 # HyperbareManager - PRD (Product Requirements Document)
 
+## Changelog (2026-06-21q) — Correctif import bouteilles + modèle d'import
+- **Import bouteilles = 0 → corrigé** : le parseur `import_gas_cylinders_from_excel` ne reconnaissait pas les intitulés du fichier client (`TYPE_DE_GAZ`, `N°_BOUTEILLE`, `VOLUME`, `STATUT`…) → toutes les lignes ignorées. Réécrit :
+  - Normalisation des en-têtes (accents/casse/ponctuation) + nombreux alias.
+  - Détection de type robuste aux accents : « Oxygène »→O2, « Air Médicale »→air_medicale, « Héliox »→heliox ; **CO2 ≠ O2** (le token `o2` est vérifié en mot entier, plus en sous-chaîne de « co2 ») ; types inconnus (CO2, Azote, mélanges) créés comme **types personnalisés**.
+  - Numéros lus en décimaux par pandas (`1497.0`) normalisés en entier (`1497`).
+  - **Anti-doublon par N° de bouteille seul** (une bouteille = un numéro unique), champs mis à jour si déjà présent.
+  - Champs importés : volume, pression, statut, localisation, dates (remplissage/expiration/épreuve/prochaine épreuve), observations, agent.
+  - Vérifié sur le fichier client (133 lignes, 8 types) : 131 importées / 1 mise à jour / 0 erreur, 0 doublon.
+- **Modèle d'import bouteilles** : ajout de l'entrée `bouteilles` dans `TEMPLATES` (colonnes exactes + exemple) et activation du bouton « Télécharger le modèle » sur la page Import.
+- **Nettoyage données preview** : la collection `gas_cylinders` était massivement dupliquée (chaque bouteille en double `1497` et `1497.0`) — nettoyée et réimportée proprement (132 bouteilles uniques). NB : en **production**, après redéploiement, il faudra réimporter le fichier pour bénéficier du même nettoyage.
+
 ## Changelog (2026-06-21p) — Types de gaz personnalisés
 - **Ajout de types de gaz (bouteilles)** :
   - Backend : nouvelle collection `gas_types`. `GET /gas-types` (liste des types personnalisés), `POST /gas-types {label}` (crée un type, `value` = slug du nom, anti-doublon vs types par défaut + existants, `require_technicien_or_admin`). Validation de `create_gas_cylinder` assouplie via `_allowed_gas_types()` = types par défaut + personnalisés. Vérifié curl : création « Trimix », bouteille avec type custom acceptée, doublon rejeté (400).

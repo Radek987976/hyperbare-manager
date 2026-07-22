@@ -50,7 +50,7 @@ const IMPORT_TYPES = [
   { 
     value: 'bouteilles', 
     label: 'Bouteilles de gaz', 
-    description: 'Importer le suivi des bouteilles O2, Air Médical, Héliox, Nitrox',
+    description: 'Importer le suivi des bouteilles. Colonnes : N°_BOUTEILLE, TYPE_DE_GAZ (O2 / Air Médical / Héliox / Nitrox / Air Respirable ou type personnalisé), VOLUME, PRESSION_DE_SERVICE, STATUT (Pleine/En cours/Vide/Hors service), LOCALISATION, DATE_DE_REMPLISSAGE, DATE_D\'EXPIRATION, DATE_D\'EPREUVE, PROCHAINE_EPREUVE, OBSERVATIONS, NOM_AGENT. Anti-doublon par N° + type (mise à jour si déjà présent).',
     icon: '🔵'
   },
   { 
@@ -440,7 +440,7 @@ const Import = () => {
                 {IMPORT_TYPES.find(t => t.value === selectedType)?.description}
               </p>
             )}
-            {['equipements', 'sous-equipements', 'interventions', 'maintenance', 'controles', 'pieces', 'prestataires'].includes(selectedType) && (
+            {['equipements', 'sous-equipements', 'interventions', 'maintenance', 'controles', 'pieces', 'prestataires', 'bouteilles'].includes(selectedType) && (
               <Button
                 type="button"
                 variant="outline"

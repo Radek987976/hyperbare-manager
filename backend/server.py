@@ -6341,6 +6341,11 @@ TEMPLATES = {
         "headers": ["NOM", "TYPE", "SPECIALITES", "CONTACT_NOM", "EMAIL", "TELEPHONE", "ADRESSE", "SIRET", "NOTES"],
         "example": ["Incendie Moz", "prestataire", "Extincteur hyperbare; Cuve incendie", "Jean Dupont", "contact@incendie-moz.pf", "40 12 34 56", "Zone industrielle, Papeete", "123 456 789", "Prestataire extincteurs"],
     },
+    "bouteilles": {
+        "sheet": "Suivi Bouteilles",
+        "headers": ["N°_BOUTEILLE", "TYPE_DE_GAZ", "VOLUME", "PRESSION_DE_SERVICE", "STATUT", "LOCALISATION", "DATE_DE_REMPLISSAGE", "DATE_D'EXPIRATION", "DATE_D'EPREUVE", "PROCHAINE_EPREUVE", "OBSERVATIONS", "NOM_AGENT"],
+        "example": ["912148", "Air Respirable", "B57", "200", "Pleine", "Rampe annexe", "01/06/2026", "01/06/2027", "01/06/2020", "01/06/2025", "RAS", "Radek"],
+    },
 }
 
 
@@ -6931,64 +6936,129 @@ async def import_contractors_from_excel(file_path: Path) -> dict:
     return {"imported": imported, "errors": errors, "type": "prestataires"}
 
 async def import_gas_cylinders_from_excel(file_path: Path) -> dict:
-    """Import gas cylinders from Excel"""
+    """Import gas cylinders from Excel. Robuste aux intitulés de colonnes
+    (normalisation + alias) : TYPE_DE_GAZ, N°_BOUTEILLE, VOLUME, STATUT,
+    LOCALISATION, PRESSION_DE_SERVICE, DATE_*, OBSERVATIONS, NOM_AGENT..."""
     imported = 0
+    updated = 0
     errors = []
-    
+
+    def _nh(h):
+        return _slugify_gas(str(h))
+
+    def _parse_date(v):
+        if v is None or str(v).strip() == '' or str(v).strip().lower() == 'nan':
+            return None
+        try:
+            return pd.to_datetime(v, dayfirst=True).strftime('%Y-%m-%d')
+        except Exception:
+            return None
+
+    STATUT_MAP = {
+        'pleine': 'pleine', 'plein': 'pleine', 'full': 'pleine',
+        'en cours': 'en_cours', 'en_cours': 'en_cours', 'entamee': 'en_cours',
+        'vide': 'vide', 'empty': 'vide',
+        'hors service': 'hors_service', 'hors_service': 'hors_service', 'hs': 'hors_service',
+    }
+
     try:
         df = pd.read_excel(file_path, sheet_name=0)
-        
-        # Map column names (adapt based on actual Excel structure)
+        colmap = {_nh(c): c for c in df.columns}
+
+        def get(row, *aliases):
+            for a in aliases:
+                if a in colmap:
+                    v = row.get(colmap[a])
+                    if pd.notna(v) and str(v).strip() != '' and str(v).strip().lower() != 'nan':
+                        return str(v).strip()
+            return None
+
         for idx, row in df.iterrows():
             try:
-                type_gaz = str(row.get('Nature du gaz', row.get('type_gaz', ''))).strip().lower()
-                
-                # Normalize gas type
-                if 'o2' in type_gaz or 'oxygène' in type_gaz or 'oxygene' in type_gaz:
-                    type_gaz = 'O2'
-                elif 'respirable' in type_gaz:
+                raw_type = get(row, 'type_de_gaz', 'nature_du_gaz', 'type_gaz', 'type', 'gaz')
+                if not raw_type:
+                    continue
+                tl = _slugify_gas(raw_type).replace('_', ' ')  # sans accents, minuscule
+                _tokens = tl.split()
+                if 'respirable' in tl:
                     type_gaz = 'air_respirable'
-                elif 'air' in type_gaz and 'méd' in type_gaz:
-                    type_gaz = 'air_medicale'
-                elif 'héliox' in type_gaz or 'heliox' in type_gaz:
+                elif 'heliox' in tl:
                     type_gaz = 'heliox'
-                elif 'nitrox' in type_gaz:
+                elif 'nitrox' in tl:
                     type_gaz = 'nitrox'
+                elif 'air' in tl and 'med' in tl:
+                    type_gaz = 'air_medicale'
+                elif 'oxygen' in tl or 'o2' in _tokens:
+                    type_gaz = 'O2'
                 else:
-                    continue  # Skip unknown gas types
-                
-                numero = str(row.get('N° de la bout.', row.get('numero_bouteille', idx))).strip()
-                if not numero or numero == 'nan':
+                    # Type personnalisé (CO2, Azote, mélanges...) : on l'enregistre pour ne pas perdre la ligne
+                    type_gaz = _slugify_gas(raw_type)
+                    if type_gaz not in set(GAS_TYPES) and not await db.gas_types.find_one({'value': type_gaz}):
+                        await db.gas_types.insert_one({
+                            'id': str(uuid.uuid4()), 'value': type_gaz, 'label': raw_type,
+                            'created_at': datetime.now(timezone.utc).isoformat(),
+                        })
+
+                numero = get(row, 'n_bouteille', 'no_bouteille', 'numero_bouteille', 'n_de_la_bout', 'numero', 'n_bout')
+                if not numero:
                     numero = f"B-{idx}"
-                
-                volume = str(row.get('Vol. de bout.', 'B50')).strip()
-                if volume == 'nan':
-                    volume = 'B50'
-                
-                cylinder_data = {
+                else:
+                    # pandas lit souvent les numéros comme décimaux (1497.0) -> normaliser en entier
+                    try:
+                        f = float(numero)
+                        if f.is_integer():
+                            numero = str(int(f))
+                    except Exception:
+                        pass
+
+                volume = (get(row, 'volume', 'vol_de_bout', 'vol') or 'B50').replace(' ', '')
+                statut = STATUT_MAP.get((get(row, 'statut', 'etat') or 'pleine').lower(), 'pleine')
+
+                pression = None
+                pv = get(row, 'pression_de_service', 'pression_service', 'pression')
+                if pv:
+                    try:
+                        pression = float(str(pv).replace(',', '.').replace('bar', '').strip())
+                    except Exception:
+                        pression = None
+
+                data = {
                     "numero_bouteille": numero,
                     "type_gaz": type_gaz,
                     "volume": volume,
-                    "agent_responsable": str(row.get('Nom de l\'agent', '')).strip() if pd.notna(row.get('Nom de l\'agent')) else None,
-                    "observations": str(row.get('Etat / Observations', '')).strip() if pd.notna(row.get('Etat / Observations')) else None,
-                    "statut": "pleine"
+                    "pression_service": pression,
+                    "statut": statut,
+                    "localisation": get(row, 'localisation', 'emplacement'),
+                    "date_remplissage": _parse_date(get(row, 'date_de_remplissage', 'date_remplissage')),
+                    "date_expiration_gaz": _parse_date(get(row, 'date_d_expiration', 'date_expiration', 'date_expiration_gaz', 'peremption')),
+                    "date_epreuve": _parse_date(get(row, 'date_d_epreuve', 'date_epreuve', 'derniere_epreuve')),
+                    "date_prochaine_epreuve": _parse_date(get(row, 'prochaine_epreuve', 'date_prochaine_epreuve', 'prochaine_requalification')),
+                    "observations": get(row, 'observations', 'etat_observations', 'obs'),
+                    "agent_responsable": get(row, 'nom_agent', 'nom_de_l_agent', 'agent', 'agent_responsable', 'responsable'),
                 }
-                
-                existing = await db.gas_cylinders.find_one({"numero_bouteille": numero, "type_gaz": type_gaz})
-                if not existing:
-                    cylinder_obj = GasCylinder(**cylinder_data)
+
+                # Anti-doublon par N° de bouteille (numéro physique unique)
+                existing = await db.gas_cylinders.find_one({"numero_bouteille": numero})
+                if existing:
+                    await db.gas_cylinders.update_one(
+                        {"id": existing["id"]},
+                        {"$set": {k: v for k, v in data.items() if v is not None}}
+                    )
+                    updated += 1
+                else:
+                    cylinder_obj = GasCylinder(**data)
                     doc = cylinder_obj.model_dump()
                     doc["created_at"] = doc["created_at"].isoformat()
                     await db.gas_cylinders.insert_one(doc)
                     imported += 1
-                    
+
             except Exception as e:
                 errors.append(f"Ligne {idx}: {str(e)}")
-    
+
     except Exception as e:
         errors.append(f"Erreur de lecture du fichier: {str(e)}")
-    
-    return {"imported": imported, "errors": errors, "type": "bouteilles"}
+
+    return {"imported": imported, "updated": updated, "errors": errors, "type": "bouteilles"}
 
 async def import_budget_from_excel(file_path: Path) -> dict:
     """Import budget items from Excel"""

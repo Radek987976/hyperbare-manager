@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { contractsAPI, contractorsAPI, equipmentsAPI } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
-import { formatDate, getErrorMessage } from '../lib/utils';
+import { formatDate, getErrorMessage, parseDate } from '../lib/utils';
 import { useColumnFilters, useSessionState, applyTableFilters, distinctValues, ColumnFilter } from '../components/ui/table-column-filter';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
@@ -246,16 +246,21 @@ const Contracts = () => {
 
   const isExpiringSoon = (dateStr) => {
     if (!dateStr) return false;
-    const endDate = new Date(dateStr);
-    const today = new Date();
+    const endDate = parseDate(dateStr);
+    if (!endDate) return false;
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    endDate.setHours(0, 0, 0, 0);
     const daysLeft = Math.ceil((endDate - today) / (1000 * 60 * 60 * 24));
     return daysLeft > 0 && daysLeft <= 60;
   };
 
   const isExpired = (dateStr) => {
     if (!dateStr) return false;
-    const endDate = new Date(dateStr);
-    return endDate < new Date();
+    const endDate = parseDate(dateStr);
+    if (!endDate) return false;
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    endDate.setHours(0, 0, 0, 0);
+    return endDate < today;
   };
 
   // Filter contracts

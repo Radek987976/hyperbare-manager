@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { dashboardAPI, caissonAPI, alertsAPI, formationsAPI, usersAPI } from '../lib/api';
-import { formatDate, daysUntil } from '../lib/utils';
+import { formatDate, daysUntil, parseDate, toYMD } from '../lib/utils';
 import { useAuth } from '../context/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
@@ -681,12 +681,12 @@ const Dashboard = () => {
           </div>
           {(() => {
             const today0 = new Date(); today0.setHours(0, 0, 0, 0);
-            const mondayOf = (dstr) => { const d = new Date(dstr); d.setHours(0, 0, 0, 0); const off = (d.getDay() + 6) % 7; d.setDate(d.getDate() - off); return d; };
+            const mondayOf = (dstr) => { const d = parseDate(dstr); d.setHours(0, 0, 0, 0); const off = (d.getDay() + 6) % 7; d.setDate(d.getDate() - off); return d; };
             const map = {};
             (calendar || []).forEach(m => {
               if (!m.date_planifiee) return;
               const mon = mondayOf(m.date_planifiee);
-              const key = mon.toISOString().slice(0, 10);
+              const key = toYMD(mon);
               if (!map[key]) map[key] = { monday: mon, items: [] };
               map[key].items.push(m);
             });
@@ -696,7 +696,7 @@ const Dashboard = () => {
               .slice(0, 12);
             if (weeks.length === 0) return <p className="text-sm text-slate-400 py-6 text-center">Aucune maintenance planifiée</p>;
             const colorOf = (m) => {
-              const d = new Date(m.date_planifiee); d.setHours(0, 0, 0, 0);
+              const d = parseDate(m.date_planifiee); d.setHours(0, 0, 0, 0);
               const overdue = d < today0 && m.statut !== 'terminee' && !m.is_formation;
               if (m.is_formation) return 'border-[#7c3aed] bg-[#7c3aed]/5';
               if (m.statut === 'terminee') return 'border-[#94D2BD] bg-[#94D2BD]/10';
@@ -713,7 +713,7 @@ const Dashboard = () => {
                   return (
                     <div key={w.monday.toISOString()} className="border border-slate-200 rounded-lg overflow-hidden">
                       <div className="bg-slate-50 px-3 py-2 text-sm font-semibold text-slate-700">
-                        Semaine du {formatDate(w.monday.toISOString().slice(0, 10))} au {formatDate(sun.toISOString().slice(0, 10))}
+                        Semaine du {formatDate(toYMD(w.monday))} au {formatDate(toYMD(sun))}
                         <span className="ml-2 text-xs font-normal text-slate-400">({items.length})</span>
                       </div>
                       <div className="divide-y divide-slate-100">

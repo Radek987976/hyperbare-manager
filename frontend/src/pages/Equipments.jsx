@@ -8,7 +8,8 @@ import {
   criticiteLabels,
   getStatusClass, 
   getCriticiteClass,
-  getErrorMessage
+  getErrorMessage,
+  toYMD
 } from '../lib/utils';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
@@ -222,7 +223,7 @@ const Equipments = () => {
 
   const openReformModal = (equipment) => {
     setSelectedEquipment(equipment);
-    setReformForm({ date_reforme: new Date().toISOString().split('T')[0], motif_reforme: '', technicien_reforme: '' });
+    setReformForm({ date_reforme: toYMD(new Date()), motif_reforme: '', technicien_reforme: '' });
     setShowReformModal(true);
   };
 

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { interventionsAPI, workOrdersAPI, sparePartsAPI, usersAPI, equipmentsAPI, subEquipmentsAPI, contractorsAPI, reportsAPI, openStoredFile, openBlobPdf } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
-import { formatDate, subEquipmentMatchesEquipment } from '../lib/utils';
+import { formatDate, subEquipmentMatchesEquipment, toYMD } from '../lib/utils';
 import { Card, CardContent } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
@@ -80,7 +80,7 @@ function Interventions() {
     sous_equipement_ids: [],
     prestataire_id: '',
     titre: '',
-    date_intervention: new Date().toISOString().split('T')[0],
+    date_intervention: toYMD(new Date()),
     technicien: '',
     actions_realisees: '',
     observations: '',
@@ -304,7 +304,7 @@ function Interventions() {
         : (item.sous_equipement_id ? [item.sous_equipement_id] : []),
       prestataire_id: item.prestataire_id || '',
       titre: item.titre || '',
-      date_intervention: item.date_intervention || new Date().toISOString().split('T')[0],
+      date_intervention: item.date_intervention || toYMD(new Date()),
       technicien: item.technicien || '',
       actions_realisees: item.actions_realisees || '',
       observations: item.observations || '',

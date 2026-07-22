@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { reportTemplatesAPI, controlReportsAPI, equipmentsAPI, inspectionsAPI } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
-import { formatDate, getErrorMessage } from '../lib/utils';
+import { formatDate, getErrorMessage, toYMD } from '../lib/utils';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
@@ -77,7 +77,7 @@ const ControlReports = () => {
     equipment_id: '',
     inspection_id: '',
     numero_pv: '',
-    date_controle: new Date().toISOString().split('T')[0],
+    date_controle: toYMD(new Date()),
     controleur: '',
     organisme: '',
     valeurs: {},
@@ -172,7 +172,7 @@ const ControlReports = () => {
       equipment_id: '',
       inspection_id: '',
       numero_pv: '',
-      date_controle: new Date().toISOString().split('T')[0],
+      date_controle: toYMD(new Date()),
       controleur: '',
       organisme: '',
       valeurs: {},

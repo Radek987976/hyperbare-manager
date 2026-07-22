@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { documentsAPI, equipmentsAPI, contractorsAPI, openStoredFile } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
-import { formatDate, getErrorMessage } from '../lib/utils';
+import { formatDate, getErrorMessage, parseDate } from '../lib/utils';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
@@ -201,15 +201,21 @@ const Documents = () => {
 
   const isExpiringSoon = (dateStr) => {
     if (!dateStr) return false;
-    const expDate = new Date(dateStr);
-    const today = new Date();
+    const expDate = parseDate(dateStr);
+    if (!expDate) return false;
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    expDate.setHours(0, 0, 0, 0);
     const daysLeft = Math.ceil((expDate - today) / (1000 * 60 * 60 * 24));
     return daysLeft > 0 && daysLeft <= 30;
   };
 
   const isExpired = (dateStr) => {
     if (!dateStr) return false;
-    return new Date(dateStr) < new Date();
+    const d = parseDate(dateStr);
+    if (!d) return false;
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    d.setHours(0, 0, 0, 0);
+    return d < today;
   };
 
   // Filter documents

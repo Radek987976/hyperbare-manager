@@ -3,7 +3,7 @@ import { useLocation } from 'react-router-dom';
 import { inspectionsAPI, caissonAPI, equipmentsAPI, openStoredFile } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
 import { toast } from 'sonner';
-import { formatDate, daysUntil, equipmentTypeLabels, periodiciteLabels, getErrorMessage } from '../lib/utils';
+import { formatDate, daysUntil, equipmentTypeLabels, periodiciteLabels, getErrorMessage, toYMD } from '../lib/utils';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
@@ -81,13 +81,13 @@ const Inspections = () => {
   const [showRenewModal, setShowRenewModal] = useState(false);
   const [renewTarget, setRenewTarget] = useState(null);
   const [savingRenew, setSavingRenew] = useState(false);
-  const emptyRenew = { date_realisation: new Date().toISOString().split('T')[0], resultat: '', organisme_certificateur: '', observations: '' };
+  const emptyRenew = { date_realisation: toYMD(new Date()), resultat: '', organisme_certificateur: '', observations: '' };
   const [renewForm, setRenewForm] = useState(emptyRenew);
 
   const openRenewModal = (inspection) => {
     setRenewTarget(inspection);
     setRenewForm({
-      date_realisation: new Date().toISOString().split('T')[0],
+      date_realisation: toYMD(new Date()),
       resultat: '',
       organisme_certificateur: inspection.organisme_certificateur || '',
       observations: '',
@@ -195,7 +195,7 @@ const Inspections = () => {
       periodicite: 'annuel',
       caisson_id: caisson?.id || '',
       equipment_id: '',
-      date_realisation: new Date().toISOString().split('T')[0],
+      date_realisation: toYMD(new Date()),
       organisme_certificateur: '',
       resultat: '',
       observations: ''

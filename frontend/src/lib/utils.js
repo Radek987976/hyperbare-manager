@@ -171,12 +171,31 @@ export function downloadBlob(blob, filename) {
 // Calculate days until date
 export function daysUntil(dateString) {
   if (!dateString) return null;
-  const date = new Date(dateString);
+  const date = parseDate(dateString);
+  if (!date) return null;
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   date.setHours(0, 0, 0, 0);
   const diff = date - today;
   return Math.ceil(diff / (1000 * 60 * 60 * 24));
+}
+
+// Parse une date en Date LOCALE (les dates "AAAA-MM-JJ" ne subissent aucun décalage de fuseau)
+export function parseDate(dateString) {
+  if (!dateString) return null;
+  const s = String(dateString);
+  const m = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (m) return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+  const d = new Date(s);
+  return isNaN(d.getTime()) ? null : d;
+}
+
+// Formate une Date en "AAAA-MM-JJ" locale (sans décalage de fuseau via toISOString)
+export function toYMD(date) {
+  const d = date instanceof Date ? date : parseDate(date);
+  if (!d || isNaN(d.getTime())) return '';
+  const p = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
 }
 
 // Préfixe d'une référence d'équipement (texte avant le premier "_"), ex: "CHA_GENERAL" -> "CHA"

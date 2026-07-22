@@ -1,5 +1,17 @@
 # HyperbareManager - PRD (Product Requirements Document)
 
+## Changelog (2026-06-21r) — Audit complet des dates (fuseau horaire Tahiti UTC-10)
+- **Correctifs de décalage « jour d'avant/après »** dus au fuseau (Tahiti UTC-10), dans `lib/utils.js` + pages :
+  - `formatDate` : dates `AAAA-MM-JJ` formatées sans conversion de fuseau (déjà fait 06-21).
+  - Nouveaux helpers `parseDate` (parse date-only en Date **locale**) et `toYMD` (Date → `AAAA-MM-JJ` local, sans `toISOString`).
+  - `daysUntil` : utilise `parseDate` → calculs de retards/échéances corrects (WorkOrders, Inspections, GasCylinders...).
+  - `Dashboard` agenda hebdomadaire : regroupement par semaine (`mondayOf`, clé) et en-tête « Semaine du X au Y » via `toYMD` (avant : `toISOString().slice(0,10)` décalait d'un jour).
+  - `Planning` `safeFormat`, `Documents`/`Contracts` `isExpired`/`isExpiringSoon`, coloration expiration `GasCylinders` : via `parseDate`.
+  - **Dates « aujourd'hui » par défaut** des formulaires : `new Date().toISOString().split('T')[0]` (UTC → lendemain en soirée) remplacé par `toYMD(new Date())` (local) dans Interventions, GasCylinders, Inspections, Equipments, ControlReports.
+  - `formatDateTime` (last_login) : inchangé — vrai timestamp, comportement correct.
+  - **PDF backend** : vérifié — formatage `datetime.fromisoformat(...).strftime(...)` naïf/UTC, aucune conversion locale → dates correctes.
+  - Vérifié : compilation OK ; Dashboard (agenda) et Planning s'affichent sans erreur, événements aux bons jours.
+
 ## Changelog (2026-06-21q) — Correctif import bouteilles + modèle d'import
 - **Import bouteilles = 0 → corrigé** : le parseur `import_gas_cylinders_from_excel` ne reconnaissait pas les intitulés du fichier client (`TYPE_DE_GAZ`, `N°_BOUTEILLE`, `VOLUME`, `STATUT`…) → toutes les lignes ignorées. Réécrit :
   - Normalisation des en-têtes (accents/casse/ponctuation) + nombreux alias.

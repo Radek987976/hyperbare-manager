@@ -8,6 +8,7 @@ import { ChevronLeft, ChevronRight, CalendarDays, Wrench, ShieldCheck, AlertTria
 import { toast } from 'sonner';
 import { planningAPI, workOrdersAPI } from '../lib/api';
 import { equipmentsAPI } from '../lib/api';
+import { parseDate } from '../lib/utils';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
@@ -26,8 +27,8 @@ const WEEKDAYS = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
 
 const safeFormat = (value, pattern) => {
   if (!value) return '—';
-  const d = value instanceof Date ? value : new Date(value);
-  if (isNaN(d.getTime())) return '—';
+  const d = value instanceof Date ? value : parseDate(value);
+  if (!d || isNaN(d.getTime())) return '—';
   return format(d, pattern, { locale: fr });
 };
 

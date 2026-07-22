@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { gasCylindersAPI, contractorsAPI } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
-import { formatDate, getErrorMessage } from '../lib/utils';
+import { formatDate, getErrorMessage, parseDate, toYMD } from '../lib/utils';
 import { useColumnFilters, useSessionState, applyTableFilters, distinctValues, ColumnFilter } from '../components/ui/table-column-filter';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
@@ -120,7 +120,7 @@ const GasCylinders = () => {
 
   // Refill form
   const [refillData, setRefillData] = useState({
-    date_remplissage: new Date().toISOString().split('T')[0],
+    date_remplissage: toYMD(new Date()),
     date_expiration: '',
     pression: '',
     agent: '',
@@ -226,7 +226,7 @@ const GasCylinders = () => {
       setIsRefillDialogOpen(false);
       setSelectedCylinder(null);
       setRefillData({
-        date_remplissage: new Date().toISOString().split('T')[0],
+        date_remplissage: toYMD(new Date()),
         date_expiration: '',
         pression: '',
         agent: '',
@@ -273,7 +273,7 @@ const GasCylinders = () => {
   const openRefillDialog = (cylinder) => {
     setSelectedCylinder(cylinder);
     setRefillData({
-      date_remplissage: new Date().toISOString().split('T')[0],
+      date_remplissage: toYMD(new Date()),
       date_expiration: '',
       pression: cylinder.pression_service || '',
       agent: '',
@@ -485,7 +485,7 @@ const GasCylinders = () => {
                         <TableCell>
                           {cylinder.date_expiration_gaz ? (
                             <span className={
-                              new Date(cylinder.date_expiration_gaz) < new Date() 
+                              parseDate(cylinder.date_expiration_gaz) < new Date(new Date().setHours(0, 0, 0, 0))
                                 ? 'text-red-600 font-medium' 
                                 : ''
                             }>
@@ -496,7 +496,7 @@ const GasCylinders = () => {
                         <TableCell>
                           {cylinder.date_prochaine_epreuve ? (
                             <span className={
-                              new Date(cylinder.date_prochaine_epreuve) < new Date() 
+                              parseDate(cylinder.date_prochaine_epreuve) < new Date(new Date().setHours(0, 0, 0, 0))
                                 ? 'text-red-600 font-medium' 
                                 : ''
                             }>

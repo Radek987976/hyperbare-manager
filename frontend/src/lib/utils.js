@@ -34,7 +34,14 @@ export function getErrorMessage(error, defaultMessage = 'Une erreur est survenue
 // Format date to French locale
 export function formatDate(dateString) {
   if (!dateString) return '-';
-  const date = new Date(dateString);
+  const s = String(dateString);
+  // Date au format AAAA-MM-JJ : formater directement (sans décalage de fuseau horaire)
+  const m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (m) {
+    return `${m[3]}/${m[2]}/${m[1]}`;
+  }
+  const date = new Date(s);
+  if (isNaN(date.getTime())) return '-';
   return date.toLocaleDateString('fr-FR', {
     day: '2-digit',
     month: '2-digit',

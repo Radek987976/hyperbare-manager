@@ -167,6 +167,65 @@ const Import = () => {
     }
   };
 
+  // Reclasser contrôles réglementaires -> maintenances préventives (inverse)
+  const [reverseOpen, setReverseOpen] = useState(false);
+  const [reverseQ, setReverseQ] = useState('');
+  const [reverseLoading, setReverseLoading] = useState(false);
+  const [revCandidates, setRevCandidates] = useState([]);
+  const [revSelectedIds, setRevSelectedIds] = useState([]);
+  const [reverseApplying, setReverseApplying] = useState(false);
+  const [confirmReverse, setConfirmReverse] = useState(false);
+
+  const openReverse = async () => {
+    setReverseOpen(true);
+    setRevSelectedIds([]);
+    setReverseQ('');
+    await loadRevCandidates('');
+  };
+
+  const loadRevCandidates = async (q) => {
+    setReverseLoading(true);
+    setError('');
+    try {
+      const res = await importAPI.inspectionCandidates(q);
+      setRevCandidates(res.data.candidates || []);
+    } catch (err) {
+      setError(getErrorMessage(err));
+    } finally {
+      setReverseLoading(false);
+    }
+  };
+
+  const toggleRevSelect = (id) => {
+    setRevSelectedIds((prev) => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  };
+
+  const toggleRevSelectAll = () => {
+    if (revSelectedIds.length === revCandidates.length) {
+      setRevSelectedIds([]);
+    } else {
+      setRevSelectedIds(revCandidates.map(c => c.id));
+    }
+  };
+
+  const applyReverse = async () => {
+    setReverseApplying(true);
+    setError('');
+    try {
+      const res = await importAPI.transferToMaintenances(revSelectedIds);
+      setResult({ type: 'transfer', message: `${res.data.transferred} contrôle(s) reclassé(s) en maintenance préventive.`, imported: res.data.transferred, errors: res.data.errors });
+      setConfirmReverse(false);
+      setReverseOpen(false);
+      setRevSelectedIds([]);
+    } catch (err) {
+      setError(getErrorMessage(err));
+      setConfirmReverse(false);
+    } finally {
+      setReverseApplying(false);
+    }
+  };
+
+
   const handleCorrelatePreview = async () => {
     setIsCorrelating(true);
     setError('');
@@ -409,6 +468,31 @@ const Import = () => {
               className="text-indigo-700 border-indigo-200 hover:bg-indigo-50 shrink-0" data-testid="open-transfer-btn">
               <ArrowRightLeft className="h-4 w-4 mr-2" />
               Sélectionner à transférer
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Reclasser contrôles -> maintenances préventives (inverse) */}
+      <Card className="border-amber-100">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <ArrowRightLeft className="h-5 w-5 text-amber-600" />
+            Reclasser des contrôles réglementaires en Maintenance préventive
+          </CardTitle>
+          <CardDescription>
+            Opération inverse : reclasse un ou plusieurs contrôles réglementaires en maintenances préventives. Le contrôle d'origine est supprimé. L'ancien historique d'interventions n'est pas re-rattaché automatiquement.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center justify-between gap-4">
+            <p className="text-sm text-gray-600">
+              Utile si un contrôle a été classé par erreur en « contrôle réglementaire » alors qu'il s'agit d'une maintenance préventive.
+            </p>
+            <Button variant="outline" onClick={openReverse} disabled={reverseApplying}
+              className="text-amber-700 border-amber-200 hover:bg-amber-50 shrink-0" data-testid="open-reverse-btn">
+              <ArrowRightLeft className="h-4 w-4 mr-2" />
+              Sélectionner à reclasser
             </Button>
           </div>
         </CardContent>
@@ -711,6 +795,93 @@ const Import = () => {
             <AlertDialogCancel>Annuler</AlertDialogCancel>
             <AlertDialogAction onClick={applyTransfer} disabled={transferApplying} data-testid="transfer-confirm-btn">
               {transferApplying ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Transfert...</> : 'Confirmer le transfert'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Reverse selection dialog (contrôles -> maintenances) */}
+      <Dialog open={reverseOpen} onOpenChange={setReverseOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle>Reclasser des contrôles en Maintenance préventive</DialogTitle>
+            <DialogDescription>
+              Sélectionnez les contrôles réglementaires à reclasser en maintenances préventives. Le contrôle d'origine sera supprimé.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="flex items-center gap-2">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <Input
+                placeholder="Filtrer par titre ou équipement..."
+                value={reverseQ}
+                onChange={(e) => setReverseQ(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') loadRevCandidates(reverseQ); }}
+                className="pl-10"
+                data-testid="reverse-search"
+              />
+            </div>
+            <Button variant="outline" onClick={() => loadRevCandidates(reverseQ)} disabled={reverseLoading} data-testid="reverse-search-btn">
+              {reverseLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Rechercher'}
+            </Button>
+          </div>
+
+          <div className="flex items-center justify-between text-sm">
+            <button type="button" onClick={toggleRevSelectAll} className="text-amber-700 hover:underline" data-testid="reverse-select-all">
+              {revCandidates.length > 0 && revSelectedIds.length === revCandidates.length ? 'Tout désélectionner' : 'Tout sélectionner'}
+            </button>
+            <span className="text-gray-500">{revSelectedIds.length} sélectionné(s) sur {revCandidates.length}</span>
+          </div>
+
+          <div className="border rounded-md overflow-y-auto flex-1 divide-y" style={{ maxHeight: '45vh' }}>
+            {reverseLoading ? (
+              <div className="p-6 text-center text-gray-400"><Loader2 className="h-5 w-5 animate-spin inline" /></div>
+            ) : revCandidates.length === 0 ? (
+              <div className="p-6 text-center text-gray-400">Aucun contrôle réglementaire trouvé.</div>
+            ) : (
+              revCandidates.map((c) => (
+                <label key={c.id} className="flex items-start gap-3 p-3 hover:bg-gray-50 cursor-pointer" data-testid={`reverse-item-${c.id}`}>
+                  <Checkbox checked={revSelectedIds.includes(c.id)} onCheckedChange={() => toggleRevSelect(c.id)} className="mt-1" />
+                  <div className="min-w-0 flex-1">
+                    <div className="font-medium text-gray-800 truncate">{c.titre}</div>
+                    <div className="text-xs text-gray-500">
+                      {c.equipment_ref} · {c.periodicite || 'périodicité inconnue'} · {c.historique_count} réalisation(s) archivée(s)
+                    </div>
+                  </div>
+                </label>
+              ))
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setReverseOpen(false)}>Annuler</Button>
+            <Button
+              onClick={() => setConfirmReverse(true)}
+              disabled={revSelectedIds.length === 0 || reverseApplying}
+              className="bg-amber-600 hover:bg-amber-700"
+              data-testid="reverse-apply-btn"
+            >
+              <ArrowRightLeft className="h-4 w-4 mr-2" />
+              Reclasser ({revSelectedIds.length})
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Reverse confirmation */}
+      <AlertDialog open={confirmReverse} onOpenChange={setConfirmReverse}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmer le reclassement ?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {revSelectedIds.length} contrôle(s) réglementaire(s) vont devenir des maintenances préventives. Le contrôle d'origine sera supprimé. Cette action est définitive.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annuler</AlertDialogCancel>
+            <AlertDialogAction onClick={applyReverse} disabled={reverseApplying} data-testid="reverse-confirm-btn">
+              {reverseApplying ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Reclassement...</> : 'Confirmer le reclassement'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

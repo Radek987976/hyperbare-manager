@@ -2430,6 +2430,74 @@ async def transfer_to_inspections(data: TransferToInspectionsRequest, current_us
     return {"transferred": transferred, "errors": errors}
 
 
+@api_router.get("/admin/inspection-candidates")
+async def inspection_candidates(q: str = "", current_user: dict = Depends(require_admin)):
+    """Liste les contrôles réglementaires reclassables en maintenance préventive (admin)."""
+    inspections = await db.inspections.find({}, {"_id": 0}).to_list(2000)
+    eq_ref = {e["id"]: (e.get("reference") or e.get("type") or e["id"])
+              async for e in db.equipments.find({}, {"_id": 0, "id": 1, "reference": 1, "type": 1})}
+
+    term = (q or "").strip().lower()
+    result = []
+    for insp in inspections:
+        titre = insp.get("titre", "")
+        eqref = eq_ref.get(insp.get("equipment_id"), "Caisson entier")
+        if term and term not in titre.lower() and term not in str(eqref).lower():
+            continue
+        result.append({
+            "id": insp.get("id"),
+            "titre": titre,
+            "equipment_ref": eqref,
+            "periodicite": insp.get("periodicite", ""),
+            "historique_count": len(insp.get("historique_controles") or []),
+        })
+    result.sort(key=lambda x: (str(x["equipment_ref"]), x["titre"]))
+    return {"total": len(result), "candidates": result}
+
+
+class TransferToMaintenancesRequest(BaseModel):
+    inspection_ids: List[str]
+
+
+@api_router.post("/admin/transfer-to-maintenances")
+async def transfer_to_maintenances(data: TransferToMaintenancesRequest, current_user: dict = Depends(require_admin)):
+    """Reclasse des contrôles réglementaires en maintenances préventives (admin).
+    Chaque contrôle devient une maintenance préventive ; le contrôle d'origine est supprimé.
+    L'ancien historique d'interventions n'est pas re-rattaché automatiquement."""
+    transferred = 0
+    errors = []
+
+    for insp_id in data.inspection_ids:
+        insp = await db.inspections.find_one({"id": insp_id}, {"_id": 0})
+        if not insp:
+            errors.append(f"Contrôle {insp_id} introuvable")
+            continue
+
+        periodicite = insp.get("periodicite")
+        pj = PERIODICITES.get(periodicite)
+        date_planifiee = (insp.get("date_validite") or "")[:10] or datetime.now(timezone.utc).strftime("%Y-%m-%d")
+
+        wo = WorkOrder(
+            titre=insp.get("titre", "Maintenance reclassée"),
+            description=insp.get("observations") or f"Reclassé depuis un contrôle réglementaire ({periodicite or 'périodicité inconnue'}).",
+            type_maintenance="preventive",
+            statut="planifiee",
+            caisson_id=insp.get("caisson_id"),
+            equipment_id=insp.get("equipment_id"),
+            date_planifiee=date_planifiee,
+            periodicite_jours=pj,
+        )
+        doc = wo.model_dump()
+        doc["created_at"] = doc["created_at"].isoformat()
+        await db.work_orders.insert_one(doc)
+
+        await db.inspections.delete_one({"id": insp_id})
+        transferred += 1
+
+    return {"transferred": transferred, "errors": errors}
+
+
+
 
 
 

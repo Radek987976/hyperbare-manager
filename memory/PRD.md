@@ -1,5 +1,12 @@
 # HyperbareManager - PRD (Product Requirements Document)
 
+## Changelog (2026-06-21t) — Menu réordonné + reclassement inverse contrôle→maintenance
+- **Menu latéral** : « Contrôles réglementaires » déplacé juste sous « Maintenance préventive » (`Layout.jsx`).
+- **Reclasser contrôle → maintenance préventive (admin, inverse du transfert)** :
+  - `GET /admin/inspection-candidates?q=` : liste des contrôles reclassables (titre, équipement, périodicité, nb réalisations archivées).
+  - `POST /admin/transfer-to-maintenances {inspection_ids:[...]}` : pour chaque contrôle → crée une maintenance préventive (`type_maintenance=preventive`, statut `planifiee`, `periodicite_jours` via `PERIODICITES`, `date_planifiee` = date_validite, équipement/caisson repris) puis **supprime le contrôle**. L'ancien historique d'interventions n'est pas re-rattaché (limitation assumée). Vérifié curl : 1 reclassement → WO annuel 365j créé, contrôle supprimé.
+  - UI (`Import.jsx`, admin) : carte « Reclasser des contrôles réglementaires en Maintenance préventive » + dialog de sélection multiple + confirmation (miroir du transfert). `importAPI.inspectionCandidates()/transferToMaintenances()`. Vérifié écran.
+
 ## Changelog (2026-06-21s) — Colonne équipement (contrôles) + latence de frappe (interventions)
 - **Contrôles réglementaires** : ajout d'une colonne **« Équipement »** dans la liste (`Inspections.jsx`), et correction du libellé affichant « undefined - REF » dans l'aperçu → `getEquipmentLabel` retombe sur `equipment.type` si absent du dictionnaire, et « Caisson entier » si pas d'équipement. Vérifié écran.
 - **Latence de frappe dans le formulaire d'intervention** : cause = ~4864 interventions re-parcourues 7× (filtre + 5 `distinctValues` + `applyTableFilters`) à **chaque touche** (le formulaire et le tableau partagent le même composant). Correctif : mémoïsation (`useMemo`) de `filtered`, `colFiltered`, `distinctMap` et `paged` → ces calculs ne se relancent plus quand `formData` change. Vérifié : saisie fonctionnelle, liste/filtres OK. (Autres pages non concernées : jeux de données bien plus petits.)

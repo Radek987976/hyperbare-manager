@@ -1,5 +1,9 @@
 # HyperbareManager - PRD (Product Requirements Document)
 
+## Changelog (2026-06-21s) — Colonne équipement (contrôles) + latence de frappe (interventions)
+- **Contrôles réglementaires** : ajout d'une colonne **« Équipement »** dans la liste (`Inspections.jsx`), et correction du libellé affichant « undefined - REF » dans l'aperçu → `getEquipmentLabel` retombe sur `equipment.type` si absent du dictionnaire, et « Caisson entier » si pas d'équipement. Vérifié écran.
+- **Latence de frappe dans le formulaire d'intervention** : cause = ~4864 interventions re-parcourues 7× (filtre + 5 `distinctValues` + `applyTableFilters`) à **chaque touche** (le formulaire et le tableau partagent le même composant). Correctif : mémoïsation (`useMemo`) de `filtered`, `colFiltered`, `distinctMap` et `paged` → ces calculs ne se relancent plus quand `formData` change. Vérifié : saisie fonctionnelle, liste/filtres OK. (Autres pages non concernées : jeux de données bien plus petits.)
+
 ## Changelog (2026-06-21r) — Audit complet des dates (fuseau horaire Tahiti UTC-10)
 - **Correctifs de décalage « jour d'avant/après »** dus au fuseau (Tahiti UTC-10), dans `lib/utils.js` + pages :
   - `formatDate` : dates `AAAA-MM-JJ` formatées sans conversion de fuseau (déjà fait 06-21).

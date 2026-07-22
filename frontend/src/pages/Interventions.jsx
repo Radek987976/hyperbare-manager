@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useLocation } from 'react-router-dom';
 import { interventionsAPI, workOrdersAPI, sparePartsAPI, usersAPI, equipmentsAPI, subEquipmentsAPI, contractorsAPI, reportsAPI, openStoredFile, openBlobPdf } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
@@ -420,17 +420,6 @@ function Interventions() {
     return parts.join(' — ') || (item.work_order_id ? getWoTitle(item.work_order_id) : '-');
   }
   
-  const filtered = data.interventions.filter(i => {
-    const term = searchTerm.toLowerCase();
-    const matchSearch = (i.technicien || '').toLowerCase().includes(term) || 
-           (i.actions_realisees || '').toLowerCase().includes(term) ||
-           getInterventionLabel(i).toLowerCase().includes(term);
-    const d = (i.date_intervention || '').slice(0, 10);
-    const matchDateFrom = !filterDateFrom || (d && d >= filterDateFrom);
-    const matchDateTo = !filterDateTo || (d && d <= filterDateTo);
-    return matchSearch && matchDateFrom && matchDateTo;
-  });
-
   const intColumns = {
     date_intervention: (i) => formatDate(i.date_intervention),
     objet: (i) => i.type_intervention === 'preventive' ? getPreventiveTitle(i.maintenance_preventive_id) : getInterventionLabel(i),
@@ -439,12 +428,40 @@ function Interventions() {
     actions: (i) => i.actions_realisees,
     duree: (i) => i.duree_minutes ? `${i.duree_minutes} min` : '-',
   };
-  const intDistinct = (key) => distinctValues(filtered, intColumns, key, colFilters);
-  const colFiltered = applyTableFilters(filtered, intColumns, { filters: colFilters, sort: colSort });
+
+  // Mémoïsation : ces calculs (sur toute la liste) ne doivent PAS se relancer
+  // quand on tape dans le formulaire (formData change) -> évite la latence de frappe.
+  const filtered = useMemo(() => data.interventions.filter(i => {
+    const term = searchTerm.toLowerCase();
+    const matchSearch = (i.technicien || '').toLowerCase().includes(term) ||
+           (i.actions_realisees || '').toLowerCase().includes(term) ||
+           getInterventionLabel(i).toLowerCase().includes(term);
+    const d = (i.date_intervention || '').slice(0, 10);
+    const matchDateFrom = !filterDateFrom || (d && d >= filterDateFrom);
+    const matchDateTo = !filterDateTo || (d && d <= filterDateTo);
+    return matchSearch && matchDateFrom && matchDateTo;
+  }), [data, searchTerm, filterDateFrom, filterDateTo]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const colFiltered = useMemo(
+    () => applyTableFilters(filtered, intColumns, { filters: colFilters, sort: colSort }),
+    [filtered, colFilters, colSort] // eslint-disable-line react-hooks/exhaustive-deps
+  );
+
+  const distinctMap = useMemo(() => {
+    const m = {};
+    ['date_intervention', 'objet', 'equipment', 'technicien', 'duree'].forEach(k => {
+      m[k] = distinctValues(filtered, intColumns, k, colFilters);
+    });
+    return m;
+  }, [filtered, colFilters]); // eslint-disable-line react-hooks/exhaustive-deps
+  const intDistinct = (key) => distinctMap[key] || [];
 
   const pageCount = Math.max(1, Math.ceil(colFiltered.length / PAGE_SIZE));
   const currentPage = Math.min(page, pageCount);
-  const paged = colFiltered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+  const paged = useMemo(
+    () => colFiltered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE),
+    [colFiltered, currentPage]
+  );
 
   if (loading) {
     return <div className="space-y-6"><Skeleton className="h-10 w-48" /><Skeleton className="h-96" /></div>;

@@ -4974,24 +4974,38 @@ async def generate_interventions_pdf(
     elements, styles = create_pdf_header("Rapport des Interventions", period)
     
     # Get data
-    interventions = await db.interventions.find({}, {"_id": 0}).to_list(1000)
-    
-    # Filter by date
+    interventions = await db.interventions.find({}, {"_id": 0}).to_list(10000)
+
+    # Filter by date (le champ réel est date_intervention)
+    def _idate(i):
+        return (i.get('date_intervention') or '')[:10]
     if start_date:
-        interventions = [i for i in interventions if i.get('date_realisation', '') >= start_date]
+        interventions = [i for i in interventions if _idate(i) and _idate(i) >= start_date]
     if end_date:
-        interventions = [i for i in interventions if i.get('date_realisation', '') <= end_date]
-    
+        interventions = [i for i in interventions if _idate(i) and _idate(i) <= end_date]
+    interventions.sort(key=lambda i: _idate(i), reverse=True)
+
     # Get maps
-    users = await db.users.find({}, {"_id": 0}).to_list(100)
-    user_map = {u['id']: f"{u.get('prenom', '')} {u.get('nom', '')}" for u in users}
-    
-    work_orders = await db.work_orders.find({}, {"_id": 0}).to_list(1000)
+    work_orders = await db.work_orders.find({}, {"_id": 0}).to_list(5000)
     wo_map = {w['id']: w for w in work_orders}
-    
+
+    inspections = await db.inspections.find({}, {"_id": 0}).to_list(2000)
+    insp_map = {i['id']: i for i in inspections}
+
     spare_parts = await db.spare_parts.find({}, {"_id": 0}).to_list(1000)
     sp_map = {s['id']: s for s in spare_parts}
-    
+
+    def _titre(inter):
+        if inter.get('titre'):
+            return inter['titre']
+        if inter.get('maintenance_preventive_id') and wo_map.get(inter['maintenance_preventive_id']):
+            return wo_map[inter['maintenance_preventive_id']].get('titre', '')
+        if inter.get('inspection_id') and insp_map.get(inter['inspection_id']):
+            return insp_map[inter['inspection_id']].get('titre', '')
+        if inter.get('work_order_id') and wo_map.get(inter['work_order_id']):
+            return wo_map[inter['work_order_id']].get('titre', '')
+        return inter.get('actions_realisees', '') or 'N/A'
+
     # Summary
     elements.append(Paragraph("Résumé", styles['SectionHeader']))
     elements.append(Paragraph(f"<b>Nombre total d'interventions :</b> {len(interventions)}", styles['PDFNormal']))
@@ -5006,17 +5020,16 @@ async def generate_interventions_pdf(
     
     if interventions:
         detail_data = [["Date", "Maintenance", "Technicien", "Pièces"]]
-        for inter in interventions[:50]:
-            wo = wo_map.get(inter.get('work_order_id'), {})
+        for inter in interventions[:200]:
             pieces = inter.get('pieces_utilisees', [])
             pieces_str = ", ".join([sp_map.get(p.get('spare_part_id'), {}).get('nom', 'N/A')[:15] for p in pieces[:3]])
             if len(pieces) > 3:
                 pieces_str += "..."
             
             detail_data.append([
-                inter.get('date_realisation', 'N/A')[:10] if inter.get('date_realisation') else 'N/A',
-                wo.get('titre', 'N/A')[:25],
-                user_map.get(inter.get('technicien_id'), 'N/A')[:20],
+                _idate(inter) or 'N/A',
+                (_titre(inter) or 'N/A')[:35],
+                (inter.get('technicien') or 'N/A')[:20],
                 pieces_str or 'Aucune'
             ])
         
@@ -5217,24 +5230,39 @@ def _occurrence_months(wo: dict, year: int) -> set:
 
 
 async def _build_plan_items(year: int):
-    """Liste des maintenances préventives (hors journalières/hebdo, hors réformés) qui tombent dans l'année."""
+    """Liste des maintenances préventives (hors journalières/hebdo, hors réformés) qui tombent dans l'année.
+    Dédoublonne par (équipement, titre) : plusieurs work_orders pour la même maintenance
+    (occurrences régénérées, ré-imports) → une seule ligne, avec la dernière réalisation agrégée."""
     equipments = await db.equipments.find({}, {"_id": 0}).to_list(1000)
     eq_map = {e['id']: e for e in equipments}
     reformed = {e['id'] for e in equipments if e.get('statut') == 'reforme'}
     wos = await db.work_orders.find({'type_maintenance': 'preventive'}, {"_id": 0}).to_list(5000)
+    wo_by_id = {w.get('id'): w for w in wos}
 
-    # Dernière réalisation par maintenance : intervention la plus récente liée au plan préventif
-    last_by_wo = {}
+    def _gkey(wo):
+        titre = (wo.get('titre') or '').strip().lower()
+        if not titre:
+            return ('__notitle__', wo.get('id'))
+        return ((wo.get('equipment_id') or ''), titre)
+
+    # Interventions liées : nombre par work_order (pour choisir le représentant du groupe)
+    # + dernière réalisation agrégée par groupe (équipement, titre)
+    count_by_wo = {}
+    last_by_group = {}
     async for it in db.interventions.find(
         {'maintenance_preventive_id': {'$ne': None}},
         {"_id": 0, "maintenance_preventive_id": 1, "date_intervention": 1}
     ):
         wid = it.get('maintenance_preventive_id')
-        d = it.get('date_intervention')
-        if not wid or not d:
+        if not wid:
             continue
-        if wid not in last_by_wo or str(d) > str(last_by_wo[wid]):
-            last_by_wo[wid] = d
+        count_by_wo[wid] = count_by_wo.get(wid, 0) + 1
+        wo = wo_by_id.get(wid)
+        d = it.get('date_intervention')
+        if wo and d:
+            k = _gkey(wo)
+            if k not in last_by_group or str(d) > str(last_by_group[k]):
+                last_by_group[k] = d
 
     def _fmt(d):
         if not d:
@@ -5269,18 +5297,26 @@ async def _build_plan_items(year: int):
         days = (now - last_dt).days
         return (days > pj), days
 
-    items = []
+    # Regrouper les work_orders éligibles par (équipement, titre) → un représentant par groupe
+    groups = {}
     for wo in wos:
         eqid = wo.get('equipment_id')
         if eqid and eqid in reformed:
             continue
         if _is_daily_weekly(wo):
             continue
-        months = _occurrence_months(wo, year)
-        if not months:
+        if not _occurrence_months(wo, year):
             continue
+        k = _gkey(wo)
+        prev = groups.get(k)
+        if prev is None or count_by_wo.get(wo.get('id'), 0) > count_by_wo.get(prev.get('id'), 0):
+            groups[k] = wo
+
+    items = []
+    for k, wo in groups.items():
+        eqid = wo.get('equipment_id')
         eq = eq_map.get(eqid, {}) if eqid else {}
-        last_raw = last_by_wo.get(wo.get('id'))
+        last_raw = last_by_group.get(k)
         is_late, days_since = _compute_late(wo, last_raw)
         items.append({
             'wo_id': wo.get('id'),
@@ -5289,7 +5325,7 @@ async def _build_plan_items(year: int):
             'equipment_type': (eq.get('type') or 'Caisson (général)').strip(),
             'periodicite': _periodicite_label(wo),
             'times_per_year': _times_per_year(wo),
-            'months': sorted(months),
+            'months': sorted(_occurrence_months(wo, year)),
             'derniere_realisation': _fmt(last_raw),
             'is_late': is_late,
             'days_since': days_since,

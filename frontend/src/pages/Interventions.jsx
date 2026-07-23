@@ -14,7 +14,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '.
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '../components/ui/dialog';
 import { SearchableSelect } from '../components/ui/searchable-select';
 import { useColumnFilters, useSessionState, applyTableFilters, distinctValues, ColumnFilter } from '../components/ui/table-column-filter';
-import { History, Plus, Search, Eye, Loader2, Clock, User, Package, Wrench, Activity, FileText, Upload, Edit, Trash2, X, Printer } from 'lucide-react';
+import { History, Plus, Search, Eye, Loader2, Clock, User, Package, Wrench, Activity, FileText, Upload, Edit, Trash2, X, Printer, ArrowRight } from 'lucide-react';
 
 // Paramètres de l'analyse de l'air respirable (Classeur2)
 const AIR_RESPIRABLE_ROWS = [
@@ -181,6 +181,43 @@ function Interventions() {
   const availableInspections = data.inspections.filter(insp =>
     !formData.equipment_id || insp.equipment_id === formData.equipment_id
   );
+
+  // Dernière intervention pour la maintenance/le contrôle sélectionné (panneau de gauche, copie)
+  const lastIntervention = useMemo(() => {
+    let list = [];
+    if (formData.type_intervention === 'preventive' && formData.maintenance_preventive_id) {
+      list = data.interventions.filter(i => i.maintenance_preventive_id === formData.maintenance_preventive_id);
+    } else if (formData.type_intervention === 'controle' && formData.inspection_id) {
+      list = data.interventions.filter(i => i.inspection_id === formData.inspection_id);
+    }
+    if (editingId) list = list.filter(i => i.id !== editingId);
+    return [...list].sort((a, b) => (b.date_intervention || '').localeCompare(a.date_intervention || ''))[0] || null;
+  }, [formData.type_intervention, formData.maintenance_preventive_id, formData.inspection_id, data.interventions, editingId]);
+
+  const copyField = (field, value) => setFormData(p => ({ ...p, [field]: value }));
+  const copyAllFromLast = () => {
+    if (!lastIntervention) return;
+    setFormData(p => ({
+      ...p,
+      technicien: lastIntervention.technicien || p.technicien,
+      duree_minutes: lastIntervention.duree_minutes != null ? String(lastIntervention.duree_minutes) : p.duree_minutes,
+      prestataire_id: lastIntervention.prestataire_id || p.prestataire_id,
+      actions_realisees: lastIntervention.actions_realisees || p.actions_realisees,
+      observations: lastIntervention.observations || p.observations,
+      mesures: lastIntervention.mesures ? JSON.parse(JSON.stringify(lastIntervention.mesures)) : p.mesures,
+    }));
+  };
+  function mesuresSummary(m) {
+    if (!m) return null;
+    if (m.type === 'servomex_calibrage' && m.grille) {
+      return Object.entries(m.grille).map(([row, cols]) => `${row}: ${Object.values(cols).map(v => v || '–').join('/')}`).join(' · ');
+    }
+    if (m.type === 'air_respirable' && m.valeurs) {
+      const s = Object.entries(m.valeurs).filter(([, v]) => v !== '' && v != null).map(([k, v]) => `${k}=${v}`).join(', ');
+      return s || 'Relevés vides';
+    }
+    return 'Relevés présents';
+  }
 
   function handleChange(e) {
     setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
@@ -603,12 +640,59 @@ function Interventions() {
       )}
 
       <Dialog open={showModal} onOpenChange={setShowModal}>
-        <DialogContent className="max-w-2xl max-h-[90vh] p-0 gap-0 !flex flex-col overflow-hidden">
+        <DialogContent className="max-w-5xl max-h-[90vh] p-0 gap-0 !flex flex-col overflow-hidden">
           <DialogHeader className="px-6 pt-6 pb-3 border-b">
             <DialogTitle>{editingId ? 'Modifier l\'intervention' : 'Enregistrer une intervention'}</DialogTitle>
             <DialogDescription>Renseignez la maintenance concernée, le technicien et les actions réalisées.</DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 flex-1 overflow-y-auto overflow-x-hidden px-6 py-4">
+          <div className="flex flex-1 min-h-0 overflow-hidden">
+            {lastIntervention && (
+              <div className="hidden md:flex flex-col w-72 shrink-0 border-r bg-slate-50 overflow-y-auto" data-testid="last-intervention-panel">
+                <div className="px-4 py-3 border-b bg-slate-100">
+                  <p className="text-sm font-semibold text-slate-700">Dernière intervention</p>
+                  <p className="text-xs text-slate-500">{formatDate(lastIntervention.date_intervention)}</p>
+                  <Button
+                    type="button" size="sm" variant="outline"
+                    className="mt-2 w-full text-[#005F73] border-[#005F73]/30 hover:bg-[#005F73]/10"
+                    onClick={copyAllFromLast}
+                    data-testid="copy-all-last-btn"
+                  >
+                    <ArrowRight className="w-3.5 h-3.5 mr-1" /> Tout copier
+                  </Button>
+                </div>
+                <div className="p-3 space-y-3 text-sm">
+                  {[
+                    { label: 'Date', value: formatDate(lastIntervention.date_intervention), onCopy: () => copyField('date_intervention', (lastIntervention.date_intervention || '').slice(0, 10)), testid: 'copy-last-date' },
+                    { label: 'Technicien', value: lastIntervention.technicien || '—', onCopy: () => copyField('technicien', lastIntervention.technicien || ''), testid: 'copy-last-technicien' },
+                    { label: 'Durée', value: lastIntervention.duree_minutes != null ? `${lastIntervention.duree_minutes} min` : '—', onCopy: () => copyField('duree_minutes', lastIntervention.duree_minutes != null ? String(lastIntervention.duree_minutes) : ''), testid: 'copy-last-duree' },
+                    { label: 'Prestataire', value: getContractorName(lastIntervention.prestataire_id) || '—', onCopy: () => copyField('prestataire_id', lastIntervention.prestataire_id || ''), testid: 'copy-last-prestataire' },
+                    { label: 'Actions réalisées', value: lastIntervention.actions_realisees || '—', onCopy: () => copyField('actions_realisees', lastIntervention.actions_realisees || ''), testid: 'copy-last-actions' },
+                    { label: 'Relevés (grille)', value: mesuresSummary(lastIntervention.mesures) || '—', onCopy: () => copyField('mesures', lastIntervention.mesures ? JSON.parse(JSON.stringify(lastIntervention.mesures)) : null), testid: 'copy-last-mesures', disabled: !lastIntervention.mesures },
+                    { label: 'Observations', value: lastIntervention.observations || '—', onCopy: () => copyField('observations', lastIntervention.observations || ''), testid: 'copy-last-observations' },
+                  ].map((row) => (
+                    <div key={row.label} className="rounded-md bg-white border border-slate-200 p-2">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="text-[11px] uppercase tracking-wide text-slate-400">{row.label}</p>
+                          <p className="text-slate-700 break-words whitespace-pre-wrap">{row.value}</p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={row.onCopy}
+                          disabled={row.disabled}
+                          title="Copier vers la nouvelle intervention"
+                          className="shrink-0 mt-0.5 w-6 h-6 flex items-center justify-center rounded text-[#0A9396] hover:bg-[#0A9396]/10 disabled:opacity-30"
+                          data-testid={row.testid}
+                        >
+                          <ArrowRight className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            <div className="space-y-4 flex-1 overflow-y-auto overflow-x-hidden px-6 py-4">
             {/* Type d'intervention */}
             <div>
               <Label>Type d'intervention *</Label>
@@ -940,6 +1024,7 @@ function Interventions() {
                 </p>
               </div>
             </div>
+          </div>
           </div>
           <DialogFooter className="px-6 py-4 border-t">
             <Button variant="outline" onClick={() => setShowModal(false)}>Annuler</Button>

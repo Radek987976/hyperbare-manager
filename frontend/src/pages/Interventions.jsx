@@ -195,6 +195,14 @@ function Interventions() {
   }, [formData.type_intervention, formData.maintenance_preventive_id, formData.inspection_id, data.interventions, editingId]);
 
   const copyField = (field, value) => setFormData(p => ({ ...p, [field]: value }));
+  const copyPieces = (pieces) => {
+    const list = (pieces || []).map(p => ({ spare_part_id: p.spare_part_id, quantite: p.quantite, nom: getPartName(p.spare_part_id) }));
+    setFormData(prev => ({ ...prev, pieces_utilisees: list }));
+  };
+  function piecesSummary(pieces) {
+    if (!pieces || pieces.length === 0) return null;
+    return pieces.map(p => `${getPartName(p.spare_part_id)} ×${p.quantite}`).join(', ');
+  }
   function mesuresSummary(m) {
     if (!m) return null;
     if (m.type === 'servomex_calibrage' && m.grille) {
@@ -648,6 +656,7 @@ function Interventions() {
                     { label: 'Prestataire', value: getContractorName(lastIntervention.prestataire_id) || '—', onCopy: () => copyField('prestataire_id', lastIntervention.prestataire_id || ''), testid: 'copy-last-prestataire' },
                     { label: 'Actions réalisées', value: lastIntervention.actions_realisees || '—', onCopy: () => copyField('actions_realisees', lastIntervention.actions_realisees || ''), testid: 'copy-last-actions' },
                     { label: 'Relevés (grille)', value: mesuresSummary(lastIntervention.mesures) || '—', onCopy: () => copyField('mesures', lastIntervention.mesures ? JSON.parse(JSON.stringify(lastIntervention.mesures)) : null), testid: 'copy-last-mesures', disabled: !lastIntervention.mesures },
+                    { label: 'Pièces utilisées', value: piecesSummary(lastIntervention.pieces_utilisees) || '—', onCopy: () => copyPieces(lastIntervention.pieces_utilisees), testid: 'copy-last-pieces', disabled: !(lastIntervention.pieces_utilisees && lastIntervention.pieces_utilisees.length) },
                     { label: 'Observations', value: lastIntervention.observations || '—', onCopy: () => copyField('observations', lastIntervention.observations || ''), testid: 'copy-last-observations' },
                   ].map((row) => (
                     <div key={row.label} className="rounded-md bg-white border border-slate-200 p-2">

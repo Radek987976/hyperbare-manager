@@ -2021,54 +2021,35 @@ async def create_intervention(data: InterventionCreate, current_user: dict = Dep
             {"$set": {"statut": "terminee"}}
         )
     
-    # Si maintenance préventive, mettre à jour le work order ET recalculer la prochaine échéance
+    # Si maintenance préventive : mettre à jour LA MÊME fiche (pas de nouvelle fiche → pas de doublon).
+    # L'historique reste rattaché à cette maintenance (maintenance_preventive_id inchangé).
     if data.type_intervention == "preventive" and data.maintenance_preventive_id:
-        # Récupérer le work order préventif
         work_order = await db.work_orders.find_one({"id": data.maintenance_preventive_id})
         if work_order:
-            # Marquer comme terminée
-            await db.work_orders.update_one(
-                {"id": data.maintenance_preventive_id},
-                {"$set": {"statut": "terminee"}}
-            )
-            
-            # Si périodicité définie ET équipement non réformé, créer la prochaine maintenance
             eq_wo = await db.equipments.find_one({"id": work_order.get("equipment_id")}) if work_order.get("equipment_id") else None
             is_reformed = bool(eq_wo and eq_wo.get("statut") == "reforme")
-            if not is_reformed and (work_order.get("periodicite_jours") or work_order.get("periodicite_heures")):
+            is_recurring = bool(work_order.get("periodicite_jours") or work_order.get("periodicite_heures"))
+
+            if is_recurring and not is_reformed:
                 from datetime import timedelta
-                
-                # Calculer la prochaine date
+                updates = {"statut": "planifiee"}
+                # Prochaine échéance = date de réalisation + périodicité
                 if work_order.get("periodicite_jours"):
-                    next_date = datetime.strptime(data.date_intervention, "%Y-%m-%d") + timedelta(days=work_order["periodicite_jours"])
-                    next_date_str = next_date.strftime("%Y-%m-%d")
-                else:
-                    next_date_str = data.date_intervention  # Pour les heures, on garde la même date
-                
-                # Calculer le prochain compteur de déclenchement si basé sur les heures
-                next_compteur = None
+                    try:
+                        next_date = datetime.strptime(data.date_intervention, "%Y-%m-%d") + timedelta(days=work_order["periodicite_jours"])
+                        updates["date_planifiee"] = next_date.strftime("%Y-%m-%d")
+                    except Exception:
+                        pass
+                # Prochain compteur de déclenchement si basé sur les heures
                 if work_order.get("periodicite_heures") and eq_wo:
-                    current_compteur = eq_wo.get("compteur_horaire", 0)
-                    next_compteur = current_compteur + work_order["periodicite_heures"]
-                
-                # Créer le nouveau work order
-                new_wo = WorkOrder(
-                    titre=work_order["titre"],
-                    description=work_order["description"],
-                    type_maintenance="preventive",
-                    priorite=work_order.get("priorite", "normale"),
-                    statut="planifiee",
-                    caisson_id=work_order.get("caisson_id"),
-                    equipment_id=work_order.get("equipment_id"),
-                    date_planifiee=next_date_str,
-                    periodicite_jours=work_order.get("periodicite_jours"),
-                    periodicite_heures=work_order.get("periodicite_heures"),
-                    compteur_declenchement=next_compteur,
-                    technicien_assigne=work_order.get("technicien_assigne")
+                    updates["compteur_declenchement"] = (eq_wo.get("compteur_horaire", 0) or 0) + work_order["periodicite_heures"]
+                await db.work_orders.update_one({"id": data.maintenance_preventive_id}, {"$set": updates})
+            else:
+                # Maintenance ponctuelle (sans périodicité) ou équipement réformé : marquée terminée
+                await db.work_orders.update_one(
+                    {"id": data.maintenance_preventive_id},
+                    {"$set": {"statut": "terminee"}}
                 )
-                new_doc = new_wo.model_dump()
-                new_doc["created_at"] = new_doc["created_at"].isoformat()
-                await db.work_orders.insert_one(new_doc)
 
     # Si l'intervention est liée à un contrôle réglementaire, synchroniser le contrôle
     if data.inspection_id:

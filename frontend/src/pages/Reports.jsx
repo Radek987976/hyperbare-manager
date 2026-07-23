@@ -51,6 +51,25 @@ const Reports = () => {
     registre: (y, m) => reportsAPI.registreControlesPDF(),
   };
 
+  const downloadAuditZip = async () => {
+    setLoading(prev => ({ ...prev, auditZip: true }));
+    try {
+      const response = await reportsAPI.auditZip(planYear);
+      const url = window.URL.createObjectURL(new Blob([response.data], { type: 'application/zip' }));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `audit_${planYear}.zip`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      alert("Erreur lors de la génération du dossier d'audit");
+    } finally {
+      setLoading(prev => ({ ...prev, auditZip: false }));
+    }
+  };
+
   const previewPlan = (kind, filename) => {
     openPdf(planUrl[kind](planYear, month), filename);
   };
@@ -424,6 +443,34 @@ const Reports = () => {
                     >
                       {loading.registre ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Download className="w-4 h-4 mr-2" />}
                       Télécharger le registre PDF
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Dossier d'audit ZIP */}
+          <Card className="hover:shadow-md transition-shadow border-[#0A9396]/30 bg-[#0A9396]/[0.04]">
+            <CardContent className="p-6">
+              <div className="flex items-start gap-4">
+                <div className="w-12 h-12 bg-[#0A9396] rounded-lg flex items-center justify-center flex-shrink-0">
+                  <Download className="w-6 h-6 text-white" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="font-semibold text-lg text-slate-900">Dossier d'audit complet ({planYear}) — ZIP</h3>
+                  <p className="text-sm text-slate-500 mt-1">
+                    Télécharge en une archive ZIP tous les documents de l'année : plan de maintenance, les 12 check-listes mensuelles, les 12 PV mensuels, le PV annuel et le registre des contrôles réglementaires.
+                  </p>
+                  <div className="flex flex-wrap gap-2 mt-4">
+                    <Button
+                      onClick={downloadAuditZip}
+                      disabled={loading.auditZip}
+                      className="bg-[#0A9396] hover:bg-[#087f81]"
+                      data-testid="download-audit-zip-btn"
+                    >
+                      {loading.auditZip ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Download className="w-4 h-4 mr-2" />}
+                      Tout télécharger en ZIP
                     </Button>
                   </div>
                 </div>

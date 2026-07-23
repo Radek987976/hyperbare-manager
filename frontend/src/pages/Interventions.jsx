@@ -195,18 +195,6 @@ function Interventions() {
   }, [formData.type_intervention, formData.maintenance_preventive_id, formData.inspection_id, data.interventions, editingId]);
 
   const copyField = (field, value) => setFormData(p => ({ ...p, [field]: value }));
-  const copyAllFromLast = () => {
-    if (!lastIntervention) return;
-    setFormData(p => ({
-      ...p,
-      technicien: lastIntervention.technicien || p.technicien,
-      duree_minutes: lastIntervention.duree_minutes != null ? String(lastIntervention.duree_minutes) : p.duree_minutes,
-      prestataire_id: lastIntervention.prestataire_id || p.prestataire_id,
-      actions_realisees: lastIntervention.actions_realisees || p.actions_realisees,
-      observations: lastIntervention.observations || p.observations,
-      mesures: lastIntervention.mesures ? JSON.parse(JSON.stringify(lastIntervention.mesures)) : p.mesures,
-    }));
-  };
   function mesuresSummary(m) {
     if (!m) return null;
     if (m.type === 'servomex_calibrage' && m.grille) {
@@ -651,14 +639,6 @@ function Interventions() {
                 <div className="px-4 py-3 border-b bg-slate-100">
                   <p className="text-sm font-semibold text-slate-700">Dernière intervention</p>
                   <p className="text-xs text-slate-500">{formatDate(lastIntervention.date_intervention)}</p>
-                  <Button
-                    type="button" size="sm" variant="outline"
-                    className="mt-2 w-full text-[#005F73] border-[#005F73]/30 hover:bg-[#005F73]/10"
-                    onClick={copyAllFromLast}
-                    data-testid="copy-all-last-btn"
-                  >
-                    <ArrowRight className="w-3.5 h-3.5 mr-1" /> Tout copier
-                  </Button>
                 </div>
                 <div className="p-3 space-y-3 text-sm">
                   {[

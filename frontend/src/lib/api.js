@@ -334,6 +334,7 @@ export const reportsAPI = {
   pvMensuelPDF: (year, month) => api.get(`/reports/pdf/pv-controle-mensuel/${year}/${month}`, { responseType: 'blob' }),
   pvAnnuelPDF: (year) => api.get(`/reports/pdf/pv-controle-annuel/${year}`, { responseType: 'blob' }),
   registreControlesPDF: () => api.get('/reports/pdf/registre-controles', { responseType: 'blob' }),
+  auditZip: (year) => api.get(`/reports/zip/audit/${year}`, { responseType: 'blob' }),
 };
 
 // ==================== NEW APIs ====================
@@ -440,6 +441,7 @@ export const importAPI = {
   inspectionCandidates: (q = '') => api.get(`/admin/inspection-candidates?q=${encodeURIComponent(q)}`),
   transferToMaintenances: (inspectionIds) => api.post('/admin/transfer-to-maintenances', { inspection_ids: inspectionIds }),
   backfillActionsFromObservations: (apply = false) => api.post(`/admin/backfill-actions-from-observations?apply=${apply}`),
+  dedupePreventiveWorkorders: (apply = false) => api.post(`/admin/dedupe-preventive-workorders?apply=${apply}`),
 };
 
 export default api;

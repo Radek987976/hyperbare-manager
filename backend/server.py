@@ -5656,6 +5656,101 @@ async def generate_registre_controles_pdf(current_user: dict = Depends(get_curre
                              headers={"Content-Disposition": f"attachment; filename=registre_controles_{today}.pdf"})
 
 
+async def _streaming_to_bytes(resp) -> bytes:
+    """Consomme le body_iterator d'une StreamingResponse (BytesIO) → bytes complets."""
+    chunks = []
+    async for c in resp.body_iterator:
+        chunks.append(c if isinstance(c, (bytes, bytearray)) else str(c).encode())
+    return b"".join(chunks)
+
+
+@api_router.get("/reports/zip/audit/{year}")
+async def download_audit_zip(year: int, current_user: dict = Depends(get_current_user)):
+    """Dossier d'audit annuel regroupé dans un ZIP : plan de maintenance, check-listes (12 mois),
+    PV mensuels (12 mois), PV annuel et registre des contrôles réglementaires."""
+    import zipfile
+    mem = io.BytesIO()
+    with zipfile.ZipFile(mem, "w", zipfile.ZIP_DEFLATED) as z:
+        r = await generate_plan_maintenance_pdf(year, current_user)
+        z.writestr(f"plan_maintenance_{year}.pdf", await _streaming_to_bytes(r))
+
+        r = await generate_pv_annuel_pdf(year, current_user)
+        z.writestr(f"PV_annuel_{year}.pdf", await _streaming_to_bytes(r))
+
+        r = await generate_registre_controles_pdf(current_user)
+        z.writestr(f"registre_controles_{year}.pdf", await _streaming_to_bytes(r))
+
+        for m in range(1, 13):
+            rc = await generate_checkliste_pdf(year, m, current_user)
+            z.writestr(f"check-listes/checkliste_{year}_{m:02d}.pdf", await _streaming_to_bytes(rc))
+            rp = await generate_pv_mensuel_pdf(year, m, current_user)
+            z.writestr(f"PV-mensuels/PV_mensuel_{year}_{m:02d}.pdf", await _streaming_to_bytes(rp))
+    mem.seek(0)
+    return StreamingResponse(mem, media_type="application/zip",
+                             headers={"Content-Disposition": f"attachment; filename=audit_{year}.zip"})
+
+
+@api_router.post("/admin/dedupe-preventive-workorders")
+async def dedupe_preventive_workorders(apply: bool = False, current_user: dict = Depends(require_admin)):
+    """Fusionne les maintenances préventives en double (même équipement + même titre).
+    Garde un représentant (celui qui a le plus d'interventions), ré-attache les interventions
+    des doublons au représentant, puis supprime les doublons. apply=false = aperçu."""
+    wos = await db.work_orders.find({"type_maintenance": "preventive"}, {"_id": 0}).to_list(5000)
+    equipments = {e["id"]: e async for e in db.equipments.find({}, {"_id": 0, "id": 1, "reference": 1})}
+
+    count_by_wo = {}
+    async for it in db.interventions.find({"maintenance_preventive_id": {"$ne": None}}, {"_id": 0, "maintenance_preventive_id": 1}):
+        wid = it.get("maintenance_preventive_id")
+        if wid:
+            count_by_wo[wid] = count_by_wo.get(wid, 0) + 1
+
+    groups = {}
+    for wo in wos:
+        titre = (wo.get("titre") or "").strip().lower()
+        if not titre:
+            continue
+        groups.setdefault(((wo.get("equipment_id") or ""), titre), []).append(wo)
+
+    dup_groups = 0
+    interv_relinked = 0
+    delete_ids = []
+    relink_pairs = []
+    examples = []
+    for (eqid, _t), lst in groups.items():
+        if len(lst) <= 1:
+            continue
+        dup_groups += 1
+        keeper = sorted(lst, key=lambda w: (count_by_wo.get(w["id"], 0), str(w.get("date_planifiee") or "")), reverse=True)[0]
+        for w in lst:
+            if w["id"] == keeper["id"]:
+                continue
+            delete_ids.append(w["id"])
+            n = count_by_wo.get(w["id"], 0)
+            interv_relinked += n
+            if n:
+                relink_pairs.append((w["id"], keeper["id"]))
+        if len(examples) < 30:
+            examples.append({
+                "titre": keeper.get("titre", ""),
+                "equipement": (equipments.get(eqid, {}) or {}).get("reference", "Caisson (général)"),
+                "doublons_supprimes": len(lst) - 1,
+            })
+
+    if apply:
+        for dup_id, keeper_id in relink_pairs:
+            await db.interventions.update_many({"maintenance_preventive_id": dup_id}, {"$set": {"maintenance_preventive_id": keeper_id}})
+        if delete_ids:
+            await db.work_orders.delete_many({"id": {"$in": delete_ids}})
+
+    return {
+        "applied": apply,
+        "duplicate_groups": dup_groups,
+        "workorders_to_delete": len(delete_ids),
+        "interventions_relinked": interv_relinked,
+        "examples": examples,
+    }
+
+
 
 # ==================== HEALTH CHECK ====================
 

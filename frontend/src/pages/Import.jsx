@@ -111,6 +111,8 @@ const Import = () => {
   const [correlationPreview, setCorrelationPreview] = useState(null);
   const [isBackfilling, setIsBackfilling] = useState(false);
   const [backfillPreview, setBackfillPreview] = useState(null);
+  const [isDeduping, setIsDeduping] = useState(false);
+  const [dedupePreview, setDedupePreview] = useState(null);
   // Transfert maintenances -> contrôles réglementaires
   const [transferOpen, setTransferOpen] = useState(false);
   const [transferQ, setTransferQ] = useState('');
@@ -281,6 +283,34 @@ const Import = () => {
       setError(getErrorMessage(err));
     } finally {
       setIsBackfilling(false);
+    }
+  };
+
+  const handleDedupePreview = async () => {
+    setIsDeduping(true);
+    setError('');
+    setResult(null);
+    try {
+      const res = await importAPI.dedupePreventiveWorkorders(false);
+      setDedupePreview(res.data);
+    } catch (err) {
+      setError(getErrorMessage(err));
+    } finally {
+      setIsDeduping(false);
+    }
+  };
+
+  const handleDedupeApply = async () => {
+    setIsDeduping(true);
+    setError('');
+    try {
+      const res = await importAPI.dedupePreventiveWorkorders(true);
+      setResult({ type: 'correlate', message: `${res.data.workorders_to_delete} doublon(s) fusionné(s), ${res.data.interventions_relinked} intervention(s) ré-attachée(s).`, imported: res.data.workorders_to_delete });
+      setDedupePreview(null);
+    } catch (err) {
+      setError(getErrorMessage(err));
+    } finally {
+      setIsDeduping(false);
     }
   };
 
@@ -497,6 +527,31 @@ const Import = () => {
             <Button variant="outline" onClick={handleBackfillPreview} disabled={isBackfilling}
               className="text-amber-700 border-amber-200 hover:bg-amber-50 shrink-0" data-testid="backfill-preview-btn">
               {isBackfilling ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Database className="h-4 w-4 mr-2" />}
+              Aperçu
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Fusionner les maintenances préventives en double */}
+      <Card className="border-rose-100">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Database className="h-5 w-5 text-rose-600" />
+            Fusionner les maintenances préventives en double
+          </CardTitle>
+          <CardDescription>
+            Regroupe les maintenances préventives ayant le même équipement et le même titre. Garde une seule fiche (celle qui a le plus d'interventions), y ré-attache les interventions des doublons, puis supprime les doublons. Corrige l'affichage en double (une « OK » et une « Jamais réalisée ») dans les check-listes et PV.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center justify-between gap-4">
+            <p className="text-sm text-gray-600">
+              Un aperçu vous indique combien de doublons seront fusionnés avant d'appliquer. Aucune intervention n'est supprimée.
+            </p>
+            <Button variant="outline" onClick={handleDedupePreview} disabled={isDeduping}
+              className="text-rose-700 border-rose-200 hover:bg-rose-50 shrink-0" data-testid="dedupe-preview-btn">
+              {isDeduping ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Database className="h-4 w-4 mr-2" />}
               Aperçu
             </Button>
           </div>
@@ -797,6 +852,41 @@ const Import = () => {
             <AlertDialogCancel>Annuler</AlertDialogCancel>
             <AlertDialogAction onClick={handleBackfillApply} disabled={isBackfilling || !backfillPreview?.matched} data-testid="backfill-apply-btn">
               {isBackfilling ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Application...</> : `Appliquer (${backfillPreview?.matched || 0})`}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Aperçu fusion des doublons de maintenances */}
+      <AlertDialog open={dedupePreview !== null} onOpenChange={(open) => { if (!open) setDedupePreview(null); }}>
+        <AlertDialogContent className="max-w-lg">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Aperçu — Fusion des maintenances en double</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3 text-sm">
+                <p>
+                  <strong>{dedupePreview?.duplicate_groups || 0}</strong> groupe(s) en double détecté(s),
+                  {' '}<strong>{dedupePreview?.workorders_to_delete || 0}</strong> fiche(s) seront fusionnées,
+                  {' '}<strong>{dedupePreview?.interventions_relinked || 0}</strong> intervention(s) ré-attachée(s).
+                </p>
+                {dedupePreview?.examples?.length > 0 && (
+                  <div className="border rounded-md max-h-64 overflow-y-auto divide-y">
+                    {dedupePreview.examples.map((ex, i) => (
+                      <div key={i} className="p-2 flex justify-between gap-2">
+                        <span className="text-gray-700 truncate">{ex.titre} <span className="text-gray-400">— {ex.equipement}</span></span>
+                        <span className="text-rose-600 shrink-0">-{ex.doublons_supprimes}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <p className="text-xs text-gray-400">Aucune intervention n'est supprimée : elles sont ré-attachées à la fiche conservée.</p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annuler</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDedupeApply} disabled={isDeduping || !dedupePreview?.workorders_to_delete} data-testid="dedupe-apply-btn">
+              {isDeduping ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Application...</> : `Fusionner (${dedupePreview?.workorders_to_delete || 0})`}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

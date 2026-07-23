@@ -442,6 +442,7 @@ export const importAPI = {
   transferToMaintenances: (inspectionIds) => api.post('/admin/transfer-to-maintenances', { inspection_ids: inspectionIds }),
   backfillActionsFromObservations: (apply = false) => api.post(`/admin/backfill-actions-from-observations?apply=${apply}`),
   dedupePreventiveWorkorders: (apply = false) => api.post(`/admin/dedupe-preventive-workorders?apply=${apply}`),
+  recomputePreventiveSchedules: (apply = false) => api.post(`/admin/recompute-preventive-schedules?apply=${apply}`),
 };
 
 export default api;

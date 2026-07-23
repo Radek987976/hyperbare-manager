@@ -113,6 +113,8 @@ const Import = () => {
   const [backfillPreview, setBackfillPreview] = useState(null);
   const [isDeduping, setIsDeduping] = useState(false);
   const [dedupePreview, setDedupePreview] = useState(null);
+  const [isRecomputing, setIsRecomputing] = useState(false);
+  const [recomputePreview, setRecomputePreview] = useState(null);
   // Transfert maintenances -> contrôles réglementaires
   const [transferOpen, setTransferOpen] = useState(false);
   const [transferQ, setTransferQ] = useState('');
@@ -311,6 +313,34 @@ const Import = () => {
       setError(getErrorMessage(err));
     } finally {
       setIsDeduping(false);
+    }
+  };
+
+  const handleRecomputePreview = async () => {
+    setIsRecomputing(true);
+    setError('');
+    setResult(null);
+    try {
+      const res = await importAPI.recomputePreventiveSchedules(false);
+      setRecomputePreview(res.data);
+    } catch (err) {
+      setError(getErrorMessage(err));
+    } finally {
+      setIsRecomputing(false);
+    }
+  };
+
+  const handleRecomputeApply = async () => {
+    setIsRecomputing(true);
+    setError('');
+    try {
+      const res = await importAPI.recomputePreventiveSchedules(true);
+      setResult({ type: 'correlate', message: `${res.data.changed} maintenance(s) recalées, dont ${res.data.reactivated} réactivée(s).`, imported: res.data.changed });
+      setRecomputePreview(null);
+    } catch (err) {
+      setError(getErrorMessage(err));
+    } finally {
+      setIsRecomputing(false);
     }
   };
 
@@ -552,6 +582,31 @@ const Import = () => {
             <Button variant="outline" onClick={handleDedupePreview} disabled={isDeduping}
               className="text-rose-700 border-rose-200 hover:bg-rose-50 shrink-0" data-testid="dedupe-preview-btn">
               {isDeduping ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Database className="h-4 w-4 mr-2" />}
+              Aperçu
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Recaler / réactiver les maintenances préventives récurrentes */}
+      <Card className="border-teal-100">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Database className="h-5 w-5 text-teal-600" />
+            Recalculer les échéances des maintenances préventives
+          </CardTitle>
+          <CardDescription>
+            Une maintenance préventive récurrente ne doit jamais rester « Terminée ». Cet outil recale la prochaine échéance (= dernière réalisation + périodicité) et remet le statut sur « Planifiée » (elle apparaîtra « en retard » si l'échéance est dépassée). Les maintenances annulées ne sont pas touchées.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center justify-between gap-4">
+            <p className="text-sm text-gray-600">
+              À lancer après la fusion des doublons pour remettre les maintenances « Terminée » en « Planifiée » avec la bonne date.
+            </p>
+            <Button variant="outline" onClick={handleRecomputePreview} disabled={isRecomputing}
+              className="text-teal-700 border-teal-200 hover:bg-teal-50 shrink-0" data-testid="recompute-preview-btn">
+              {isRecomputing ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Database className="h-4 w-4 mr-2" />}
               Aperçu
             </Button>
           </div>
@@ -887,6 +942,40 @@ const Import = () => {
             <AlertDialogCancel>Annuler</AlertDialogCancel>
             <AlertDialogAction onClick={handleDedupeApply} disabled={isDeduping || !dedupePreview?.workorders_to_delete} data-testid="dedupe-apply-btn">
               {isDeduping ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Application...</> : `Fusionner (${dedupePreview?.workorders_to_delete || 0})`}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Aperçu recalcul des échéances */}
+      <AlertDialog open={recomputePreview !== null} onOpenChange={(open) => { if (!open) setRecomputePreview(null); }}>
+        <AlertDialogContent className="max-w-lg">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Aperçu — Recalcul des échéances préventives</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3 text-sm">
+                <p>
+                  <strong>{recomputePreview?.changed || 0}</strong> maintenance(s) seront recalées
+                  {' '}(dont <strong>{recomputePreview?.reactivated || 0}</strong> « Terminée » → « Planifiée »)
+                  {' '}sur <strong>{recomputePreview?.total || 0}</strong>.
+                </p>
+                {recomputePreview?.examples?.length > 0 && (
+                  <div className="border rounded-md max-h-64 overflow-y-auto divide-y">
+                    {recomputePreview.examples.map((ex, i) => (
+                      <div key={i} className="p-2">
+                        <div className="text-gray-700 truncate">{ex.titre}</div>
+                        <div className="text-xs text-teal-700">{ex.ancien_statut} → {ex.nouveau_statut} · échéance : {ex.nouvelle_echeance}</div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annuler</AlertDialogCancel>
+            <AlertDialogAction onClick={handleRecomputeApply} disabled={isRecomputing || !recomputePreview?.changed} data-testid="recompute-apply-btn">
+              {isRecomputing ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Application...</> : `Appliquer (${recomputePreview?.changed || 0})`}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

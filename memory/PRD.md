@@ -1,5 +1,11 @@
 # HyperbareManager - PRD (Product Requirements Document)
 
+## Changelog (2026-07-23c) — Réactivation/recalage des maintenances préventives récurrentes
+- **Cause du « Terminée » persistant** : compléter une préventive marque l'ancienne fiche `terminee` et crée une nouvelle `planifiee` (server.py L2030-2071). La fusion des doublons gardait la fiche `terminee` (porteuse de l'historique) → la maintenance récurrente restait affichée « Terminée ».
+- **Nouvel outil admin `POST /admin/recompute-preventive-schedules?apply=false|true`** (Import → « Recalculer les échéances des maintenances préventives ») : pour chaque préventive à périodicité (jours), recale `date_planifiee = dernière réalisation + périodicité` et remet `statut` `terminee`→`planifiee`. Exclut les `annulee`. Aperçu (total, changed, reactivated, exemples) → Appliquer. Vérifié curl preview : 100 recalées, 0 réactivées (aucune récurrente terminée en preview) ; sur production les « Terminée » seront réactivées.
+- **Fusion améliorée** : `dedupe-preventive-workorders` privilégie désormais la fiche `planifiee`/`en_cours` comme représentant (au lieu de « plus d'interventions »).
+- ⚠️ Code preview → **redéploiement requis** ; lancer l'outil une fois sur la production après la fusion.
+
 ## Changelog (2026-07-23b) — Correctif erreur preview + retrait bouton + dédoublonnage + ZIP audit
 - **Erreur bloquante « ResizeObserver loop … » (preview)** : neutralisée dans `index.js` (handler window.error + filtrage console.error). L'overlay de dev ne bloque plus le formulaire d'intervention. Vérifié écran (plus d'overlay).
 - **Bouton « Tout copier » retiré** du panneau « Dernière intervention » (les flèches → par champ restent). `copyAllFromLast` supprimé.

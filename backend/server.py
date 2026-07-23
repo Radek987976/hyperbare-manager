@@ -5720,7 +5720,7 @@ async def dedupe_preventive_workorders(apply: bool = False, current_user: dict =
         if len(lst) <= 1:
             continue
         dup_groups += 1
-        keeper = sorted(lst, key=lambda w: (count_by_wo.get(w["id"], 0), str(w.get("date_planifiee") or "")), reverse=True)[0]
+        keeper = sorted(lst, key=lambda w: (1 if w.get("statut") in ("planifiee", "en_cours") else 0, count_by_wo.get(w["id"], 0), str(w.get("date_planifiee") or "")), reverse=True)[0]
         for w in lst:
             if w["id"] == keeper["id"]:
                 continue
@@ -5747,6 +5747,68 @@ async def dedupe_preventive_workorders(apply: bool = False, current_user: dict =
         "duplicate_groups": dup_groups,
         "workorders_to_delete": len(delete_ids),
         "interventions_relinked": interv_relinked,
+        "examples": examples,
+    }
+
+
+@api_router.post("/admin/recompute-preventive-schedules")
+async def recompute_preventive_schedules(apply: bool = False, current_user: dict = Depends(require_admin)):
+    """Réactive et recale les maintenances préventives récurrentes : une maintenance à périodicité
+    ne doit jamais rester « Terminée ». Recalcule la prochaine échéance = dernière réalisation + périodicité
+    et remet le statut à « Planifiée » (elle apparaîtra « en retard » si l'échéance est dépassée). apply=false = aperçu."""
+    from datetime import timedelta
+    from pymongo import UpdateOne
+    wos = await db.work_orders.find({"type_maintenance": "preventive"}, {"_id": 0}).to_list(5000)
+
+    last_by_wo = {}
+    async for it in db.interventions.find({"maintenance_preventive_id": {"$ne": None}}, {"_id": 0, "maintenance_preventive_id": 1, "date_intervention": 1}):
+        wid = it.get("maintenance_preventive_id")
+        d = it.get("date_intervention")
+        if wid and d and (wid not in last_by_wo or str(d) > str(last_by_wo[wid])):
+            last_by_wo[wid] = str(d)[:10]
+
+    changed = 0
+    reactivated = 0
+    examples = []
+    ops = []
+    for wo in wos:
+        pj = wo.get("periodicite_jours")
+        if not pj or pj <= 0:
+            continue  # non récurrente (ou basée sur heures) : on ne touche pas
+        if wo.get("statut") == "annulee":
+            continue  # maintenance annulée : on ne la réactive pas
+        updates = {}
+        base = last_by_wo.get(wo["id"])
+        if base:
+            try:
+                nd = (datetime.strptime(base, "%Y-%m-%d") + timedelta(days=pj)).strftime("%Y-%m-%d")
+            except Exception:
+                nd = None
+            if nd and nd != wo.get("date_planifiee"):
+                updates["date_planifiee"] = nd
+        if wo.get("statut") == "terminee":
+            updates["statut"] = "planifiee"
+            reactivated += 1
+        if updates:
+            changed += 1
+            ops.append(UpdateOne({"id": wo["id"]}, {"$set": updates}))
+            if len(examples) < 30:
+                examples.append({
+                    "titre": wo.get("titre", ""),
+                    "ancien_statut": wo.get("statut"),
+                    "nouveau_statut": updates.get("statut", wo.get("statut")),
+                    "nouvelle_echeance": updates.get("date_planifiee", wo.get("date_planifiee")),
+                })
+
+    if apply and ops:
+        for i in range(0, len(ops), 500):
+            await db.work_orders.bulk_write(ops[i:i + 500], ordered=False)
+
+    return {
+        "applied": apply,
+        "total": len(wos),
+        "changed": changed,
+        "reactivated": reactivated,
         "examples": examples,
     }
 

@@ -455,6 +455,7 @@ const Import = () => {
   };
 
   const handleResetRules = async () => {
+    if (!window.confirm('Réinitialiser les règles aux valeurs par défaut ? Vos règles personnalisées seront supprimées.')) return;
     setRulesLoading(true);
     try {
       const res = await importAPI.resetCalendarRules();

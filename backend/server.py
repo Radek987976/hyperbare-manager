@@ -6051,9 +6051,11 @@ async def apply_annual_calendar(apply: bool = False, year: Optional[int] = None,
     ops = []
     examples = []
     by_month = {}
+    eligible = 0
     for wo in wos:
         if wo.get("statut") == "annulee":
             continue
+        eligible += 1
         eq = eq_map.get(wo.get("equipment_id"), {})
         month = _month_from_rules(rules, eq.get("reference"), eq.get("type"), wo.get("titre"))
         if not month:
@@ -6088,7 +6090,7 @@ async def apply_annual_calendar(apply: bool = False, year: Optional[int] = None,
     return {
         "applied": apply,
         "year": yr,
-        "total": len(wos),
+        "total": eligible,
         "changed": changed,
         "by_month": {_MONTH_NAMES_FR[m]: by_month[m] for m in sorted(by_month.keys())},
         "examples": examples,

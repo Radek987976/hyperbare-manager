@@ -1,5 +1,15 @@
 # HyperbareManager - PRD (Product Requirements Document)
 
+## Changelog (2026-07-25b) — Calendrier annuel configurable + correctif planning 52 semaines
+- **Correctif — Planning PDF « 52 semaines » vide** (`GET /reports/pdf/planning`) : les `date_planifiee` sont stockées en `YYYY-MM-DD` (naïves) et étaient comparées à `datetime.now(timezone.utc)` (aware) → `TypeError` avalée par `except: pass` → **toutes** les maintenances ignorées → PDF vide. Correctif : comparaison sur `.date()` (date pure), `date_obj` rendu naïf. Vérifié : 40 maintenances sur les 52 prochaines semaines (avant : 0), PDF 5,8 Ko valide.
+- **Calendrier annuel configurable** (règles éditables en base, collection `annual_calendar_rules`) :
+  - CRUD admin : `GET /admin/annual-calendar-rules` (seed lazy des 7 défauts si vide, triées par `ordre`), `POST` (créer), `PUT /{id}` (modifier — dont le mois), `DELETE /{id}`, `POST /admin/annual-calendar-rules/reset-defaults`. Validation : `match_field` ∈ reference|type|titre, `match_value` non vide, `month` 1-12 (sinon 400).
+  - Règle = {match_field, match_value, month, label, ordre}. `reference` = préfixe, `type`/`titre` = contient. Première règle correspondante (ordre) décide du mois. Défauts : RES_→Mai, CUV_→Juillet, ARI→Juin, COMP→Février, type compresseur→Février, titre « air respirable »→Février, type extincteur→Juin.
+  - `POST /admin/apply-annual-calendar` utilise désormais les règles de la base (au lieu du hardcode). `total` renvoyé = préventives éligibles (hors annulées).
+  - UI (`Import.jsx`) : bouton **« Configurer les règles »** (`calendar-config-btn`) → dialog listant les règles (menu mois par règle + suppression) + formulaire d'ajout (critère/valeur/mois/libellé) + « Réinitialiser par défaut » (avec confirmation). `importAPI.getCalendarRules/createCalendarRule/updateCalendarRule/deleteCalendarRule/resetCalendarRules`.
+- Vérifié testing_agent iteration_30 : backend 6/6, frontend 6/6, 0 bug. ⚠️ Code preview → **redéploiement requis** pour la production.
+
+
 ## Changelog (2026-07-25) — Outil « Appliquer le calendrier annuel »
 - **Nouvel outil admin `POST /admin/apply-annual-calendar?apply=false|true&year=YYYY`** (server.py) : re-ancre `date_planifiee` des maintenances préventives sur les mois du planning opérationnel via `_annual_calendar_month(reference, type, titre)`. Règles (première correspondance) : réf `RES_` → Mai (5), réf `CUV_` → Juillet (7), réf `ARI`/type « appareil respiratoire isolant » → Juin (6), réf `COMP`/type « compresseur »/titre « air respirable » → Février (2), type/titre « extincteur » → Juin (6). Les semestrielles (Compresseurs Fév+Août, RES_ Mai+Nov, Extincteurs Juin+Déc) : le 1er mois est ancré, la 2e occurrence est gérée par la périodicité (180 j). Le jour du mois est conservé (clampé), année en cours par défaut. Les maintenances `annulee` sont ignorées. `apply=false` = aperçu (aucune écriture).
 - **UI (`Import.jsx`, admin)** : carte « Appliquer le calendrier annuel » (`calendar-preview-btn`) → dialog d'aperçu (répartition par mois + exemples ancienne→nouvelle échéance) → « Appliquer » (`calendar-apply-btn`). `importAPI.applyAnnualCalendar(apply, year)`.

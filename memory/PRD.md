@@ -1,5 +1,12 @@
 # HyperbareManager - PRD (Product Requirements Document)
 
+## Changelog (2026-07-25d) — Correctif : historique des sous-équipements (multi-sélection)
+- **Bug** : l'historique d'un sous-équipement ne remontait pas les interventions où le sous-équipement était sélectionné en **multi** (`sous_equipement_ids`) sans être le **principal** (`sous_equipement_id`). Fréquent pour les sous-équipements rattachés à un équipement `*_GENERAL` (manomètres partagés) : les interventions sont saisies sur la chambre précise (ex. PUP_CHRONIQUE) avec plusieurs manomètres cochés → seul le 1er devient `sous_equipement_id`, les autres ne sont que dans `sous_equipement_ids`.
+- **Cause** : `_build_maintenance_history` (server.py) filtrait les interventions via `{$or:[{equipment_id},{sous_equipement_id}]}` — le champ multi `sous_equipement_ids` était ignoré.
+- **Correctif** : ajout de `{"sous_equipement_ids": entity_id}` au `$or`. Vérifié curl : sous-équipement `609T9` (parent PUP_GENERAL) → historique passe de 0 à 1 intervention (« Etalonnage des manomètres… », 2018-11-26). Neutre pour l'historique des équipements (un id d'équipement n'apparaît pas dans les listes de sous-équipements).
+- ⚠️ Code preview → **redéploiement requis** pour la production.
+
+
 ## Changelog (2026-07-25c) — Détail maintenance préventive : historique + pièces utilisées
 - **Nouvel endpoint `GET /work-orders/{id}/history`** (server.py, après suggested-pieces) : récupère **en direct** les interventions réalisées pour la maintenance via `maintenance_preventive_id` (+ repli sur les fiches sœurs mêmes équipement+titre, pour capter les interventions rattachées aux doublons) et **agrège les pièces réellement utilisées** (résolution des noms via `spare_parts`, repli « Pièce » si l'id est orphelin). Renvoie `{count, interventions:[{date, technicien, actions, observations, durée, prestataire, pieces_utilisees}], pieces_utilisees (agrégées)}`.
 - **UI (`WorkOrders.jsx`, modale de détail)** : 2 nouvelles sections — **« Pièces détachées utilisées »** (`workorder-pieces-section`, agrégat nom × quantité) et **« Historique des interventions »** (`workorder-history-section`, liste date/technicien/actions/observations + badges pièces, badge compteur). Chargées à chaque ouverture du détail → **toujours à jour**, y compris après modification d'une ancienne intervention. `workOrdersAPI.getHistory`.

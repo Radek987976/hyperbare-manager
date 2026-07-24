@@ -1757,9 +1757,14 @@ async def _build_maintenance_history(entity_id: str):
     eq = await db.equipments.find_one({"id": entity_id}, {"_id": 0, "statut": 1})
     is_reformed = bool(eq and eq.get("statut") == "reforme")
 
-    # Interventions réalisées (rattachées à l'équipement OU au sous-équipement)
+    # Interventions réalisées (rattachées à l'équipement OU au sous-équipement,
+    # y compris via la multi-sélection sous_equipement_ids)
     interventions = await db.interventions.find(
-        {"$or": [{"equipment_id": entity_id}, {"sous_equipement_id": entity_id}]}, {"_id": 0}
+        {"$or": [
+            {"equipment_id": entity_id},
+            {"sous_equipement_id": entity_id},
+            {"sous_equipement_ids": entity_id},
+        ]}, {"_id": 0}
     ).to_list(5000)
     for it in interventions:
         historique.append({

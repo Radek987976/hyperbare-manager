@@ -3750,6 +3750,28 @@ async def export_collection_xlsx(collection: str, current_user: dict = Depends(g
     if collection == "inspections":
         return await _export_inspections_register()
 
+    # Équipements : exporter aussi les sous-équipements (2e feuille), avec références lisibles
+    if collection == "equipments":
+        equipments = await db.equipments.find({}, {"_id": 0}).to_list(10000)
+        if not equipments:
+            raise HTTPException(status_code=404, detail="Aucune donnée à exporter")
+        eq_ref = {e['id']: e.get('reference', '') for e in equipments}
+        subs = await db.subequipments.find({}, {"_id": 0}).to_list(10000)
+        for s in subs:
+            parents = s.get('parent_equipment_ids') or ([s['parent_equipment_id']] if s.get('parent_equipment_id') else [])
+            s['equipements_parents'] = ", ".join(eq_ref.get(pid, pid) for pid in parents)
+        output = io.BytesIO()
+        with pd.ExcelWriter(output, engine='openpyxl') as writer:
+            pd.DataFrame(equipments).to_excel(writer, sheet_name="Equipements", index=False)
+            if subs:
+                pd.DataFrame(subs).to_excel(writer, sheet_name="Sous_Equipements", index=False)
+        output.seek(0)
+        return StreamingResponse(
+            output,
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={"Content-Disposition": "attachment; filename=equipements_et_sous_equipements.xlsx"}
+        )
+
     data = await db[collection].find({}, {"_id": 0}).to_list(10000)
     
     if not data:

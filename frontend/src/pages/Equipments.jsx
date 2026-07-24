@@ -100,6 +100,8 @@ const Equipments = () => {
     type: '',
     reference: '',
     numero_serie: '',
+    marque: '',
+    modele: '',
     criticite: 'normale',
     statut: 'en_service',
     description: '',
@@ -188,6 +190,8 @@ const Equipments = () => {
       type: '',
       reference: '',
       numero_serie: '',
+      marque: '',
+      modele: '',
       criticite: 'normale',
       statut: 'en_service',
       description: '',
@@ -203,6 +207,8 @@ const Equipments = () => {
       type: equipment.type,
       reference: equipment.reference,
       numero_serie: equipment.numero_serie,
+      marque: equipment.marque || '',
+      modele: equipment.modele || '',
       criticite: equipment.criticite,
       statut: equipment.statut,
       description: equipment.description || '',
@@ -629,6 +635,28 @@ const Equipments = () => {
                 onChange={handleChange}
                 placeholder="SN-123456"
                 data-testid="input-numero-serie"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="marque">Marque</Label>
+              <Input
+                id="marque"
+                name="marque"
+                value={formData.marque}
+                onChange={handleChange}
+                placeholder="Ex: BAUER"
+                data-testid="input-marque"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="modele">Modèle</Label>
+              <Input
+                id="modele"
+                name="modele"
+                value={formData.modele}
+                onChange={handleChange}
+                placeholder="Ex: PE 100"
+                data-testid="input-modele"
               />
             </div>
             <div className="space-y-2">

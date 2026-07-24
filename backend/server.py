@@ -419,6 +419,8 @@ class EquipmentBase(BaseModel):
     type: str  # porte, joint, soupape, compresseur, capteur, systeme_securite
     reference: str
     numero_serie: str
+    marque: Optional[str] = None  # Marque (ex: compresseur BAUER)
+    modele: Optional[str] = None  # Modèle
     criticite: str = Field(default="normale", description="critique, haute, normale, basse")
     statut: str = Field(default="en_service", description="en_service, maintenance, hors_service, reforme")
     caisson_id: str
@@ -4574,8 +4576,8 @@ def create_table_style():
 LOGO_PATH = ROOT_DIR / "assets_logo.png"
 
 
-def _build_header_table(intitule: str, page_str: str, avail_w: float = None, date_creation: str = "20/12/2024  RT"):
-    """Cartouche officiel CHPF (logo + « Document d'enregistrement » + titre + date création / page + date génération)."""
+def _build_header_table(intitule: str, page_str: str, avail_w: float = None, date_creation: str = "20/12/2024  RT", periode: str = None):
+    """Cartouche officiel CHPF (logo + titre + date création / page + période ciblée)."""
     styles = create_pdf_styles()
     doc_enr = ParagraphStyle('OffDoc', parent=styles['Normal'], fontSize=12, alignment=TA_CENTER)
     big = ParagraphStyle('OffBig', parent=styles['Normal'], fontSize=14, alignment=TA_CENTER,
@@ -4587,12 +4589,12 @@ def _build_header_table(intitule: str, page_str: str, avail_w: float = None, dat
     except Exception:
         logo = Paragraph("", styles['Normal'])
 
-    gen = datetime.now().strftime('%d/%m/%Y')
+    bottom = periode if periode else datetime.now().strftime('%d/%m/%Y')
     right_top = Paragraph("<u>Date de création :</u><br/>" + date_creation, small)
-    right_bot = Paragraph(page_str + "<br/>" + gen, small)
+    right_bot = Paragraph(page_str + "<br/>" + bottom, small)
 
     data = [
-        [logo, Paragraph("« Document d'enregistrement »", doc_enr), right_top],
+        [logo, Paragraph("", doc_enr), right_top],
         ['', Paragraph(intitule, big), right_bot],
     ]
     if avail_w is None:
@@ -4613,7 +4615,7 @@ def _build_header_table(intitule: str, page_str: str, avail_w: float = None, dat
     return t
 
 
-def make_header_canvas(intitule: str, margin: float = 1.5 * cm, page_w: float = A4[0], page_h: float = A4[1]):
+def make_header_canvas(intitule: str, margin: float = 1.5 * cm, page_w: float = A4[0], page_h: float = A4[1], periode: str = None):
     """Fabrique un canvas qui dessine le cartouche officiel (avec « Page X sur Y ») en haut de CHAQUE page."""
     class _HeaderCanvas(pdfcanvas.Canvas):
         def __init__(self, *args, **kwargs):
@@ -4635,7 +4637,7 @@ def make_header_canvas(intitule: str, margin: float = 1.5 * cm, page_w: float = 
         def _draw_header(self, total):
             page_str = f"Page : {self._pageNumber} sur {total}"
             avail_w = page_w - 2 * margin
-            t = _build_header_table(intitule, page_str, avail_w)
+            t = _build_header_table(intitule, page_str, avail_w, periode=periode)
             w, h = t.wrapOn(self, avail_w, 6 * cm)
             t.drawOn(self, margin, page_h - 1.4 * cm - h)
 
@@ -5443,6 +5445,10 @@ async def generate_plan_maintenance_pdf(year: int, current_user: dict = Depends(
                              headers={"Content-Disposition": f"attachment; filename=plan_maintenance_{year}.pdf"})
 
 
+MONTHS_FR = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin",
+             "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"]
+
+
 @api_router.get("/reports/pdf/check-liste/{year}/{month}")
 async def generate_checkliste_pdf(year: int, month: int, current_user: dict = Depends(get_current_user)):
     """Check-liste mensuelle des maintenances préventives dues (format check-liste)."""
@@ -5477,10 +5483,49 @@ async def generate_checkliste_pdf(year: int, month: int, current_user: dict = De
     else:
         elements.append(Paragraph("Aucune maintenance préventive prévue pour ce mois.", styles['PDFNormal']))
     elements.extend(_pv_footer(styles))
-    doc.build(elements, canvasmaker=make_header_canvas("Check-liste mensuelle du caisson hyperbare CHPF", margin=1.0 * cm))
+    doc.build(elements, canvasmaker=make_header_canvas("Check-liste mensuelle du caisson hyperbare CHPF", margin=1.0 * cm, periode=f"{MONTHS_FR[month - 1]} {year}"))
     buffer.seek(0)
     return StreamingResponse(buffer, media_type="application/pdf",
                              headers={"Content-Disposition": f"attachment; filename=checkliste_{year}_{month:02d}.pdf"})
+
+
+@api_router.get("/reports/pdf/check-liste-annuelle/{year}")
+async def generate_checkliste_annuelle_pdf(year: int, current_user: dict = Depends(get_current_user)):
+    """Check-liste annuelle : récapitulatif de toutes les maintenances préventives de l'année (même format que la mensuelle)."""
+    items, _ = await _build_plan_items(year)
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=1.0 * cm, leftMargin=1.0 * cm, topMargin=4.9 * cm, bottomMargin=1.5 * cm)
+    styles = create_pdf_styles()
+    elements = []
+    if items:
+        by_type = {}
+        for it in items:
+            by_type.setdefault(it['equipment_type'], []).append(it)
+        for etype in sorted(by_type.keys()):
+            elements.append(Paragraph(etype, styles['SectionHeader']))
+            data = [[_PH("Intervention"), _PH("Équipement"), _PH("Périodicité"), _PH("Dernière réalisation"), _PH("Fait"), _PH("Date"), _PH("Obs.")]]
+            late_rows = []
+            for it in sorted(by_type[etype], key=lambda x: x['titre']):
+                derniere = it['derniere_realisation'] or '—'
+                if it.get('is_late'):
+                    derniere = f"{derniere}  ⚠ Retard signalé" if it['derniere_realisation'] else "⚠ Jamais réalisée"
+                    late_rows.append(len(data))
+                data.append([_P(it['titre']), _P(it['equipment_ref']), _P(it['periodicite']), _P(derniere), "[ ]", "", ""])
+            t = Table(data, colWidths=[6.0 * cm, 2.6 * cm, 1.8 * cm, 2.4 * cm, 1.0 * cm, 2.1 * cm, 3.0 * cm], repeatRows=1)
+            style = create_table_style()
+            for r in late_rows:
+                style.add('TEXTCOLOR', (0, r), (-1, r), colors.HexColor('#C0271A'))
+                style.add('FONTNAME', (3, r), (3, r), 'Helvetica-Bold')
+            t.setStyle(style)
+            elements.append(t)
+            elements.append(Spacer(1, 10))
+    else:
+        elements.append(Paragraph("Aucune maintenance préventive planifiée pour cette année.", styles['PDFNormal']))
+    elements.extend(_pv_footer(styles))
+    doc.build(elements, canvasmaker=make_header_canvas("Check-liste annuelle du caisson hyperbare CHPF", margin=1.0 * cm, periode=str(year)))
+    buffer.seek(0)
+    return StreamingResponse(buffer, media_type="application/pdf",
+                             headers={"Content-Disposition": f"attachment; filename=checkliste_annuelle_{year}.pdf"})
 
 
 @api_router.get("/reports/pdf/pv-controle-mensuel/{year}/{month}")
@@ -5508,7 +5553,7 @@ async def generate_pv_mensuel_pdf(year: int, month: int, current_user: dict = De
     else:
         elements.append(Paragraph("Aucune maintenance préventive prévue pour ce mois.", styles['PDFNormal']))
     elements.extend(_pv_footer(styles))
-    doc.build(elements, canvasmaker=make_header_canvas("Contrôle Mensuel du caisson hyperbare CHPF"))
+    doc.build(elements, canvasmaker=make_header_canvas("Contrôle Mensuel du caisson hyperbare CHPF", periode=f"{MONTHS_FR[month - 1]} {year}"))
     buffer.seek(0)
     return StreamingResponse(buffer, media_type="application/pdf",
                              headers={"Content-Disposition": f"attachment; filename=pv_controle_mensuel_{year}_{month:02d}.pdf"})
@@ -5534,17 +5579,17 @@ async def generate_pv_annuel_pdf(year: int, current_user: dict = Depends(get_cur
                 key = (it['titre'], it['equipment_ref'])
                 if key not in seen:
                     seen[key] = it
-            data = [["Intervention", "Équipement", "Périodicité", "Nb / an", "Réalisé"]]
+            data = [["Intervention", "Équipement", "Périodicité", "Nb / an", "Réalisé", "Observations"]]
             for it in sorted(seen.values(), key=lambda x: x['titre']):
-                data.append([_P(it['titre']), _P(it['equipment_ref']), _P(it['periodicite']), str(it['times_per_year']), ""])
-            t = Table(data, colWidths=[7 * cm, 3 * cm, 2.3 * cm, 1.7 * cm, 3.5 * cm], repeatRows=1)
+                data.append([_P(it['titre']), _P(it['equipment_ref']), _P(it['periodicite']), str(it['times_per_year']), "", ""])
+            t = Table(data, colWidths=[5.5 * cm, 2.6 * cm, 2.0 * cm, 1.4 * cm, 2.0 * cm, 4.0 * cm], repeatRows=1)
             t.setStyle(create_table_style())
             elements.append(t)
             elements.append(Spacer(1, 10))
     else:
         elements.append(Paragraph("Aucune maintenance préventive planifiée pour cette année.", styles['PDFNormal']))
     elements.extend(_pv_footer(styles))
-    doc.build(elements, canvasmaker=make_header_canvas("Contrôle Annuel du caisson hyperbare CHPF"))
+    doc.build(elements, canvasmaker=make_header_canvas("Contrôle Annuel du caisson hyperbare CHPF", periode=str(year)))
     buffer.seek(0)
     return StreamingResponse(buffer, media_type="application/pdf",
                              headers={"Content-Disposition": f"attachment; filename=pv_controle_annuel_{year}.pdf"})
@@ -5660,6 +5705,9 @@ async def download_audit_zip(year: int, current_user: dict = Depends(get_current
 
         r = await generate_registre_controles_pdf(current_user)
         z.writestr(f"registre_controles_{year}.pdf", await _streaming_to_bytes(r))
+
+        rca = await generate_checkliste_annuelle_pdf(year, current_user)
+        z.writestr(f"checkliste_annuelle_{year}.pdf", await _streaming_to_bytes(rca))
 
         for m in range(1, 13):
             rc = await generate_checkliste_pdf(year, m, current_user)
@@ -6703,6 +6751,14 @@ async def create_report_template(template: ReportTemplateCreate, current_user: d
     await db.report_templates.insert_one(doc)
     doc.pop("_id", None)
     return doc
+
+@api_router.delete("/report-templates/{template_id}")
+async def delete_report_template(template_id: str, current_user: dict = Depends(require_admin)):
+    """Supprime un modèle de PV."""
+    result = await db.report_templates.delete_one({"id": template_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Modèle introuvable")
+    return {"success": True}
 
 # ==================== CONTROL REPORTS (PV) ROUTES ====================
 

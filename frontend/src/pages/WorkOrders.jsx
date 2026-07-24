@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
-import { workOrdersAPI, equipmentsAPI, caissonAPI, usersAPI, equipmentTypesAPI, sparePartsAPI, contractorsAPI, openStoredFile } from '../lib/api';
+import { workOrdersAPI, equipmentsAPI, caissonAPI, usersAPI, equipmentTypesAPI, sparePartsAPI, contractorsAPI, importAPI, openStoredFile } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
 import { 
   formatDate, 
@@ -108,6 +108,8 @@ const WorkOrders = () => {
   const [spareParts, setSpareParts] = useState([]);
   const [contractors, setContractors] = useState([]);
   const [pieceToAdd, setPieceToAdd] = useState('');
+  const [recalPreview, setRecalPreview] = useState(null);
+  const [recalBusy, setRecalBusy] = useState(false);
   const [pieceQte, setPieceQte] = useState('1');
   
   const backendUrl = process.env.REACT_APP_BACKEND_URL;
@@ -159,6 +161,32 @@ const WorkOrders = () => {
       setLoading(false);
     }
   };
+
+  const handleRecalPreview = async () => {
+    setRecalBusy(true);
+    try {
+      const res = await importAPI.recomputePreventiveSchedules(false);
+      setRecalPreview(res.data);
+    } catch (error) {
+      console.error('Erreur aperçu recalage:', error);
+    } finally {
+      setRecalBusy(false);
+    }
+  };
+
+  const handleRecalApply = async () => {
+    setRecalBusy(true);
+    try {
+      await importAPI.recomputePreventiveSchedules(true);
+      setRecalPreview(null);
+      await loadData();
+    } catch (error) {
+      console.error('Erreur recalage:', error);
+    } finally {
+      setRecalBusy(false);
+    }
+  };
+
 
   // Helper to get type label from dynamic types
   const getTypeLabel = (typeCode) => {
@@ -446,16 +474,65 @@ const WorkOrders = () => {
           </p>
         </div>
         {canCreate() && (
-          <Button 
-            onClick={openCreateModal}
-            className="bg-[#005F73] hover:bg-[#004C5C]"
-            data-testid="add-work-order-btn"
-          >
-            <Plus className="w-4 h-4 mr-2" />
-            Nouvelle maintenance
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              variant="outline"
+              onClick={handleRecalPreview}
+              disabled={recalBusy}
+              className="border-[#0A9396] text-[#0A9396] hover:bg-[#0A9396]/10"
+              data-testid="recal-schedules-btn"
+              title="Réactive les maintenances récurrentes terminées et recale leur prochaine échéance"
+            >
+              {recalBusy ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <RefreshCw className="w-4 h-4 mr-2" />}
+              Recaler les échéances
+            </Button>
+            <Button 
+              onClick={openCreateModal}
+              className="bg-[#005F73] hover:bg-[#004C5C]"
+              data-testid="add-work-order-btn"
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Nouvelle maintenance
+            </Button>
+          </div>
         )}
       </div>
+
+      <AlertDialog open={recalPreview !== null} onOpenChange={(open) => { if (!open) setRecalPreview(null); }}>
+        <AlertDialogContent className="max-w-lg">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Recaler les échéances des maintenances</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3 text-sm">
+                <p>
+                  <strong>{recalPreview?.changed || 0}</strong> maintenance(s) seront recalées
+                  {' '}(dont <strong>{recalPreview?.reactivated || 0}</strong> « Terminée » → « Planifiée »)
+                  {' '}sur <strong>{recalPreview?.total || 0}</strong>.
+                </p>
+                <p className="text-xs text-slate-500">
+                  Une maintenance récurrente ne reste jamais « Terminée » : sa prochaine échéance = dernière réalisation + périodicité (elle s'affiche « en retard » si dépassée). Les annulées ne sont pas touchées.
+                </p>
+                {recalPreview?.examples?.length > 0 && (
+                  <div className="border rounded-md max-h-56 overflow-y-auto divide-y">
+                    {recalPreview.examples.map((ex, i) => (
+                      <div key={i} className="p-2">
+                        <div className="text-slate-700 truncate">{ex.titre}</div>
+                        <div className="text-xs text-[#0A9396]">{ex.ancien_statut} → {ex.nouveau_statut} · échéance : {ex.nouvelle_echeance}</div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annuler</AlertDialogCancel>
+            <AlertDialogAction onClick={handleRecalApply} disabled={recalBusy || !recalPreview?.changed} data-testid="recal-apply-btn">
+              {recalBusy ? 'Application...' : `Appliquer (${recalPreview?.changed || 0})`}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>

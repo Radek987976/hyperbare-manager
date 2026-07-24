@@ -43,7 +43,8 @@ import {
   XCircle,
   AlertTriangle,
   Eye,
-  Printer
+  Printer,
+  Trash2
 } from 'lucide-react';
 
 const RESULT_OPTIONS = [
@@ -111,6 +112,47 @@ const ControlReports = () => {
     }
   };
 
+  const isAirTemplate = (t) => {
+    const s = `${t?.type_controle || ''} ${t?.nom || ''}`.toLowerCase();
+    return s.includes('air') || s.includes('respirable');
+  };
+
+  const buildPvNumber = (template, dateStr) => {
+    let code;
+    if (isAirTemplate(template)) code = 'ANALYSE-AIR';
+    else code = (template?.type_controle || 'CTRL').toUpperCase().replace(/[^A-Z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'CTRL';
+    const ymd = (dateStr || toYMD(new Date())).replace(/-/g, '');
+    return `PV-${code}-${ymd}`;
+  };
+
+  const handleDeleteTemplate = async (e, id) => {
+    e.stopPropagation();
+    if (!window.confirm('Supprimer définitivement ce modèle de PV ?')) return;
+    try {
+      await reportTemplatesAPI.delete(id);
+      await fetchData();
+    } catch (err) {
+      setError(getErrorMessage(err));
+    }
+  };
+
+  const handleEquipmentSelect = (v) => {
+    const eq = equipments.find(e => e.id === v);
+    setFormData(prev => {
+      const next = { ...prev, equipment_id: v };
+      if (eq && isAirTemplate(selectedTemplate)) {
+        const champNoms = new Set((selectedTemplate?.champs || []).map(c => c.nom));
+        const valeurs = { ...prev.valeurs };
+        if (champNoms.has('numero_serie') && eq.numero_serie) valeurs.numero_serie = eq.numero_serie;
+        if (champNoms.has('compteur_horaire') && eq.compteur_horaire != null) valeurs.compteur_horaire = String(eq.compteur_horaire);
+        if (champNoms.has('marque_compresseur') && eq.marque) valeurs.marque_compresseur = eq.marque;
+        if (champNoms.has('modele') && eq.modele) valeurs.modele = eq.modele;
+        next.valeurs = valeurs;
+      }
+      return next;
+    });
+  };
+
   const handleTemplateSelect = (templateId) => {
     const template = templates.find(t => t.id === templateId);
     setSelectedTemplate(template);
@@ -127,8 +169,8 @@ const ControlReports = () => {
       });
     }
     
-    // Generate PV number
-    const pvNumber = `PV-${template?.type_controle?.toUpperCase() || 'CTRL'}-${Date.now().toString().slice(-6)}`;
+    // Generate PV number: PV-<CODE>-AAAAMMJJ
+    const pvNumber = buildPvNumber(template, formData.date_controle);
     
     setFormData({
       ...formData,
@@ -477,18 +519,31 @@ const ControlReports = () => {
         <CardContent>
           <div className="flex flex-wrap gap-2">
             {templates.map((template) => (
-              <Button
-                key={template.id}
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  handleTemplateSelect(template.id);
-                  setIsCreateDialogOpen(true);
-                }}
-              >
-                <FileText className="h-4 w-4 mr-2" />
-                {template.nom}
-              </Button>
+              <div key={template.id} className="inline-flex items-center rounded-md border overflow-hidden">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="rounded-none"
+                  onClick={() => {
+                    handleTemplateSelect(template.id);
+                    setIsCreateDialogOpen(true);
+                  }}
+                >
+                  <FileText className="h-4 w-4 mr-2" />
+                  {template.nom}
+                </Button>
+                {canCreate && canCreate() && (
+                  <button
+                    type="button"
+                    onClick={(e) => handleDeleteTemplate(e, template.id)}
+                    title="Supprimer ce modèle"
+                    className="px-2 h-8 border-l text-gray-400 hover:text-red-600 hover:bg-red-50"
+                    data-testid={`delete-template-${template.id}`}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                )}
+              </div>
             ))}
           </div>
         </CardContent>
@@ -613,7 +668,10 @@ const ControlReports = () => {
                       id="date_controle"
                       type="date"
                       value={formData.date_controle}
-                      onChange={(e) => setFormData({ ...formData, date_controle: e.target.value })}
+                      onChange={(e) => {
+                        const d = e.target.value;
+                        setFormData(prev => ({ ...prev, date_controle: d, numero_pv: selectedTemplate ? buildPvNumber(selectedTemplate, d) : prev.numero_pv }));
+                      }}
                       required
                     />
                   </div>
@@ -640,13 +698,18 @@ const ControlReports = () => {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="equipment_id">Équipement</Label>
+                  <Label htmlFor="equipment_id">{isAirTemplate(selectedTemplate) ? 'Compresseur' : 'Équipement'}</Label>
                   <SearchableSelect
                     value={formData.equipment_id}
-                    onValueChange={(v) => setFormData({ ...formData, equipment_id: v })}
-                    placeholder="Aucun"
-                    options={equipments.filter(eq => eq.statut !== 'reforme').map(eq => ({ value: eq.id, label: `${eq.type} - ${eq.reference}` }))}
+                    onValueChange={handleEquipmentSelect}
+                    placeholder={isAirTemplate(selectedTemplate) ? 'Sélectionner un compresseur' : 'Aucun'}
+                    options={equipments
+                      .filter(eq => eq.statut !== 'reforme' && (!isAirTemplate(selectedTemplate) || (eq.type || '').toLowerCase().includes('compresseur')))
+                      .map(eq => ({ value: eq.id, label: `${eq.type} - ${eq.reference}` }))}
                   />
+                  {isAirTemplate(selectedTemplate) && (
+                    <p className="text-xs text-gray-500">La sélection du compresseur pré-remplit son n° de série et son compteur horaire.</p>
+                  )}
                 </div>
 
                 {/* Template fields */}

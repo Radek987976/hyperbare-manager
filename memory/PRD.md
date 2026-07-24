@@ -1,5 +1,19 @@
 # HyperbareManager - PRD (Product Requirements Document)
 
+## Changelog (2026-07-24b) — Bouton « Recaler les échéances » + marque/modèle équipement
+- **Bouton « Recaler les échéances »** ajouté directement sur la page Maintenance préventive (WorkOrders.jsx), à côté de « Nouvelle maintenance ». Ouvre un aperçu (nb recalées / réactivées / exemples) puis « Appliquer », via `importAPI.recomputePreventiveSchedules`. Vérifié écran.
+- **Champs Marque / Modèle sur la fiche équipement** : ajoutés au modèle `EquipmentBase` (déjà présents dans les données mais non exposés) et au formulaire Équipements (create/edit). Le PV « Analyse de l'air respirable » **pré-remplit** désormais marque_compresseur + modele (en plus de n° série + compteur horaire) depuis le compresseur sélectionné. Vérifié écran : Bauer / Mariner 320 Verticus 5 / n° série / 7002.
+- ⚠️ Code preview → **redéploiement requis**.
+
+## Changelog (2026-07-24) — PV de contrôle + PDF check-lists/PV
+- **N° de PV auto** au format **PV-<CODE>-AAAAMMJJ** (ex. `PV-ANALYSE-AIR-20260724`), basé sur le type de modèle et la date du contrôle (mis à jour si la date change). ControlReports.jsx `buildPvNumber`.
+- **Modèle « Analyse de l'air respirable »** : le champ équipement devient « Compresseur » et ne liste que les compresseurs ; la sélection **pré-remplit** n° de série et compteur horaire du compresseur. Vérifié écran.
+- **Suppression de modèles de PV** : `DELETE /report-templates/{id}` (admin) + bouton corbeille sur chaque modèle. Les 4 « Test Report Template » supprimés en preview ; en production, utiliser la corbeille après redéploiement.
+- **Cartouche PDF** : retrait de la ligne **« Document d'enregistrement »** ; la date du jour est remplacée par la **période ciblée** (check-list/PV mensuel → « Mois Année » ; annuel → « Année »). `_build_header_table` / `make_header_canvas(periode=…)`.
+- **Check-list de contrôle annuel** (nouveau) : `GET /reports/pdf/check-liste-annuelle/{year}` = récap de **toutes** les préventives de l'année, même format que la mensuelle. Ajoutée dans Rapports et dans le ZIP d'audit.
+- **PV de contrôle annuel** : ajout d'une colonne **Observations**.
+- Vérifié curl (PDF : plus de « enregistrement », « Juillet 2026 » sur mensuel, « Observations » sur PV annuel) + écrans. ⚠️ Code preview → **redéploiement requis**.
+
 ## Changelog (2026-07-23e) — Copie des « Pièces utilisées » depuis la dernière intervention
 - Panneau « Dernière intervention » (formulaire d'intervention) : ajout d'une ligne **« Pièces utilisées »** avec flèche de copie (`copy-last-pieces`). Copie les pièces (avec quantités) de la dernière intervention de la maintenance/du contrôle vers la nouvelle intervention (`copyPieces` → `pieces_utilisees` avec `spare_part_id`, `quantite`, `nom`). Flèche désactivée si la dernière intervention n'a pas de pièces. Vérifié écran : ligne présente et état désactivé correct (aucune donnée de test avec pièces sur une maintenance planifiée en preview pour tester la copie active, mais logique identique aux lignes déjà validées).
 

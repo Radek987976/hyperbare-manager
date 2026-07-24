@@ -331,6 +331,7 @@ export const reportsAPI = {
   airRespirablePDF: (payload) => api.post('/reports/pdf/air-respirable', payload, { responseType: 'blob' }),
   planMaintenancePDF: (year) => api.get(`/reports/pdf/plan-maintenance/${year}`, { responseType: 'blob' }),
   checkListePDF: (year, month) => api.get(`/reports/pdf/check-liste/${year}/${month}`, { responseType: 'blob' }),
+  checkListeAnnuellePDF: (year) => api.get(`/reports/pdf/check-liste-annuelle/${year}`, { responseType: 'blob' }),
   pvMensuelPDF: (year, month) => api.get(`/reports/pdf/pv-controle-mensuel/${year}/${month}`, { responseType: 'blob' }),
   pvAnnuelPDF: (year) => api.get(`/reports/pdf/pv-controle-annuel/${year}`, { responseType: 'blob' }),
   registreControlesPDF: () => api.get('/reports/pdf/registre-controles', { responseType: 'blob' }),
@@ -414,6 +415,7 @@ export const budgetAPI = {
 export const reportTemplatesAPI = {
   getAll: () => api.get('/report-templates'),
   create: (data) => api.post('/report-templates', data),
+  delete: (id) => api.delete(`/report-templates/${id}`),
 };
 
 // Control Reports (PV de contrôle)

@@ -39,6 +39,7 @@ const Reports = () => {
   const planUrl = {
     plan: (y, m) => `/api/reports/pdf/plan-maintenance/${y}`,
     checkliste: (y, m) => `/api/reports/pdf/check-liste/${y}/${m}`,
+    'checkliste-annuelle': (y, m) => `/api/reports/pdf/check-liste-annuelle/${y}`,
     'pv-mensuel': (y, m) => `/api/reports/pdf/pv-controle-mensuel/${y}/${m}`,
     'pv-annuel': (y, m) => `/api/reports/pdf/pv-controle-annuel/${y}`,
     registre: (y, m) => `/api/reports/pdf/registre-controles`,
@@ -46,6 +47,7 @@ const Reports = () => {
   const planApi = {
     plan: (y, m) => reportsAPI.planMaintenancePDF(y),
     checkliste: (y, m) => reportsAPI.checkListePDF(y, m),
+    'checkliste-annuelle': (y, m) => reportsAPI.checkListeAnnuellePDF(y),
     'pv-mensuel': (y, m) => reportsAPI.pvMensuelPDF(y, m),
     'pv-annuel': (y, m) => reportsAPI.pvAnnuelPDF(y),
     registre: (y, m) => reportsAPI.registreControlesPDF(),
@@ -373,6 +375,7 @@ const Reports = () => {
             {[
               { kind: 'plan', title: 'Plan de maintenance annuel', desc: 'Maintenances regroupées par mois puis par type d\'équipement.', icon: CalendarRange, color: 'bg-indigo-500', file: () => `plan_maintenance_${planYear}.pdf`, monthly: false },
               { kind: 'checkliste', title: 'Check-liste mensuelle', desc: 'Liste des maintenances préventives à réaliser ce mois (à cocher).', icon: ClipboardCheck, color: 'bg-teal-500', file: () => `checkliste_${planYear}_${String(month).padStart(2, '0')}.pdf`, monthly: true },
+              { kind: 'checkliste-annuelle', title: 'Check-liste annuelle', desc: 'Récapitulatif de toutes les maintenances préventives de l\'année (à cocher).', icon: ClipboardCheck, color: 'bg-teal-600', file: () => `checkliste_annuelle_${planYear}.pdf`, monthly: false },
               { kind: 'pv-mensuel', title: 'PV de contrôle mensuel', desc: 'Procès-verbal de contrôle du mois, groupé par équipement.', icon: ClipboardList, color: 'bg-orange-500', file: () => `pv_controle_mensuel_${planYear}_${String(month).padStart(2, '0')}.pdf`, monthly: true },
               { kind: 'pv-annuel', title: 'PV de contrôle annuel', desc: 'Toutes les maintenances de l\'année avec le nombre de fois / an.', icon: CalendarDays, color: 'bg-purple-500', file: () => `pv_controle_annuel_${planYear}.pdf`, monthly: false },
             ].map((r) => (

@@ -1,5 +1,12 @@
 # HyperbareManager - PRD (Product Requirements Document)
 
+## Changelog (2026-07-25c) — Détail maintenance préventive : historique + pièces utilisées
+- **Nouvel endpoint `GET /work-orders/{id}/history`** (server.py, après suggested-pieces) : récupère **en direct** les interventions réalisées pour la maintenance via `maintenance_preventive_id` (+ repli sur les fiches sœurs mêmes équipement+titre, pour capter les interventions rattachées aux doublons) et **agrège les pièces réellement utilisées** (résolution des noms via `spare_parts`, repli « Pièce » si l'id est orphelin). Renvoie `{count, interventions:[{date, technicien, actions, observations, durée, prestataire, pieces_utilisees}], pieces_utilisees (agrégées)}`.
+- **UI (`WorkOrders.jsx`, modale de détail)** : 2 nouvelles sections — **« Pièces détachées utilisées »** (`workorder-pieces-section`, agrégat nom × quantité) et **« Historique des interventions »** (`workorder-history-section`, liste date/technicien/actions/observations + badges pièces, badge compteur). Chargées à chaque ouverture du détail → **toujours à jour**, y compris après modification d'une ancienne intervention. `workOrdersAPI.getHistory`.
+- **Cause racine du « l'historique ne remonte pas »** : les interventions préventives sont liées par `maintenance_preventive_id` (et non `work_order_id`) ; aucune section n'affichait cet historique dans la modale.
+- Bug d'implémentation TDZ (useEffect placé avant les useState) détecté et corrigé pendant les tests. Vérifié testing_agent iteration_31 : frontend 100% (historique peuplé jusqu'à 392 interventions, sections rendues, 0 erreur console). ⚠️ Code preview → **redéploiement requis** pour la production.
+
+
 ## Changelog (2026-07-25b) — Calendrier annuel configurable + correctif planning 52 semaines
 - **Correctif — Planning PDF « 52 semaines » vide** (`GET /reports/pdf/planning`) : les `date_planifiee` sont stockées en `YYYY-MM-DD` (naïves) et étaient comparées à `datetime.now(timezone.utc)` (aware) → `TypeError` avalée par `except: pass` → **toutes** les maintenances ignorées → PDF vide. Correctif : comparaison sur `.date()` (date pure), `date_obj` rendu naïf. Vérifié : 40 maintenances sur les 52 prochaines semaines (avant : 0), PDF 5,8 Ko valide.
 - **Calendrier annuel configurable** (règles éditables en base, collection `annual_calendar_rules`) :

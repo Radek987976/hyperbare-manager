@@ -450,6 +450,14 @@ function Interventions() {
     return subIdsOf(item).map(getSubEquipmentName).filter(Boolean).join(', ');
   }
 
+  // Texte de recherche des sous-équipements : nom ET référence (pour la barre de recherche)
+  function getSubEquipmentSearchText(item) {
+    return subIdsOf(item).map(id => {
+      const s = data.subEquipments.find(x => x.id === id);
+      return s ? `${s.nom || ''} ${s.reference || ''}` : '';
+    }).join(' ');
+  }
+
   function getContractorName(id) {
     const c = data.contractors.find(x => x.id === id);
     return c ? c.nom : null;
@@ -487,7 +495,9 @@ function Interventions() {
     const term = searchTerm.toLowerCase();
     const matchSearch = (i.technicien || '').toLowerCase().includes(term) ||
            (i.actions_realisees || '').toLowerCase().includes(term) ||
-           getInterventionLabel(i).toLowerCase().includes(term);
+           getInterventionLabel(i).toLowerCase().includes(term) ||
+           getSubEquipmentSearchText(i).toLowerCase().includes(term) ||
+           (getEquipmentName(i.equipment_id) || '').toLowerCase().includes(term);
     const d = (i.date_intervention || '').slice(0, 10);
     const matchDateFrom = !filterDateFrom || (d && d >= filterDateFrom);
     const matchDateTo = !filterDateTo || (d && d <= filterDateTo);

@@ -1,5 +1,11 @@
 # HyperbareManager - PRD (Product Requirements Document)
 
+## Changelog (2026-07-25e) — Recherche Interventions inclut les sous-équipements
+- **Barre de recherche des Interventions** (`Interventions.jsx`) : recherche désormais aussi dans les **sous-équipements** (nom ET référence, y compris la multi-sélection `sous_equipement_ids`) et dans le **nom de l'équipement**. Avant, seuls technicien, actions réalisées et le libellé étaient couverts — et le libellé n'incluait les sous-équipements que pour les interventions curatives (pas préventives/contrôles). Nouvelle fonction `getSubEquipmentSearchText(item)` = concat nom + référence de tous les sous-équipements liés.
+- Vérifié : le sous-équipement « 609T9 » (nom « Manomètre 0-60m… ») est lié à 1 intervention (en multi) → une recherche « 609T9 » ou « Manomètre » la remonte désormais. Compile OK.
+- ⚠️ Code preview → **redéploiement requis** pour la production.
+
+
 ## Changelog (2026-07-25d) — Correctif : historique des sous-équipements (multi-sélection)
 - **Bug** : l'historique d'un sous-équipement ne remontait pas les interventions où le sous-équipement était sélectionné en **multi** (`sous_equipement_ids`) sans être le **principal** (`sous_equipement_id`). Fréquent pour les sous-équipements rattachés à un équipement `*_GENERAL` (manomètres partagés) : les interventions sont saisies sur la chambre précise (ex. PUP_CHRONIQUE) avec plusieurs manomètres cochés → seul le 1er devient `sous_equipement_id`, les autres ne sont que dans `sous_equipement_ids`.
 - **Cause** : `_build_maintenance_history` (server.py) filtrait les interventions via `{$or:[{equipment_id},{sous_equipement_id}]}` — le champ multi `sous_equipement_ids` était ignoré.

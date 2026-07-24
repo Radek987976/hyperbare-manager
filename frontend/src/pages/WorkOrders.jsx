@@ -70,7 +70,9 @@ import {
   Clock,
   Upload,
   FileText,
-  Image
+  Image,
+  Package,
+  History
 } from 'lucide-react';
 
 const STATUTS = ['planifiee', 'en_cours', 'terminee', 'annulee'];
@@ -102,6 +104,18 @@ const WorkOrders = () => {
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [selectedWorkOrder, setSelectedWorkOrder] = useState(null);
+  const [woHistory, setWoHistory] = useState(null);
+  const [woHistoryLoading, setWoHistoryLoading] = useState(false);
+  useEffect(() => {
+    if (showDetailModal && selectedWorkOrder?.id) {
+      setWoHistory(null);
+      setWoHistoryLoading(true);
+      workOrdersAPI.getHistory(selectedWorkOrder.id)
+        .then(res => setWoHistory(res.data))
+        .catch(() => setWoHistory({ count: 0, interventions: [], pieces_utilisees: [] }))
+        .finally(() => setWoHistoryLoading(false));
+    }
+  }, [showDetailModal, selectedWorkOrder?.id]);
   const [saving, setSaving] = useState(false);
   const [showCustomTechnicien, setShowCustomTechnicien] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -1127,6 +1141,73 @@ const WorkOrders = () => {
                     <p className="text-sm text-slate-400">Aucun document</p>
                   )}
                 </div>
+              </div>
+
+              {/* Pièces détachées utilisées */}
+              <div className="space-y-2 pt-4 border-t" data-testid="workorder-pieces-section">
+                <h4 className="font-semibold flex items-center gap-2">
+                  <Package className="w-4 h-4" /> Pièces détachées utilisées
+                </h4>
+                {woHistoryLoading ? (
+                  <p className="text-sm text-slate-400">Chargement…</p>
+                ) : (woHistory?.pieces_utilisees?.length > 0 ? (
+                  <div className="space-y-1" data-testid="workorder-pieces-list">
+                    {woHistory.pieces_utilisees.map((p, i) => (
+                      <div key={p.spare_part_id || p.nom || i} className="flex items-center justify-between text-sm p-2 bg-slate-50 rounded">
+                        <span className="text-slate-700">
+                          {p.nom}{p.reference ? <span className="text-slate-400"> — {p.reference}</span> : null}
+                        </span>
+                        <Badge variant="outline" className="bg-white shrink-0">× {p.quantite}</Badge>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-slate-400">Aucune pièce utilisée dans les interventions</p>
+                ))}
+              </div>
+
+              {/* Historique des interventions */}
+              <div className="space-y-2 pt-4 border-t" data-testid="workorder-history-section">
+                <h4 className="font-semibold flex items-center gap-2">
+                  <History className="w-4 h-4" /> Historique des interventions
+                  {woHistory?.count > 0 && (
+                    <Badge variant="outline" className="bg-[#005F73]/10 text-[#005F73]">{woHistory.count}</Badge>
+                  )}
+                </h4>
+                {woHistoryLoading ? (
+                  <p className="text-sm text-slate-400">Chargement…</p>
+                ) : (woHistory?.interventions?.length > 0 ? (
+                  <div className="space-y-2" data-testid="workorder-history-list">
+                    {woHistory.interventions.map((it) => (
+                      <div key={it.id} className="border rounded-md p-2.5 text-sm" data-testid={`workorder-history-item-${it.id}`}>
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="font-medium text-slate-800">{formatDate(it.date_intervention)}</span>
+                          <span className="text-xs text-slate-500">
+                            {it.technicien || '—'}{it.prestataire ? ` · ${it.prestataire}` : ''}
+                            {it.duree_minutes ? ` · ${it.duree_minutes} min` : ''}
+                          </span>
+                        </div>
+                        {it.actions_realisees && (
+                          <p className="text-slate-700 mt-1 whitespace-pre-wrap">{it.actions_realisees}</p>
+                        )}
+                        {it.observations && (
+                          <p className="text-slate-500 mt-1 text-xs"><span className="font-medium">Observations : </span>{it.observations}</p>
+                        )}
+                        {it.pieces_utilisees?.length > 0 && (
+                          <div className="flex flex-wrap gap-1 mt-1.5">
+                            {it.pieces_utilisees.map((p, i) => (
+                              <Badge key={p.spare_part_id || p.nom || i} variant="outline" className="text-xs bg-slate-50">
+                                {p.nom} × {p.quantite}
+                              </Badge>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-slate-400">Aucune intervention réalisée pour cette maintenance</p>
+                ))}
               </div>
             </div>
           )}

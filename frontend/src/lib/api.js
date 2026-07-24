@@ -165,6 +165,7 @@ export const workOrdersAPI = {
   getAll: (params) => api.get('/work-orders', { params }),
   getById: (id) => api.get(`/work-orders/${id}`),
   getSuggestedPieces: (id) => api.get(`/work-orders/${id}/suggested-pieces`),
+  getHistory: (id) => api.get(`/work-orders/${id}/history`),
   create: (data) => api.post('/work-orders', data),
   update: (id, data) => api.put(`/work-orders/${id}`, data),
   delete: (id) => api.delete(`/work-orders/${id}`),

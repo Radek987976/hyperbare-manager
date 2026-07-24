@@ -1,0 +1,28 @@
+{
+  "summary": "Frontend testing of the new 'Historique des interventions' + 'Pièces détachées utilisées' sections on Maintenance préventive detail modal (/ordres-travail). Found a CRITICAL TDZ bug that broke the entire WorkOrders page (crashed on mount) — fixed by re-ordering the new useEffect below the useState declarations. After fix, both sections render correctly and the history populates with real interventions for busy maintenances (sampled 8 rows, counts observed: 392, 14, 192, 1, 3, 2, 19, 3). Pieces list was empty on the sampled rows but the section itself renders (empty-state path). No console errors after fix.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "WorkOrders.jsx", "issue": "CRITICAL (FIXED by test agent): Temporal Dead Zone error — 'Cannot access showDetailModal before initialization'. The new useEffect that calls workOrdersAPI.getHistory (added ~line 100) was placed BEFORE the useState declarations for showDetailModal, selectedWorkOrder, woHistory, woHistoryLoading (lines 114-118). Because useEffect executes its body reading `showDetailModal` on every render, React threw during initial render → full-page 'Uncaught runtime errors' overlay → 0 rows accessible → entire /ordres-travail page unusable. Fixed by moving the useEffect below the useState declarations.", "selector": "/app/frontend/src/pages/WorkOrders.jsx L100-109", "priority": "CRITICAL"}
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [],
+  "action_items": [
+    "Review the fix in /app/frontend/src/pages/WorkOrders.jsx (useEffect for getHistory moved below useState declarations). The main agent should verify pattern isn't repeated elsewhere in the file (there is another useEffect at ~L91-99 that also references setters — currently works because reads happen inside conditional; still, keeping all state declarations before effects is safer).",
+    "Optional: Consider showing a friendlier empty-state hint in 'Pièces détachées utilisées' (currently 'Aucune pièce utilisée dans les interventions' — good) and confirm the 'sibling work orders with same equipment+titre' aggregation is intended vs. potential over-matching."
+  ],
+  "critical_code_review_comments": [
+    "TDZ bug: hooks and effects that read state must be declared AFTER the useState calls they depend on. The added useEffect violated this and crashed the page.",
+    "WorkOrders.jsx is 1247 lines — recommend splitting the detail Dialog into its own component (WorkOrderDetailModal) which would also naturally scope the history-fetching useEffect and avoid ordering pitfalls."
+  ],
+  "updated_files": ["/app/frontend/src/pages/WorkOrders.jsx"],
+  "success_rate": {"backend": "not tested (per request)", "frontend": "100% after fix (0% before fix due to page crash)"},
+  "test_credentials": "admin@hypermaint.fr / admin123",
+  "seed_data_creation": "None",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "The fix simply re-ordered code — no logic changed. Sections rendering verified on 8 different preventive maintenances via API-based login + localStorage injection (POST /api/auth/login returns {access_token, user}; token stored as 'token', user stored as JSON.stringify(user) under 'user'). Selectors used: [data-testid^='work-order-actions-'], text 'Voir détails', [data-testid='workorder-pieces-section'], [data-testid='workorder-history-section'], [data-testid='workorder-history-list'], [data-testid='workorder-pieces-list'].",
+  "rca of the issue": "RCA: The new feature added a useEffect at the very top of the WorkOrders component body (line 100) that references `showDetailModal` and `selectedWorkOrder`. However these variables are declared via useState at lines 114 and 116 — AFTER the useEffect. In JS, `const/let` bindings are in the Temporal Dead Zone until their declaration is executed, so the effect's dependency-array evaluation and subsequent read throw ReferenceError on the initial render. React caught it and displayed the runtime error overlay, preventing any interaction with the page. Reproduction: navigate to /ordres-travail → runtime error overlay appears, table not accessible. Mitigation applied: moved the useEffect block to immediately after the relevant useState declarations. Verified 221 action buttons visible, detail modal opens, history section shows counts (up to 392), interventions listed with date/technician/actions/observations, no console errors."
+}

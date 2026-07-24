@@ -6949,6 +6949,82 @@ async def suggested_pieces(work_order_id: str, current_user: dict = Depends(get_
     return {"pieces": pieces, "source": source, "date_intervention": last_int.get("date_intervention")}
 
 
+@api_router.get("/work-orders/{work_order_id}/history")
+async def work_order_history(work_order_id: str, current_user: dict = Depends(get_current_user)):
+    """Historique en direct des interventions réalisées pour cette maintenance
+    (via maintenance_preventive_id, avec repli sur les fiches sœurs même équipement+titre)
+    + agrégation des pièces réellement utilisées."""
+    wo = await db.work_orders.find_one({"id": work_order_id}, {"_id": 0})
+    if not wo:
+        raise HTTPException(status_code=404, detail="Maintenance non trouvée")
+
+    # Fiches sœurs (mêmes équipement + titre) pour capter les interventions rattachées aux doublons
+    wo_ids = {work_order_id}
+    if wo.get("equipment_id") and wo.get("titre"):
+        async for w in db.work_orders.find(
+            {"equipment_id": wo["equipment_id"], "titre": wo["titre"]}, {"_id": 0, "id": 1}
+        ):
+            wo_ids.add(w["id"])
+    wo_ids = list(wo_ids)
+
+    query = {"$or": [
+        {"maintenance_preventive_id": {"$in": wo_ids}},
+        {"work_order_id": {"$in": wo_ids}},
+    ]}
+    interventions = await db.interventions.find(query, {"_id": 0}).sort("date_intervention", -1).to_list(2000)
+
+    # Résolution noms de pièces
+    sp_ids = set()
+    for it in interventions:
+        for pu in (it.get("pieces_utilisees") or []):
+            if pu.get("spare_part_id"):
+                sp_ids.add(pu["spare_part_id"])
+    sp_map = {}
+    if sp_ids:
+        async for sp in db.spare_parts.find({"id": {"$in": list(sp_ids)}}, {"_id": 0, "id": 1, "nom": 1, "reference_fabricant": 1}):
+            sp_map[sp["id"]] = sp
+
+    # Résolution noms de prestataires
+    prest_ids = {it.get("prestataire_id") for it in interventions if it.get("prestataire_id")}
+    prest_map = {}
+    if prest_ids:
+        async for c in db.contractors.find({"id": {"$in": list(prest_ids)}}, {"_id": 0, "id": 1, "nom": 1}):
+            prest_map[c["id"]] = c.get("nom")
+
+    result_ints = []
+    agg = {}
+    for it in interventions:
+        pieces = []
+        for pu in (it.get("pieces_utilisees") or []):
+            spid = pu.get("spare_part_id")
+            sp = sp_map.get(spid)
+            nom = (sp.get("nom") if sp else None) or pu.get("nom") or "Pièce"
+            ref = (sp.get("reference_fabricant") if sp else None) or pu.get("reference")
+            qte = pu.get("quantite", 1) or 1
+            pieces.append({"spare_part_id": spid, "nom": nom, "reference": ref, "quantite": qte})
+            key = spid or nom
+            if key not in agg:
+                agg[key] = {"nom": nom, "reference": ref, "quantite": 0}
+            agg[key]["quantite"] += qte
+        result_ints.append({
+            "id": it.get("id"),
+            "date_intervention": it.get("date_intervention"),
+            "technicien": it.get("technicien"),
+            "actions_realisees": it.get("actions_realisees"),
+            "observations": it.get("observations"),
+            "duree_minutes": it.get("duree_minutes"),
+            "prestataire": prest_map.get(it.get("prestataire_id")),
+            "pieces_utilisees": pieces,
+        })
+
+    pieces_agg = sorted(agg.values(), key=lambda p: (p["nom"] or "").lower())
+    return {
+        "count": len(result_ints),
+        "interventions": result_ints,
+        "pieces_utilisees": pieces_agg,
+    }
+
+
 
 
 @api_router.post("/budget", response_model=dict)

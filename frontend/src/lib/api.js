@@ -446,6 +446,11 @@ export const importAPI = {
   dedupePreventiveWorkorders: (apply = false) => api.post(`/admin/dedupe-preventive-workorders?apply=${apply}`),
   recomputePreventiveSchedules: (apply = false) => api.post(`/admin/recompute-preventive-schedules?apply=${apply}`),
   applyAnnualCalendar: (apply = false, year) => api.post(`/admin/apply-annual-calendar?apply=${apply}${year ? `&year=${year}` : ''}`),
+  getCalendarRules: () => api.get('/admin/annual-calendar-rules'),
+  createCalendarRule: (data) => api.post('/admin/annual-calendar-rules', data),
+  updateCalendarRule: (id, data) => api.put(`/admin/annual-calendar-rules/${id}`, data),
+  deleteCalendarRule: (id) => api.delete(`/admin/annual-calendar-rules/${id}`),
+  resetCalendarRules: () => api.post('/admin/annual-calendar-rules/reset-defaults'),
 };
 
 export default api;

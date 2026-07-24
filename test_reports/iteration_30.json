@@ -1,0 +1,23 @@
+{
+  "summary": "Verified iteration 30 features end-to-end: (1) 52-week planning PDF is non-empty (5.8 KB, valid %PDF, contains real rows), confirming the timezone .date() comparison fix. (2) Full CRUD on /api/admin/annual-calendar-rules: seeds 7 defaults ordered by 'ordre', create/update/delete/reset endpoints all work and persist, validation returns 400 for bad match_field, empty match_value, and month outside 1-12. (3) POST /api/admin/apply-annual-calendar?apply=false returns dry-run preview using DB rules; changing COMP rule month via PUT changes the by_month distribution on next dry-run. Frontend Import page: calendar-config-btn opens rules dialog with the 7 rules, add-rule form works (7→8), calendar-rules-reset-btn restores 7 defaults, calendar-preview-btn opens preview dialog showing '72 maintenance(s) seront re-ancrées sur 221 préventives' with month distribution (Février:24, Mai:27, Juin:21) and detailed examples; Appliquer button enabled but NOT clicked. Rules restored to defaults at end.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_annual_calendar_and_planning.py",
+    "/app/test_reports/pytest/iter30_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "server.py CalendarRuleUpdate.match_field accepts None but validation only runs on merged object — that's OK; however update endpoint returns the merged rule from local memory (not from DB) after update — minor inconsistency with GET (fine since values match).",
+    "server.py apply_annual_calendar returns 'total' as raw count of preventive work orders (including cancelled), while the loop skips 'annulee' — the 'X sur Y préventives' UI label may slightly overcount denominator. Cosmetic only.",
+    "Import.jsx: calendar-rules-reset-btn triggers reset immediately without a confirm dialog; consider an AlertDialog confirmation because it wipes user-added rules."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100% (6/6 pytest)", "frontend": "100% (all 6 UI steps)"},
+  "test_credentials": "admin@hypermaint.fr / admin123",
+  "seed_data_creation": "During testing, transient rules were created and immediately removed. Final state: rules collection restored to the 7 defaults via reset-defaults. No work_orders were mutated (apply=true was never called).",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Rules collection is 'annual_calendar_rules' and defaults are seeded lazily via _ensure_calendar_rules_seeded on first GET/apply. Backend tests live at /app/backend/tests/test_annual_calendar_and_planning.py — run with REACT_APP_BACKEND_URL exported (source /app/frontend/.env). CRITICAL: never call POST /api/admin/apply-annual-calendar?apply=true in tests — it mutates real work_orders.date_planifiee. For UI login in Playwright, prefer injecting localStorage token+user via ctx.request.post to /api/auth/login (see script) — the /login form fill+click flow was flaky in the sandbox.",
+  "rca of the issue": "N/A — no bugs found this iteration; the timezone .date() fix in GET /reports/pdf/planning was validated (PDF 5.8KB, valid) and the configurable rules feature works end-to-end via API and UI."
+}

@@ -5063,29 +5063,31 @@ async def generate_planning_pdf(current_user: dict = Depends(get_current_user)):
     elements, styles = create_pdf_header("Planning de Maintenance", "52 prochaines semaines")
     
     # Get upcoming maintenances
-    today = datetime.now(timezone.utc)
-    end_date = today + timedelta(weeks=52)
+    today_date = datetime.now(timezone.utc).date()
+    end_date = today_date + timedelta(weeks=52)
     
     work_orders = await db.work_orders.find({
         "statut": {"$in": ["planifiee", "en_cours"]},
         "date_planifiee": {"$ne": None}
     }, {"_id": 0}).to_list(1000)
     
-    # Filter by date range
+    # Filter by date range (dates stored as 'YYYY-MM-DD' -> compare on date to avoid tz mismatch)
     upcoming = []
     for wo in work_orders:
         try:
             date_str = wo.get('date_planifiee', '')
             if date_str:
-                date_obj = datetime.fromisoformat(date_str.replace('Z', '+00:00'))
-                if today <= date_obj <= end_date:
+                date_obj = datetime.fromisoformat(str(date_str).replace('Z', '+00:00'))
+                if date_obj.tzinfo is not None:
+                    date_obj = date_obj.replace(tzinfo=None)
+                if today_date <= date_obj.date() <= end_date:
                     wo['date_obj'] = date_obj
                     upcoming.append(wo)
-        except:
+        except Exception:
             pass
     
     # Sort by date
-    upcoming.sort(key=lambda x: x.get('date_obj', today))
+    upcoming.sort(key=lambda x: x.get('date_obj', datetime.min))
     
     # Get equipment map
     equipments = await db.equipments.find({}, {"_id": 0}).to_list(1000)
@@ -5889,13 +5891,157 @@ def _annual_calendar_month(reference: str, etype: str, titre: str):
     return None
 
 
+# ---- Calendrier annuel configurable (règles éditables) ----
+DEFAULT_CALENDAR_RULES = [
+    {"match_field": "reference", "match_value": "RES_", "month": 5, "label": "Réservoirs (RES_) → Mai"},
+    {"match_field": "reference", "match_value": "CUV_", "month": 7, "label": "Cuves (CUV_) → Juillet"},
+    {"match_field": "reference", "match_value": "ARI", "month": 6, "label": "ARI (référence ARI) → Juin"},
+    {"match_field": "reference", "match_value": "COMP", "month": 2, "label": "Compresseurs (COMP) → Février"},
+    {"match_field": "type", "match_value": "compresseur", "month": 2, "label": "Type compresseur → Février"},
+    {"match_field": "titre", "match_value": "air respirable", "month": 2, "label": "Analyse air respirable → Février"},
+    {"match_field": "type", "match_value": "extincteur", "month": 6, "label": "Type extincteur → Juin"},
+]
+
+
+async def _ensure_calendar_rules_seeded():
+    """Crée les règles par défaut si la collection est vide (préserve le comportement d'origine)."""
+    count = await db.annual_calendar_rules.count_documents({})
+    if count == 0:
+        docs = []
+        for i, r in enumerate(DEFAULT_CALENDAR_RULES):
+            docs.append({
+                "id": str(uuid.uuid4()),
+                "match_field": r["match_field"],
+                "match_value": r["match_value"],
+                "month": r["month"],
+                "label": r.get("label", ""),
+                "ordre": i,
+                "created_at": datetime.now(timezone.utc).isoformat(),
+            })
+        if docs:
+            await db.annual_calendar_rules.insert_many(docs)
+
+
+def _rule_matches(rule, reference, etype, titre):
+    field = rule.get("match_field")
+    val = (rule.get("match_value") or "").strip().lower()
+    if not val:
+        return False
+    if field == "reference":
+        return (reference or "").strip().lower().startswith(val)
+    if field == "type":
+        return val in (etype or "").lower()
+    if field == "titre":
+        return val in (titre or "").lower()
+    return False
+
+
+def _month_from_rules(rules, reference, etype, titre):
+    for rule in rules:
+        if _rule_matches(rule, reference, etype, titre):
+            m = rule.get("month")
+            if isinstance(m, int) and 1 <= m <= 12:
+                return m
+    return None
+
+
+class CalendarRuleCreate(BaseModel):
+    match_field: str  # 'reference' | 'type' | 'titre'
+    match_value: str
+    month: int
+    label: Optional[str] = ""
+
+
+class CalendarRuleUpdate(BaseModel):
+    match_field: Optional[str] = None
+    match_value: Optional[str] = None
+    month: Optional[int] = None
+    label: Optional[str] = None
+    ordre: Optional[int] = None
+
+
+def _validate_calendar_rule(field, value, month):
+    if field not in ("reference", "type", "titre"):
+        raise HTTPException(status_code=400, detail="Champ de correspondance invalide (reference, type ou titre)")
+    if not (value or "").strip():
+        raise HTTPException(status_code=400, detail="La valeur de correspondance est requise")
+    if not isinstance(month, int) or month < 1 or month > 12:
+        raise HTTPException(status_code=400, detail="Le mois doit être compris entre 1 et 12")
+
+
+@api_router.get("/admin/annual-calendar-rules")
+async def list_calendar_rules(current_user: dict = Depends(require_admin)):
+    """Liste les règles du calendrier annuel (ordonnées par priorité). Seed des défauts si vide."""
+    await _ensure_calendar_rules_seeded()
+    rules = await db.annual_calendar_rules.find({}, {"_id": 0}).to_list(200)
+    rules.sort(key=lambda r: r.get("ordre", 0))
+    return {"rules": rules, "months": _MONTH_NAMES_FR}
+
+
+@api_router.post("/admin/annual-calendar-rules")
+async def create_calendar_rule(data: CalendarRuleCreate, current_user: dict = Depends(require_admin)):
+    _validate_calendar_rule(data.match_field, data.match_value, data.month)
+    await _ensure_calendar_rules_seeded()
+    max_rule = await db.annual_calendar_rules.find({}, {"_id": 0, "ordre": 1}).sort("ordre", -1).limit(1).to_list(1)
+    next_ordre = (max_rule[0].get("ordre", 0) + 1) if max_rule else 0
+    doc = {
+        "id": str(uuid.uuid4()),
+        "match_field": data.match_field,
+        "match_value": data.match_value.strip(),
+        "month": data.month,
+        "label": (data.label or "").strip(),
+        "ordre": next_ordre,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    await db.annual_calendar_rules.insert_one(doc)
+    doc.pop("_id", None)
+    return doc
+
+
+@api_router.put("/admin/annual-calendar-rules/{rule_id}")
+async def update_calendar_rule(rule_id: str, data: CalendarRuleUpdate, current_user: dict = Depends(require_admin)):
+    rule = await db.annual_calendar_rules.find_one({"id": rule_id}, {"_id": 0})
+    if not rule:
+        raise HTTPException(status_code=404, detail="Règle introuvable")
+    updates = {}
+    for k in ("match_field", "match_value", "month", "label", "ordre"):
+        v = getattr(data, k)
+        if v is not None:
+            updates[k] = v.strip() if isinstance(v, str) else v
+    merged = {**rule, **updates}
+    _validate_calendar_rule(merged.get("match_field"), merged.get("match_value"), merged.get("month"))
+    await db.annual_calendar_rules.update_one({"id": rule_id}, {"$set": updates})
+    return {**rule, **updates}
+
+
+@api_router.delete("/admin/annual-calendar-rules/{rule_id}")
+async def delete_calendar_rule(rule_id: str, current_user: dict = Depends(require_admin)):
+    result = await db.annual_calendar_rules.delete_one({"id": rule_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Règle introuvable")
+    return {"success": True}
+
+
+@api_router.post("/admin/annual-calendar-rules/reset-defaults")
+async def reset_calendar_rules(current_user: dict = Depends(require_admin)):
+    """Réinitialise les règles aux valeurs par défaut."""
+    await db.annual_calendar_rules.delete_many({})
+    await _ensure_calendar_rules_seeded()
+    rules = await db.annual_calendar_rules.find({}, {"_id": 0}).to_list(200)
+    rules.sort(key=lambda r: r.get("ordre", 0))
+    return {"rules": rules}
+
+
 @api_router.post("/admin/apply-annual-calendar")
 async def apply_annual_calendar(apply: bool = False, year: Optional[int] = None, current_user: dict = Depends(require_admin)):
-    """Re-ancre la date planifiée des maintenances préventives sur les mois du calendrier annuel :
-    Compresseurs → Février, RES_ → Mai, CUV_ → Juillet, ARI + Extincteurs → Juin.
-    Le jour du mois est conservé si possible. apply=false = aperçu (aucune écriture)."""
+    """Re-ancre la date planifiée des maintenances préventives sur les mois définis par les règles
+    du calendrier annuel (configurables). Le jour du mois est conservé si possible.
+    apply=false = aperçu (aucune écriture)."""
     import calendar as _cal
     from pymongo import UpdateOne
+    await _ensure_calendar_rules_seeded()
+    rules = await db.annual_calendar_rules.find({}, {"_id": 0}).to_list(200)
+    rules.sort(key=lambda r: r.get("ordre", 0))
     yr = year or datetime.now(timezone.utc).year
     equipments = await db.equipments.find({}, {"_id": 0}).to_list(2000)
     eq_map = {e["id"]: e for e in equipments}
@@ -5909,7 +6055,7 @@ async def apply_annual_calendar(apply: bool = False, year: Optional[int] = None,
         if wo.get("statut") == "annulee":
             continue
         eq = eq_map.get(wo.get("equipment_id"), {})
-        month = _annual_calendar_month(eq.get("reference"), eq.get("type"), wo.get("titre"))
+        month = _month_from_rules(rules, eq.get("reference"), eq.get("type"), wo.get("titre"))
         if not month:
             continue
         day = 1

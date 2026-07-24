@@ -37,8 +37,25 @@ import {
   Info,
   Download,
   ArrowRightLeft,
-  Search
+  Search,
+  Settings,
+  Trash2,
+  Plus
 } from 'lucide-react';
+
+const CALENDAR_MONTHS = [
+  { value: '1', label: 'Janvier' }, { value: '2', label: 'Février' }, { value: '3', label: 'Mars' },
+  { value: '4', label: 'Avril' }, { value: '5', label: 'Mai' }, { value: '6', label: 'Juin' },
+  { value: '7', label: 'Juillet' }, { value: '8', label: 'Août' }, { value: '9', label: 'Septembre' },
+  { value: '10', label: 'Octobre' }, { value: '11', label: 'Novembre' }, { value: '12', label: 'Décembre' },
+];
+const CALENDAR_FIELDS = [
+  { value: 'reference', label: 'Référence équipement (commence par)' },
+  { value: 'type', label: "Type d'équipement (contient)" },
+  { value: 'titre', label: 'Titre de la maintenance (contient)' },
+];
+const fieldLabel = (f) => (CALENDAR_FIELDS.find(x => x.value === f)?.label || f);
+const monthLabel = (m) => (CALENDAR_MONTHS.find(x => x.value === String(m))?.label || m);
 
 const IMPORT_TYPES = [
   { 
@@ -117,6 +134,12 @@ const Import = () => {
   const [recomputePreview, setRecomputePreview] = useState(null);
   const [isCalendaring, setIsCalendaring] = useState(false);
   const [calendarPreview, setCalendarPreview] = useState(null);
+  // Configuration des règles du calendrier annuel
+  const [rulesOpen, setRulesOpen] = useState(false);
+  const [rules, setRules] = useState([]);
+  const [rulesLoading, setRulesLoading] = useState(false);
+  const [newRule, setNewRule] = useState({ match_field: 'reference', match_value: '', month: '2', label: '' });
+  const [savingRule, setSavingRule] = useState(false);
   // Transfert maintenances -> contrôles réglementaires
   const [transferOpen, setTransferOpen] = useState(false);
   const [transferQ, setTransferQ] = useState('');
@@ -371,6 +394,75 @@ const Import = () => {
       setError(getErrorMessage(err));
     } finally {
       setIsCalendaring(false);
+    }
+  };
+
+  const loadRules = async () => {
+    setRulesLoading(true);
+    try {
+      const res = await importAPI.getCalendarRules();
+      setRules(res.data?.rules || []);
+    } catch (err) {
+      setError(getErrorMessage(err));
+    } finally {
+      setRulesLoading(false);
+    }
+  };
+
+  const openRules = async () => {
+    setRulesOpen(true);
+    setNewRule({ match_field: 'reference', match_value: '', month: '2', label: '' });
+    await loadRules();
+  };
+
+  const handleAddRule = async () => {
+    if (!newRule.match_value.trim()) { setError('La valeur de correspondance est requise'); return; }
+    setSavingRule(true);
+    setError('');
+    try {
+      await importAPI.createCalendarRule({
+        match_field: newRule.match_field,
+        match_value: newRule.match_value.trim(),
+        month: parseInt(newRule.month, 10),
+        label: newRule.label.trim(),
+      });
+      setNewRule({ match_field: 'reference', match_value: '', month: '2', label: '' });
+      await loadRules();
+    } catch (err) {
+      setError(getErrorMessage(err));
+    } finally {
+      setSavingRule(false);
+    }
+  };
+
+  const handleUpdateRuleMonth = async (rule, month) => {
+    setRules(prev => prev.map(r => r.id === rule.id ? { ...r, month: parseInt(month, 10) } : r));
+    try {
+      await importAPI.updateCalendarRule(rule.id, { month: parseInt(month, 10) });
+    } catch (err) {
+      setError(getErrorMessage(err));
+      await loadRules();
+    }
+  };
+
+  const handleDeleteRule = async (id) => {
+    try {
+      await importAPI.deleteCalendarRule(id);
+      setRules(prev => prev.filter(r => r.id !== id));
+    } catch (err) {
+      setError(getErrorMessage(err));
+    }
+  };
+
+  const handleResetRules = async () => {
+    setRulesLoading(true);
+    try {
+      const res = await importAPI.resetCalendarRules();
+      setRules(res.data?.rules || []);
+    } catch (err) {
+      setError(getErrorMessage(err));
+    } finally {
+      setRulesLoading(false);
     }
   };
 
@@ -659,11 +751,18 @@ const Import = () => {
             <p className="text-sm text-gray-600">
               Aligne le plan annuel de maintenance sur le calendrier opérationnel. Aperçu (aucune modification) avant application.
             </p>
-            <Button variant="outline" onClick={handleCalendarPreview} disabled={isCalendaring}
-              className="text-amber-700 border-amber-200 hover:bg-amber-50 shrink-0" data-testid="calendar-preview-btn">
-              {isCalendaring ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Database className="h-4 w-4 mr-2" />}
-              Aperçu
-            </Button>
+            <div className="flex items-center gap-2 shrink-0">
+              <Button variant="outline" onClick={openRules} disabled={isCalendaring}
+                className="text-amber-700 border-amber-200 hover:bg-amber-50" data-testid="calendar-config-btn">
+                <Settings className="h-4 w-4 mr-2" />
+                Configurer les règles
+              </Button>
+              <Button variant="outline" onClick={handleCalendarPreview} disabled={isCalendaring}
+                className="text-amber-700 border-amber-200 hover:bg-amber-50" data-testid="calendar-preview-btn">
+                {isCalendaring ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Database className="h-4 w-4 mr-2" />}
+                Aperçu
+              </Button>
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -1035,6 +1134,107 @@ const Import = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Configuration des règles du calendrier annuel */}
+      <Dialog open={rulesOpen} onOpenChange={setRulesOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle>Configurer le calendrier annuel</DialogTitle>
+            <DialogDescription>
+              Définissez sur quel mois ancrer chaque type d'équipement ou maintenance. Les règles sont évaluées de haut en bas : la première qui correspond décide du mois. Pour les maintenances semestrielles, indiquez le 1er mois — la 2e occurrence est gérée par la périodicité.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="flex-1 overflow-y-auto space-y-4 pr-1">
+            {/* Liste des règles */}
+            <div className="border rounded-md divide-y" data-testid="calendar-rules-list">
+              {rulesLoading && rules.length === 0 && (
+                <div className="p-4 text-center text-sm text-gray-400"><Loader2 className="h-4 w-4 animate-spin inline mr-2" />Chargement…</div>
+              )}
+              {!rulesLoading && rules.length === 0 && (
+                <div className="p-4 text-center text-sm text-gray-400">Aucune règle définie.</div>
+              )}
+              {rules.map((r) => (
+                <div key={r.id} className="p-3 flex items-center gap-3" data-testid={`calendar-rule-${r.id}`}>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-medium text-gray-800 truncate">
+                      {r.label || `${fieldLabel(r.match_field)} : « ${r.match_value} »`}
+                    </div>
+                    <div className="text-xs text-gray-500 truncate">
+                      {fieldLabel(r.match_field)} · « {r.match_value} »
+                    </div>
+                  </div>
+                  <div className="w-[140px] shrink-0">
+                    <SearchableSelect
+                      value={String(r.month)}
+                      onValueChange={(v) => handleUpdateRuleMonth(r, v)}
+                      options={CALENDAR_MONTHS}
+                      sortOptions={false}
+                      data-testid={`calendar-rule-month-${r.id}`}
+                    />
+                  </div>
+                  <Button variant="ghost" size="icon" onClick={() => handleDeleteRule(r.id)}
+                    className="text-rose-600 hover:bg-rose-50 shrink-0" data-testid={`calendar-rule-delete-${r.id}`}>
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+
+            {/* Ajouter une règle */}
+            <div className="border rounded-md p-3 bg-slate-50 space-y-3">
+              <div className="text-sm font-medium text-gray-700 flex items-center gap-2"><Plus className="h-4 w-4" />Ajouter une règle</div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-xs">Critère</Label>
+                  <SearchableSelect
+                    value={newRule.match_field}
+                    onValueChange={(v) => setNewRule({ ...newRule, match_field: v })}
+                    options={CALENDAR_FIELDS}
+                    sortOptions={false}
+                    data-testid="new-rule-field"
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs">Mois</Label>
+                  <SearchableSelect
+                    value={newRule.month}
+                    onValueChange={(v) => setNewRule({ ...newRule, month: v })}
+                    options={CALENDAR_MONTHS}
+                    sortOptions={false}
+                    data-testid="new-rule-month"
+                  />
+                </div>
+              </div>
+              <div>
+                <Label className="text-xs">Valeur à rechercher (ex. RES_, compresseur, extincteur)</Label>
+                <Input value={newRule.match_value}
+                  onChange={(e) => setNewRule({ ...newRule, match_value: e.target.value })}
+                  placeholder="RES_" data-testid="new-rule-value" />
+              </div>
+              <div>
+                <Label className="text-xs">Libellé (optionnel)</Label>
+                <Input value={newRule.label}
+                  onChange={(e) => setNewRule({ ...newRule, label: e.target.value })}
+                  placeholder="Réservoirs → Mai" data-testid="new-rule-label" />
+              </div>
+              <Button onClick={handleAddRule} disabled={savingRule || !newRule.match_value.trim()}
+                className="bg-amber-600 hover:bg-amber-700" data-testid="new-rule-add-btn">
+                {savingRule ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Plus className="h-4 w-4 mr-2" />}
+                Ajouter la règle
+              </Button>
+            </div>
+          </div>
+
+          <DialogFooter className="flex items-center justify-between sm:justify-between gap-2">
+            <Button variant="ghost" onClick={handleResetRules} disabled={rulesLoading}
+              className="text-gray-500" data-testid="calendar-rules-reset-btn">
+              Réinitialiser par défaut
+            </Button>
+            <Button variant="outline" onClick={() => setRulesOpen(false)}>Fermer</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Aperçu — calendrier annuel */}
       <AlertDialog open={calendarPreview !== null} onOpenChange={(open) => { if (!open) setCalendarPreview(null); }}>

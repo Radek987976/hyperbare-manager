@@ -1,5 +1,12 @@
 # HyperbareManager - PRD (Product Requirements Document)
 
+## Changelog (2026-07-25) — Outil « Appliquer le calendrier annuel »
+- **Nouvel outil admin `POST /admin/apply-annual-calendar?apply=false|true&year=YYYY`** (server.py) : re-ancre `date_planifiee` des maintenances préventives sur les mois du planning opérationnel via `_annual_calendar_month(reference, type, titre)`. Règles (première correspondance) : réf `RES_` → Mai (5), réf `CUV_` → Juillet (7), réf `ARI`/type « appareil respiratoire isolant » → Juin (6), réf `COMP`/type « compresseur »/titre « air respirable » → Février (2), type/titre « extincteur » → Juin (6). Les semestrielles (Compresseurs Fév+Août, RES_ Mai+Nov, Extincteurs Juin+Déc) : le 1er mois est ancré, la 2e occurrence est gérée par la périodicité (180 j). Le jour du mois est conservé (clampé), année en cours par défaut. Les maintenances `annulee` sont ignorées. `apply=false` = aperçu (aucune écriture).
+- **UI (`Import.jsx`, admin)** : carte « Appliquer le calendrier annuel » (`calendar-preview-btn`) → dialog d'aperçu (répartition par mois + exemples ancienne→nouvelle échéance) → « Appliquer » (`calendar-apply-btn`). `importAPI.applyAnnualCalendar(apply, year)`.
+- Vérifié curl (dry-run 2026) : 221 préventives, **72 re-ancrées** (Février 24, Mai 27, Juin 21) ; CUV_ déjà au 18/07/2026 → inchangées (correct). Frontend compile OK.
+- ⚠️ Code preview → **redéploiement requis** ; lancer l'outil une fois en production (aperçu puis appliquer).
+
+
 ## Changelog (2026-07-24b) — Bouton « Recaler les échéances » + marque/modèle équipement
 - **Bouton « Recaler les échéances »** ajouté directement sur la page Maintenance préventive (WorkOrders.jsx), à côté de « Nouvelle maintenance ». Ouvre un aperçu (nb recalées / réactivées / exemples) puis « Appliquer », via `importAPI.recomputePreventiveSchedules`. Vérifié écran.
 - **Champs Marque / Modèle sur la fiche équipement** : ajoutés au modèle `EquipmentBase` (déjà présents dans les données mais non exposés) et au formulaire Équipements (create/edit). Le PV « Analyse de l'air respirable » **pré-remplit** désormais marque_compresseur + modele (en plus de n° série + compteur horaire) depuis le compresseur sélectionné. Vérifié écran : Bauer / Mariner 320 Verticus 5 / n° série / 7002.

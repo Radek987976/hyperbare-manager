@@ -115,6 +115,8 @@ const Import = () => {
   const [dedupePreview, setDedupePreview] = useState(null);
   const [isRecomputing, setIsRecomputing] = useState(false);
   const [recomputePreview, setRecomputePreview] = useState(null);
+  const [isCalendaring, setIsCalendaring] = useState(false);
+  const [calendarPreview, setCalendarPreview] = useState(null);
   // Transfert maintenances -> contrôles réglementaires
   const [transferOpen, setTransferOpen] = useState(false);
   const [transferQ, setTransferQ] = useState('');
@@ -341,6 +343,34 @@ const Import = () => {
       setError(getErrorMessage(err));
     } finally {
       setIsRecomputing(false);
+    }
+  };
+
+  const handleCalendarPreview = async () => {
+    setIsCalendaring(true);
+    setError('');
+    setResult(null);
+    try {
+      const res = await importAPI.applyAnnualCalendar(false);
+      setCalendarPreview(res.data);
+    } catch (err) {
+      setError(getErrorMessage(err));
+    } finally {
+      setIsCalendaring(false);
+    }
+  };
+
+  const handleCalendarApply = async () => {
+    setIsCalendaring(true);
+    setError('');
+    try {
+      const res = await importAPI.applyAnnualCalendar(true, calendarPreview?.year);
+      setResult({ type: 'correlate', message: `${res.data.changed} maintenance(s) re-ancrées sur le calendrier annuel ${res.data.year}.`, imported: res.data.changed });
+      setCalendarPreview(null);
+    } catch (err) {
+      setError(getErrorMessage(err));
+    } finally {
+      setIsCalendaring(false);
     }
   };
 
@@ -607,6 +637,31 @@ const Import = () => {
             <Button variant="outline" onClick={handleRecomputePreview} disabled={isRecomputing}
               className="text-teal-700 border-teal-200 hover:bg-teal-50 shrink-0" data-testid="recompute-preview-btn">
               {isRecomputing ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Database className="h-4 w-4 mr-2" />}
+              Aperçu
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Appliquer le calendrier annuel */}
+      <Card className="border-amber-100">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Database className="h-5 w-5 text-amber-600" />
+            Appliquer le calendrier annuel
+          </CardTitle>
+          <CardDescription>
+            Re-ancre la date planifiée des maintenances préventives sur les mois de votre planning : Compresseurs → Février, RES_ → Mai, CUV_ → Juillet, ARI → Juin, Extincteurs → Juin. Les maintenances semestrielles (Compresseurs, RES_, Extincteurs) verront leur 2e occurrence gérée automatiquement par la périodicité. Le jour du mois est conservé quand c'est possible.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center justify-between gap-4">
+            <p className="text-sm text-gray-600">
+              Aligne le plan annuel de maintenance sur le calendrier opérationnel. Aperçu (aucune modification) avant application.
+            </p>
+            <Button variant="outline" onClick={handleCalendarPreview} disabled={isCalendaring}
+              className="text-amber-700 border-amber-200 hover:bg-amber-50 shrink-0" data-testid="calendar-preview-btn">
+              {isCalendaring ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Database className="h-4 w-4 mr-2" />}
               Aperçu
             </Button>
           </div>
@@ -976,6 +1031,49 @@ const Import = () => {
             <AlertDialogCancel>Annuler</AlertDialogCancel>
             <AlertDialogAction onClick={handleRecomputeApply} disabled={isRecomputing || !recomputePreview?.changed} data-testid="recompute-apply-btn">
               {isRecomputing ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Application...</> : `Appliquer (${recomputePreview?.changed || 0})`}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Aperçu — calendrier annuel */}
+      <AlertDialog open={calendarPreview !== null} onOpenChange={(open) => { if (!open) setCalendarPreview(null); }}>
+        <AlertDialogContent className="max-w-lg">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Aperçu — Calendrier annuel {calendarPreview?.year}</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3 text-sm">
+                <p>
+                  <strong>{calendarPreview?.changed || 0}</strong> maintenance(s) seront re-ancrées
+                  {' '}sur <strong>{calendarPreview?.total || 0}</strong> préventives.
+                </p>
+                {calendarPreview?.by_month && Object.keys(calendarPreview.by_month).length > 0 && (
+                  <div className="flex flex-wrap gap-2">
+                    {Object.entries(calendarPreview.by_month).map(([mois, n]) => (
+                      <span key={mois} className="px-2 py-1 rounded bg-amber-50 text-amber-800 text-xs border border-amber-200">
+                        {mois} : {n}
+                      </span>
+                    ))}
+                  </div>
+                )}
+                {calendarPreview?.examples?.length > 0 && (
+                  <div className="border rounded-md max-h-64 overflow-y-auto divide-y">
+                    {calendarPreview.examples.map((ex, i) => (
+                      <div key={i} className="p-2">
+                        <div className="text-gray-700 truncate">{ex.titre} <span className="text-gray-400">— {ex.equipement}</span></div>
+                        <div className="text-xs text-amber-700">{ex.ancienne_echeance || '—'} → {ex.nouvelle_echeance} ({ex.mois})</div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <p className="text-xs text-gray-400">Aucune intervention n'est modifiée : seule la date planifiée des maintenances est re-ancrée.</p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annuler</AlertDialogCancel>
+            <AlertDialogAction onClick={handleCalendarApply} disabled={isCalendaring || !calendarPreview?.changed} data-testid="calendar-apply-btn">
+              {isCalendaring ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Application...</> : `Appliquer (${calendarPreview?.changed || 0})`}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

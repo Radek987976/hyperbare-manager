@@ -445,6 +445,7 @@ export const importAPI = {
   backfillActionsFromObservations: (apply = false) => api.post(`/admin/backfill-actions-from-observations?apply=${apply}`),
   dedupePreventiveWorkorders: (apply = false) => api.post(`/admin/dedupe-preventive-workorders?apply=${apply}`),
   recomputePreventiveSchedules: (apply = false) => api.post(`/admin/recompute-preventive-schedules?apply=${apply}`),
+  applyAnnualCalendar: (apply = false, year) => api.post(`/admin/apply-annual-calendar?apply=${apply}${year ? `&year=${year}` : ''}`),
 };
 
 export default api;

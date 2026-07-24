@@ -5864,6 +5864,92 @@ async def recompute_preventive_schedules(apply: bool = False, current_user: dict
     }
 
 
+_MONTH_NAMES_FR = {
+    1: "Janvier", 2: "Février", 3: "Mars", 4: "Avril", 5: "Mai", 6: "Juin",
+    7: "Juillet", 8: "Août", 9: "Septembre", 10: "Octobre", 11: "Novembre", 12: "Décembre",
+}
+
+
+def _annual_calendar_month(reference: str, etype: str, titre: str):
+    """Détermine le mois d'ancrage du calendrier annuel selon la référence de l'équipement,
+    son type et le titre de la maintenance. Renvoie None si aucune règle ne correspond."""
+    ref = (reference or "").upper().strip()
+    et = (etype or "").lower()
+    ti = (titre or "").lower()
+    if ref.startswith("RES_") or ref.startswith("RES "):
+        return 5   # Mai (+ Novembre géré par la périodicité semestrielle)
+    if ref.startswith("CUV_"):
+        return 7   # Juillet
+    if ref.startswith("ARI") or "appareil respiratoire isolant" in et:
+        return 6   # Juin
+    if ref.startswith("COMP") or "compresseur" in et or "air respirable" in ti:
+        return 2   # Février (+ Août géré par la périodicité semestrielle)
+    if "extincteur" in et or "extincteur" in ti:
+        return 6   # Juin (+ Décembre géré par la périodicité semestrielle)
+    return None
+
+
+@api_router.post("/admin/apply-annual-calendar")
+async def apply_annual_calendar(apply: bool = False, year: Optional[int] = None, current_user: dict = Depends(require_admin)):
+    """Re-ancre la date planifiée des maintenances préventives sur les mois du calendrier annuel :
+    Compresseurs → Février, RES_ → Mai, CUV_ → Juillet, ARI + Extincteurs → Juin.
+    Le jour du mois est conservé si possible. apply=false = aperçu (aucune écriture)."""
+    import calendar as _cal
+    from pymongo import UpdateOne
+    yr = year or datetime.now(timezone.utc).year
+    equipments = await db.equipments.find({}, {"_id": 0}).to_list(2000)
+    eq_map = {e["id"]: e for e in equipments}
+    wos = await db.work_orders.find({"type_maintenance": "preventive"}, {"_id": 0}).to_list(5000)
+
+    changed = 0
+    ops = []
+    examples = []
+    by_month = {}
+    for wo in wos:
+        if wo.get("statut") == "annulee":
+            continue
+        eq = eq_map.get(wo.get("equipment_id"), {})
+        month = _annual_calendar_month(eq.get("reference"), eq.get("type"), wo.get("titre"))
+        if not month:
+            continue
+        day = 1
+        cur = wo.get("date_planifiee")
+        if isinstance(cur, str) and len(cur) >= 10:
+            try:
+                day = int(cur[8:10])
+            except Exception:
+                day = 1
+        last_day = _cal.monthrange(yr, month)[1]
+        day = min(max(day, 1), last_day)
+        nd = f"{yr:04d}-{month:02d}-{day:02d}"
+        if nd != cur:
+            changed += 1
+            by_month[month] = by_month.get(month, 0) + 1
+            ops.append(UpdateOne({"id": wo["id"]}, {"$set": {"date_planifiee": nd}}))
+            if len(examples) < 40:
+                examples.append({
+                    "titre": wo.get("titre", ""),
+                    "equipement": eq.get("reference", ""),
+                    "ancienne_echeance": cur,
+                    "nouvelle_echeance": nd,
+                    "mois": _MONTH_NAMES_FR[month],
+                })
+
+    if apply and ops:
+        for i in range(0, len(ops), 500):
+            await db.work_orders.bulk_write(ops[i:i + 500], ordered=False)
+
+    return {
+        "applied": apply,
+        "year": yr,
+        "total": len(wos),
+        "changed": changed,
+        "by_month": {_MONTH_NAMES_FR[m]: by_month[m] for m in sorted(by_month.keys())},
+        "examples": examples,
+    }
+
+
+
 
 # ==================== HEALTH CHECK ====================
 

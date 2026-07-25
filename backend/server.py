@@ -7141,7 +7141,7 @@ TEMPLATES = {
     "sous-equipements": {
         "sheet": "Sous-equipements",
         "headers": ["PARENT_EQUIPEMENT", "NOM", "REFERENCE", "N_SERIE", "DATE_INSTALLATION", "STATUT", "DESCRIPTION"],
-        "example": ["Pupitre de commande; Compresseur BAUER 01", "Manomètre HP CHPF", "MANO-CHPF-01", "", "01/09/2000", "en_service", "Plusieurs équipements parents séparés par ';'"],
+        "example": ["RES_GENERAL", "Manomètre 0/16b CHPF20", "MANO-CHPF-20", "", "01/09/2000", "en_service", "PARENT_EQUIPEMENT = référence exacte de l'équipement (ex. RES_GENERAL, PUP_CHRONIQUE). Plusieurs parents séparés par ';'"],
     },
     "maintenance": {
         "sheet": "Maintenances",
@@ -7507,13 +7507,32 @@ async def import_subequipments_from_rows(rows: list) -> dict:
         if not parent_raw or not nom:
             errors.append(f"Ligne {i + 2}: PARENT_EQUIPEMENT et NOM obligatoires")
             continue
+        # Résolution tolérante du parent : référence/n° de série exact,
+        # sinon format « Type - REFERENCE », sinon une référence connue contenue dans le texte.
+        ref_list = sorted(by_ref.keys(), key=len, reverse=True)
+
+        def _resolve_parent(p):
+            key = p.strip().lower()
+            if not key:
+                return None
+            if key in by_ref:
+                return by_ref[key]
+            for tok in re.split(r"\s+[-–—/|]\s+", p):
+                tk = tok.strip().lower()
+                if tk and tk in by_ref:
+                    return by_ref[tk]
+            for r in ref_list:
+                if len(r) >= 3 and r in key:
+                    return by_ref[r]
+            return None
+
         # Plusieurs parents séparés par ';' ou ','
         pids, missing = [], []
         for part in re.split(r"[;,]", parent_raw):
             p = part.strip()
             if not p:
                 continue
-            x = by_ref.get(p.lower())
+            x = _resolve_parent(p)
             if x:
                 if x not in pids:
                     pids.append(x)

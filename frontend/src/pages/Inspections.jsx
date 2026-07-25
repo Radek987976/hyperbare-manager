@@ -309,7 +309,15 @@ const Inspections = () => {
     }
   };
 
-  const getStatusBadge = (dateValidite) => {
+  const getStatusBadge = (dateValidite, annulee) => {
+    if (annulee) {
+      return (
+        <Badge className="bg-slate-400 text-white" data-testid="inspection-status-annulee">
+          <XCircle className="w-3 h-3 mr-1" />
+          Annulé
+        </Badge>
+      );
+    }
     const days = daysUntil(dateValidite);
     if (days === null) return null;
     
@@ -345,6 +353,7 @@ const Inspections = () => {
   };
 
   const statutLabel = (insp) => {
+    if (insp.annulee) return 'Annulé';
     const days = daysUntil(insp.date_validite);
     if (days === null) return 'À planifier';
     if (days < 0) return 'Expiré';
@@ -370,8 +379,9 @@ const Inspections = () => {
   const filteredInspections = applyTableFilters(searchedInspections, inspColumns, { filters: colFilters, sort: colSort });
 
   // Stats
-  const expiredCount = inspections.filter(i => (daysUntil(i.date_validite) ?? 1) < 0).length;
+  const expiredCount = inspections.filter(i => !i.annulee && (daysUntil(i.date_validite) ?? 1) < 0).length;
   const expiringSoonCount = inspections.filter(i => {
+    if (i.annulee) return false;
     const days = daysUntil(i.date_validite);
     return days !== null && days >= 0 && days <= 30;
   }).length;
@@ -509,8 +519,8 @@ const Inspections = () => {
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2">
-                          {getStatusBadge(inspection.date_validite)}
-                          {canModify() && (daysUntil(inspection.date_validite) ?? 9999) < 30 && (
+                          {getStatusBadge(inspection.date_validite, inspection.annulee)}
+                          {canModify() && !inspection.annulee && (daysUntil(inspection.date_validite) ?? 9999) < 30 && (
                             <Button
                               size="sm"
                               variant="outline"
@@ -745,7 +755,7 @@ const Inspections = () => {
                 </div>
                 <div>
                   <p className="text-xs text-slate-500 uppercase">Statut</p>
-                  {getStatusBadge(selectedInspection.date_validite)}
+                  {getStatusBadge(selectedInspection.date_validite, selectedInspection.annulee)}
                 </div>
                 <div>
                   <p className="text-xs text-slate-500 uppercase">Organisme</p>

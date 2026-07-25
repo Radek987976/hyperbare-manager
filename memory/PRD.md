@@ -1,5 +1,15 @@
 # HyperbareManager - PRD (Product Requirements Document)
 
+## Changelog (2026-07-25f) — Réforme d'équipement : annulation automatique maintenances + contrôles
+- **À la réforme d'un équipement** (`PUT /equipments/{id}`, statut→reforme) : les **maintenances préventives** actives passent `annulee` + `date_planifiee` vidée + flag `annule_par_reforme`. Les **contrôles réglementaires** rattachés passent `annulee=True` + `date_validite` vidée + flag. (Curatif non concerné : aucune curative planifiée.)
+- **Remise en service** (reforme→autre statut) : **réactivation automatique** de ce qui avait été annulé par la réforme — maintenances repassent `planifiee` avec date recalculée (`_recompute_wo_planifiee` : dernière réalisation + périodicité, sinon aujourd'hui) ; contrôles repassent actifs avec `date_validite` recalculée (`_recompute_inspection_validite` : date réalisation + périodicité). Flags retirés. (Choix utilisateur : réactiver = Oui.)
+- **Maintenances/contrôles annulés exclus** : planning (`/planning/events` skip `statut==annulee` + inspections `date_validite` vide), alertes dashboard (guard `date_validite` vide), et **budget prévisionnel** (`_compute_forecast` skip `statut==annulee`). Comme `date_planifiee`/`date_validite` sont vidées, toutes les boucles basées sur la date les ignorent déjà.
+- **Modèle** : `InspectionBase.annulee: Optional[bool]=False`. `date_planifiee`/`date_validite` vidées = `""` (compatibles avec le type `str`, `formatDate("")→"-"`).
+- **Frontend `Inspections.jsx`** : badge « Annulé » (`inspection-status-annulee`), `statutLabel`→'Annulé', compteurs expiré/à échéance excluent les annulés, bouton « Renouveler » masqué si annulé.
+- **Nettoyage** : 37 maintenances déjà annulées → `date_planifiee` vidée.
+- Vérifié end-to-end (curl + DB) : COMP_BAUER 02 (23 préventives annulées sans date → réactivées avec date), ARI_C01 (contrôle annulé sans date → réactivé date 2027-02-03). ⚠️ Code preview → **redéploiement requis** pour la production.
+
+
 ## Changelog (2026-07-25e) — Recherche Interventions inclut les sous-équipements
 - **Barre de recherche des Interventions** (`Interventions.jsx`) : recherche désormais aussi dans les **sous-équipements** (nom ET référence, y compris la multi-sélection `sous_equipement_ids`) et dans le **nom de l'équipement**. Avant, seuls technicien, actions réalisées et le libellé étaient couverts — et le libellé n'incluait les sous-équipements que pour les interventions curatives (pas préventives/contrôles). Nouvelle fonction `getSubEquipmentSearchText(item)` = concat nom + référence de tous les sous-équipements liés.
 - Vérifié : le sous-équipement « 609T9 » (nom « Manomètre 0-60m… ») est lié à 1 intervention (en multi) → une recherche « 609T9 » ou « Manomètre » la remonte désormais. Compile OK.

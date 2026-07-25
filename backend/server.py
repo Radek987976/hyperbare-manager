@@ -578,6 +578,7 @@ class InspectionBase(BaseModel):
     observations: Optional[str] = None
     procedure_documents: List[dict] = []  # Liste des procédures PDF [{filename, url, uploaded_at}]
     historique_controles: List[dict] = []  # Historique des réalisations passées (traçabilité)
+    annulee: Optional[bool] = False  # Contrôle annulé (ex: équipement réformé)
 
 class InspectionCreate(InspectionBase):
     pass
@@ -1375,6 +1376,39 @@ async def get_equipment(equipment_id: str, current_user: dict = Depends(get_curr
         raise HTTPException(status_code=404, detail="Équipement non trouvé")
     return equipment
 
+async def _recompute_wo_planifiee(wo: dict) -> str:
+    """Recalcule la date planifiée d'une maintenance préventive lors de sa réactivation :
+    dernière réalisation + périodicité si dispo, sinon aujourd'hui."""
+    today = datetime.now(timezone.utc).date()
+    pj = wo.get("periodicite_jours")
+    if pj:
+        last = await db.interventions.find(
+            {"maintenance_preventive_id": wo["id"]}, {"_id": 0, "date_intervention": 1}
+        ).sort("date_intervention", -1).limit(1).to_list(1)
+        if last and last[0].get("date_intervention"):
+            try:
+                base = datetime.strptime(str(last[0]["date_intervention"])[:10], "%Y-%m-%d").date()
+                return (base + timedelta(days=int(pj))).strftime("%Y-%m-%d")
+            except Exception:
+                pass
+    return today.strftime("%Y-%m-%d")
+
+
+def _recompute_inspection_validite(insp: dict) -> str:
+    """Recalcule l'échéance d'un contrôle lors de sa réactivation :
+    date de réalisation + périodicité si dispo, sinon aujourd'hui."""
+    today = datetime.now(timezone.utc).date()
+    pdays = PERIODICITES.get(_norm_periodicite(insp.get("periodicite")), 365)
+    dr = insp.get("date_realisation")
+    if dr:
+        try:
+            base = datetime.strptime(str(dr)[:10], "%Y-%m-%d").date()
+            return (base + timedelta(days=pdays)).strftime("%Y-%m-%d")
+        except Exception:
+            pass
+    return today.strftime("%Y-%m-%d")
+
+
 @api_router.put("/equipments/{equipment_id}", response_model=Equipment)
 async def update_equipment(equipment_id: str, data: EquipmentCreate, current_user: dict = Depends(get_current_user)):
     existing = await db.equipments.find_one({"id": equipment_id}, {"_id": 0})
@@ -1393,12 +1427,38 @@ async def update_equipment(equipment_id: str, data: EquipmentCreate, current_use
         }
         update_ops["$push"] = {"historique_statut": entry}
     await db.equipments.update_one({"id": equipment_id}, update_ops)
-    # Si l'équipement passe en réformé : annuler ses maintenances préventives actives
-    if data.statut == "reforme" and existing.get("statut") != "reforme":
+
+    became_reforme = data.statut == "reforme" and existing.get("statut") != "reforme"
+    left_reforme = existing.get("statut") == "reforme" and data.statut != "reforme"
+
+    if became_reforme:
+        # Annuler les maintenances préventives actives + vider leur date planifiée
         await db.work_orders.update_many(
             {"equipment_id": equipment_id, "type_maintenance": "preventive", "statut": {"$in": ["planifiee", "en_cours"]}},
-            {"$set": {"statut": "annulee"}}
+            {"$set": {"statut": "annulee", "date_planifiee": "", "annule_par_reforme": True}}
         )
+        # Annuler les contrôles réglementaires rattachés + vider leur échéance
+        await db.inspections.update_many(
+            {"equipment_id": equipment_id, "annulee": {"$ne": True}},
+            {"$set": {"annulee": True, "date_validite": "", "annule_par_reforme": True}}
+        )
+    elif left_reforme:
+        # Remise en service : réactiver ce qui avait été annulé par la réforme
+        wos = await db.work_orders.find({"equipment_id": equipment_id, "annule_par_reforme": True}, {"_id": 0}).to_list(2000)
+        for wo in wos:
+            nd = await _recompute_wo_planifiee(wo)
+            await db.work_orders.update_one(
+                {"id": wo["id"]},
+                {"$set": {"statut": "planifiee", "date_planifiee": nd}, "$unset": {"annule_par_reforme": ""}}
+            )
+        insps = await db.inspections.find({"equipment_id": equipment_id, "annule_par_reforme": True}, {"_id": 0}).to_list(2000)
+        for insp in insps:
+            nd = _recompute_inspection_validite(insp)
+            await db.inspections.update_one(
+                {"id": insp["id"]},
+                {"$set": {"annulee": False, "date_validite": nd}, "$unset": {"annule_par_reforme": ""}}
+            )
+
     equipment = await db.equipments.find_one({"id": equipment_id}, {"_id": 0})
     return equipment
 
@@ -3489,6 +3549,8 @@ async def get_planning_events(start: str, end: str, equipment_id: Optional[str] 
     work_orders = await db.work_orders.find(wo_filter, {"_id": 0}).to_list(3000)
     for wo in work_orders:
         if wo.get("equipment_id") in reformed:
+            continue
+        if wo.get("statut") == "annulee":
             continue
         dp = wo.get("date_planifiee")
         if not dp:
@@ -6743,6 +6805,9 @@ async def _compute_forecast(annee: int):
     grand_total = 0.0
     grand_total_prestations = 0.0
     for wo in work_orders:
+        # Ignorer les maintenances annulées (ex: équipement réformé)
+        if wo.get("statut") == "annulee":
+            continue
         # Éviter les doublons de récurrence : ne garder que le plus récent par (equipment, titre)
         key = (wo.get("equipment_id"), (wo.get("titre") or "").strip().lower())
         if key in seen_wo:
